@@ -1,0 +1,22 @@
+.toolbar + .table-wrap,.field + .table-wrap,.form-grid + .table-wrap{margin-top:14px}
+.card>.toolbar{margin-bottom:12px}
+.v109-sales-subtabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.v109-hidden{display:none!important}
+.v109-version{margin-top:auto;padding:14px 18px;color:#98a2b3;font-size:12px;text-align:center;border-top:1px solid rgba(255,255,255,.08)}
+.sidebar{display:flex;flex-direction:column}
+.sidebar .rayo-accordion-menu{flex:1}
+#staffBackBtn{margin-inline-end:12px}
+.multi-row,.permission-row,.permission-grid label,.permissions-grid label,[data-permission-row]{display:flex;align-items:center;gap:9px}
+.multi-row input[type=checkbox],.permission-row input[type=checkbox],.permission-grid input[type=checkbox],.permissions-grid input[type=checkbox],[data-permission-row] input[type=checkbox]{margin:0;flex:0 0 auto}
+.v109-detail-grid{display:grid;grid-template-columns:minmax(130px,.7fr) minmax(180px,1.3fr);gap:1px;background:#eaecf0;border:1px solid #eaecf0;border-radius:10px;overflow:hidden}
+.v109-detail-grid>*{background:#fff;padding:10px 12px}
+.v109-detail-grid>div{color:#667085}
+.v109-review-note{max-width:320px;white-space:normal}
+.v109-action-center .task-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.v109-action-center .task-line{display:flex;flex-direction:column;gap:5px;padding:14px;border:1px solid #eaecf0;border-radius:10px;text-decoration:none;color:inherit;background:#fff}
+.v109-action-center .task-line.warn{border-color:#fdb022;background:#fffaeb}
+.v109-action-center .task-line.danger{border-color:#f97066;background:#fef3f2}
+.v109-operational-table input{min-width:110px}
+.pc-operational-field{transition:opacity .15s ease}
+@media(max-width:700px){.v109-detail-grid{grid-template-columns:1fr}.v109-detail-grid>div{font-weight:700}.v109-detail-grid>b{padding-top:0}.v109-version{padding-bottom:22px}}
+@media print{.sidebar,.topbar,.ops-tabs,.cash-tabs,.btn,.modal-foot{display:none!important}.content,.main{margin:0!important;padding:0!important}.modal{box-shadow:none!important;max-width:none!important}}

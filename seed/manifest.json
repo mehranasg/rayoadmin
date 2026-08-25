@@ -1,0 +1,48 @@
+{
+  "build": "10.10.0",
+  "runtimeDataSource": "RayoData API only; Seed manual initialize/reset only",
+  "apiOriginConfig": "js/app-config.js",
+  "modules": {
+    "personnel": "seed/personnel-data.seed.json",
+    "suppliers": "seed/suppliers-data.seed.json",
+    "pricing": "seed/pricing-data.seed.json",
+    "inventory": "seed/inventory-data.seed.json",
+    "cashreport": "seed/cash-report-data.seed.json",
+    "assets": "seed/assets-data.seed.json",
+    "finance": "seed/finance-data.seed.json",
+    "survey": "seed/survey-data.seed.json",
+    "errorlog": "seed/error-log-data.seed.json",
+    "sepidsaudit": "seed/sepids-audit-data.seed.json"
+  },
+  "pricingSeed": {
+    "seedId": "sepids-master-1405-05-19-v2",
+    "menuItems": 379,
+    "ingredients": 536,
+    "recipes": 912,
+    "ingredientPriceHistory": 531,
+    "sourceCurrency": "ریال",
+    "conversionToToman": 10,
+    "recipeSource": "نسخه معتبر قبلی؛ فایل رسپی جدید ضمیمه نبود"
+  },
+  "supplierSeed": {
+    "schemaVersion": "1.1.0",
+    "items": 615,
+    "pricingLinkedItems": 536,
+    "supplierOnlyItemsPreserved": 79,
+    "pricingCodePolicy": "Sepidz codes preserved exactly"
+  },
+  "inventoryControl": {
+    "schemaVersion": "2.0.0",
+    "locations": [
+      "انبار اصلی",
+      "آشپزخانه",
+      "بار",
+      "قلیان",
+      "سالن / سرویس"
+    ],
+    "costMethod": "WEIGHTED_AVERAGE",
+    "recipeVersioning": true,
+    "sepidsAuditModule": "sepidsaudit"
+  },
+  "seedPolicy": "manual-initialize-or-reset-only"
+}

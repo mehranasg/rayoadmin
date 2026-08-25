@@ -1,0 +1,12 @@
+.staffing-single-v1091{margin-top:12px}
+.staffing-active-v1091{display:flex;align-items:center;gap:8px;min-height:44px;padding-top:22px;font-weight:700}
+.staffing-active-v1091 input{margin:0}
+.staffing-bulk-head-v1091{margin-top:14px}
+.staffing-bulk-status-v1091{margin:10px 0;padding:10px 12px;border-radius:10px;background:#f8fafc;color:#475467}
+.staffing-bulk-table-v1091{max-height:52vh}
+.staffing-bulk-table-v1091 thead{position:sticky;top:0;z-index:1;background:#fff}
+.staffing-bulk-table-v1091 .rqb-count{min-width:110px;max-width:150px}
+.staffing-warning-v1091{display:flex;flex-direction:column;gap:5px;border:1px solid #fdb022;background:#fffaeb;color:#7a2e0e}
+.staffing-invalid-row-v1091{background:#fffaeb}
+.staffing-independent-v1091{display:block;margin:4px 0;color:#667085}
+@media(max-width:700px){.staffing-bulk-table-v1091{max-height:60vh}.staffing-bulk-table-v1091 .rqb-count{min-width:90px}}

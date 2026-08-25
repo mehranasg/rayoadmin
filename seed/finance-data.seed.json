@@ -1,0 +1,13 @@
+{
+  "meta": {"schemaVersion":"1.0.0","module":"Rayo Finance","restaurant":"کافه‌رستوران رایو","currency":"تومان","updatedAt":null},
+  "settings": {
+    "vatPercent": 10,
+    "performanceTaxPercent": 5,
+    "expenseCategories": ["آب","برق","گاز","اجاره","شهرداری","جریمه","بیمه","پیک و آژانس","تعمیر و نگهداری","مواد مصرفی","خدمات","سایر"],
+    "incomeCategories": ["سایر درآمد"],
+    "calculatorDefaults": {"sales":3000000000,"purchasePercent":35,"payroll":700000000,"rent":300000000,"management":110000000,"utilities":100000000,"maintenance":100000000,"vatPercent":10,"performanceTaxPercent":5}
+  },
+  "entries": [],
+  "monthlyOverrides": [],
+  "changeLog": []
+}

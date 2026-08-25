@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <meta name="rayo-build" content="10.10.0">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+  <title>ثبت گزارش صندوق رایو</title>
+  <link rel="stylesheet" href="./cash-report/css/style.css?v=10.10.0">
+<link rel="stylesheet" href="./css/04-v10-9-fixes.css?v=10.10.0"><link rel="stylesheet" href="./css/06-operations-v10-9-2.css?v=10.10.0"><link rel="stylesheet" href="./css/07-central-catalog-v10-10.css?v=10.10.0"></head>
+<body>
+  <div id="loading" class="loading show">در حال دریافت اطلاعات…</div>
+  <div id="popup" class="popup-wrap"></div>
+
+  <main id="loginView" class="login-page">
+    <form id="loginForm" class="login-card">
+      <div class="logo">R</div>
+      <h1>گزارش صندوق رایو</h1>
+      <label>صندوقدار
+        <select id="loginCashier" required><option value="">در حال دریافت فهرست…</option></select>
+      </label>
+      <label>نام کاربری<input id="username" autocomplete="username" dir="ltr" required></label>
+      <label>رمز عبور<input id="password" type="password" autocomplete="current-password" dir="ltr" required></label>
+      <button type="submit" class="primary">ورود</button>
+    </form>
+  </main>
+
+  <main id="appView" class="app-page hidden">
+    <header class="topbar">
+      <div><b>ثبت گزارش صندوق</b><small id="cashierLabel"></small></div>
+      <button id="logoutBtn" class="secondary">خروج</button>
+    </header>
+    <section class="container">
+      <form id="cashForm" class="panel">
+        <div class="section-head">
+          <div><h2 id="formTitle">گزارش روزانه</h2><small>مبالغ را مطابق گزارش دستگاه‌ها به ریال وارد کنید.</small></div>
+          <button type="button" id="reloadBtn" class="secondary">بروزرسانی</button>
+        </div>
+        <div class="form-grid">
+          <label>تاریخ<input id="reportDate" placeholder="1405/05/13" required></label>
+          <label>خالص دریافتی (ریال)<input id="netReceivable" type="number" min="0" value="0"></label>
+          <label>انعام پیک (ریال)<input id="tipDelivery" type="number" min="0" value="0"></label>
+          <label>انعام پارکبان (ریال)<input id="tipValet" type="number" min="0" value="0"></label>
+          <label>انعام سالن (ریال)<input id="tipHall" type="number" min="0" value="0"></label>
+          <label>کارتخوان ۱<input id="pos1" type="number" min="0" value="0"></label>
+          <label>کارتخوان ۲<input id="pos2" type="number" min="0" value="0"></label>
+          <label>کارتخوان ۳<input id="pos3" type="number" min="0" value="0"></label>
+          <label>کارتخوان ۴<input id="pos4" type="number" min="0" value="0"></label>
+          <label>کارتخوان ۵<input id="pos5" type="number" min="0" value="0"></label>
+          <label>کارتخوان ۶<input id="pos6" type="number" min="0" value="0"></label>
+          <label>کارت به کارت<input id="cardToCard" type="number" min="0" value="0"></label>
+          <label>نقدی<input id="cash" type="number" min="0" value="0"></label>
+          <label>تعداد فیش حضوری<input id="receiptCount" type="number" min="0" value="0"></label>
+          <label>مبلغ اسنپ (ریال)<input id="snappAmount" type="number" min="0" value="0"></label>
+          <label>تعداد فیش اسنپ<input id="snappReceiptCount" type="number" min="0" value="0"></label>
+          <label class="full">توضیحات روز<textarea id="notes"></textarea></label>
+        </div>
+
+        <div class="section-head adjustments-head">
+          <div><h2>سایر دریافت و پرداخت‌ها</h2><small>بیعانه، طلب مشتری یا اصلاحات صندوق</small></div>
+          <button type="button" id="addAdjustment" class="secondary">+ افزودن</button>
+        </div>
+        <div id="adjustments" class="adjustments"></div>
+
+        <div id="summary" class="summary"></div>
+        <button type="submit" class="primary submit-btn">ثبت گزارش صندوق</button>
+      </form>
+    </section>
+  </main>
+  <script src="./js/app-config.js?v=10.10.0"></script>
+  <script src="./js/config.js?v=10.10.0"></script>
+  <script src="./cash-report/js/app.js?v=10.10.0"></script>
+<script src="./js/13-jalali-picker.js?v=10.10.0"></script><script src="./js/31-error-log-client-v9-8-0.js?v=10.10.0"></script><script src="./js/35-operational-closeout-v10-2.js?v=10.10.0"></script><script src="./js/37-requested-fixes-v10-4.js?v=10.10.0"></script></body>
+</html>

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="fa">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1,maximum-scale=1" name="viewport"/>
+<meta content="no-store, no-cache, must-revalidate" http-equiv="Cache-Control"/>
+<meta content="no-cache" http-equiv="Pragma"/>
+<meta content="0" http-equiv="Expires"/>
+<!-- Rayo build v10.10.0 operational-control -->
+<title>اموال و دارایی‌ها — مدیریت رایو</title>
+
+
+
+<link href="./css/style.css?v=10.10.0" rel="stylesheet"/><meta content="10.10.0" name="rayo-build"/><script>if(!sessionStorage.getItem('rayo_admin_user'))location.replace('index.html?next='+encodeURIComponent(location.pathname.split('/').pop()+location.search));</script><link rel="stylesheet" href="./css/04-v10-9-fixes.css?v=10.10.0"><link rel="stylesheet" href="./css/06-operations-v10-9-2.css?v=10.10.0"><link rel="stylesheet" href="./css/07-central-catalog-v10-10.css?v=10.10.0"></head>
+<body>
+<div class="login-screen hidden" id="loginScreen" style="display:none!important">
+<form class="login-card" onsubmit="loginV5(event)">
+<div class="login-logo">R</div>
+<h1>پنل مدیریت کافه رستوران رایو</h1>
+<p>نام کاربری و رمز عبور را وارد کنید.</p>
+<label>نام کاربری<input autocomplete="username" dir="ltr" id="loginUsername"/></label>
+<label>رمز عبور<input autocomplete="current-password" dir="ltr" id="loginPassword" type="password"/></label>
+<div class="login-error" id="loginError"></div>
+<button class="btn btn-primary" type="submit">ورود</button>
+</form>
+</div>
+<div class="loading" id="loading">در حال بارگذاری اطلاعات…</div>
+<div class="toast-wrap" id="toasts"></div>
+<div class="app auth-locked" id="appShell">
+<aside class="sidebar">
+<div class="brand"><strong>رایو</strong><small>مدیریت یکپارچه رایو — پنل مدیریت</small></div>
+<div class="nav-group">مدیریت</div>
+<button class="nav-btn active" data-view="dashboard">📊 <span>داشبورد</span></button>
+<div class="nav-group">مدیریت پرسنل</div>
+<button class="nav-btn" data-view="personnel">👥 <span>پرسنل</span></button>
+<button class="nav-btn" data-view="userManagement">🔐 <span>مدیریت دسترسی‌ها</span></button>
+<button class="nav-btn" data-view="staffingNeeds">🧩 <span>نیروی موردنیاز</span></button>
+<button class="nav-btn" data-view="staffingMap">🗺️ <span>نقشه کمبود نیرو</span></button>
+<button class="nav-btn" data-view="annualCalendar">📅 <span>تقویم سالانه</span></button>
+<button class="nav-btn" data-view="monthlyShiftPlan">🗓️ <span>برنامه ماهانه</span></button>
+<button class="nav-btn" data-view="shiftPlan">📆 <span>برنامه هفتگی</span></button>
+<button class="nav-btn" data-view="shiftHistory">🧾 <span>سوابق شیفت</span></button>
+<button class="nav-btn" data-view="shiftReport">🔎 <span>گزارش شیفت</span></button>
+<div class="nav-group">حقوق و مزایا</div>
+<button class="nav-btn" data-view="payroll">💰 <span>کارکرد ماه</span></button>
+<button class="nav-btn" data-view="payslip">🧮 <span>فیش حقوقی</span></button>
+<button class="nav-btn" data-view="tips">🎁 <span>انعام</span></button>
+<button class="nav-btn" data-view="penalties">⚖️ <span>جریمه و تشویق</span></button>
+<button class="nav-btn" data-view="delays">⏱️ <span>تأخیر</span></button>
+<button class="nav-btn" data-view="payments">💳 <span>پرداخت حقوق</span></button>
+<button class="nav-btn" data-view="consumption">🍽️ <span>مصرف پرسنلی</span></button>
+<button class="nav-btn" data-view="leaves">🏖️ <span>مرخصی و غیبت</span></button>
+<div class="nav-group">محاسبه‌گر حقوق</div>
+<button class="nav-btn" data-view="salaryCalculator">🧾 <span>محاسبه‌گر</span></button>
+<button class="nav-btn" data-view="salaryPersonnel">👤 <span>پرسنل</span></button>
+<button class="nav-btn" data-view="salaryRates">📋 <span>جدول حقوق ساعتی</span></button>
+<button class="nav-btn" data-view="salarySettings">⚙️ <span>تنظیمات پایه</span></button>
+<div class="nav-group">گزارش و تنظیمات</div>
+<button class="nav-btn" data-view="reports">📈 <span>گزارشات</span></button>
+<button class="nav-btn" data-view="settings">⚙️ <span>تنظیمات</span></button>
+<button class="nav-btn" data-view="changelog">🕘 <span>تغییرات</span></button>
+</aside>
+<div class="content">
+<header class="topbar">
+<div><strong id="topTitle">داشبورد</strong><div class="status-line" id="saveStatus">—</div></div>
+<div class="top-actions">
+<button class="btn btn-sm" onclick="refreshData()">↻ بروزرسانی</button>
+<span class="auth-user" id="currentAuthUser"></span><button class="btn btn-sm" onclick="logoutV5()">خروج</button><button class="btn btn-primary btn-sm" id="serverSaveButton" onclick="saveData(true)">ذخیره روی سرور</button>
+</div>
+</header>
+<main class="main" id="view"></main>
+</div>
+</div>
+<div class="modal-backdrop" id="modalBackdrop">
+<div class="modal"><div class="modal-head"><h3 id="modalTitle"></h3><button class="btn btn-sm" onclick="closeModal()">✕</button></div><div class="modal-body" id="modalBody"></div><div class="modal-foot" id="modalFoot"></div></div>
+</div>
+
+
+<!-- ====================== V6.2 MICRO FIXES ====================== -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="./js/app-config.js?v=10.10.0"></script><script src="./js/config.js?v=10.10.0"></script><script src="./js/00-base.js?v=10.10.0"></script><script src="./js/01-v6-overrides.js?v=10.10.0"></script><script src="./js/02-rayo-v6-2-patch.js?v=10.10.0"></script><script src="./js/03-rayo-v6-3-patch.js?v=10.10.0"></script><script src="./js/04-rayo-suppliers-admin-module.js?v=10.10.0"></script><script src="./js/05-rayo-v6-4-personnel-bank-patch.js?v=10.10.0"></script><script src="./js/06-rayo-v6-4-1-personnel-bank-visibility-patch.js?v=10.10.0"></script><script src="./js/07-rayo-v6-4-2-bank-guarantee.js?v=10.10.0"></script><script src="./js/08-rayo-pricing-admin-module.js?v=10.10.0"></script><script src="./js/09-rayo-inventory-variance-module.js?v=10.10.0"></script><script src="./js/10-rayo-stability-v7.js?v=10.10.0"></script><script src="./js/11-rayo-cash-report-module.js?v=10.10.0"></script><script src="./js/12-rayo-assets-module.js?v=10.10.0"></script><script src="./js/13-jalali-picker.js?v=10.10.0"></script><script src="./js/14-ops-integration.js?v=10.10.0"></script><script src="./js/15-management-reports.js?v=10.10.0"></script><script src="./js/16-mpa-shell.js?v=10.10.0"></script><script src="./js/17-v9-3-admin-enhancements.js?v=10.10.0"></script><script src="./js/18-excel-tools.js?v=10.10.0"></script><script src="./js/19-phase2-admin.js?v=10.10.0"></script><script src="./js/20-finance-module.js?v=10.10.0"></script><script src="./js/21-survey-module.js?v=10.10.0"></script><script src="./js/25-user-management-v9-5-5.js?v=10.10.0"></script><script src="./js/26-access-brand-v9-5-8.js?v=10.10.0"></script><script src="./js/30-operational-polish-v9-8-0.js?v=10.10.0"></script>
+<script src="./js/34-final-operational-review-v10-1.js?v=10.10.0"></script><script src="./js/35-operational-closeout-v10-2.js?v=10.10.0"></script><script src="./js/37-requested-fixes-v10-4.js?v=10.10.0"></script><script src="./js/40-rayo-v10-9-comprehensive.js?v=10.10.0"></script><script src="./js/42-operations-v10-9-2.js?v=10.10.0"></script><script src="./js/43-central-catalog-v10-10.js?v=10.10.0"></script></body>
+</html>

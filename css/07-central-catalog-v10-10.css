@@ -1,0 +1,6 @@
+.catalog-type-guide{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:14px;padding:12px 14px;border:1px solid #d9e4f2;border-radius:12px;background:#f8fbff;color:#344054;font-size:12px}
+.catalog-type{display:inline-flex;align-items:center;white-space:nowrap;border-radius:999px;padding:4px 9px;background:#eef2f6;color:#344054;font-size:11px;font-weight:700}
+.type-menu_ingredient{background:#ecfdf3;color:#067647}.type-menu_consumable{background:#eff8ff;color:#175cd3}.type-operational_consumable{background:#fff6ed;color:#c4320a}.type-general_inventory{background:#f4f3ff;color:#5925dc}.type-non_stock{background:#f2f4f7;color:#475467}
+.catalog-migration{border:1px solid #f5c26b;background:#fffbeb}.catalog-migration-ok{border:1px solid #abefc6;background:#f6fef9}.catalog-unresolved{background:#fff4ed}
+.v1010-tabs{overflow-x:auto;scrollbar-width:thin}.v1010-tabs .tab-pill{white-space:nowrap}
+@media(max-width:760px){.catalog-type-guide{display:grid;grid-template-columns:1fr}.v1010-tabs{display:flex;flex-wrap:nowrap}}

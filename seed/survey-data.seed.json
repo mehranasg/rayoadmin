@@ -1,0 +1,11 @@
+{
+  "meta": {"schemaVersion":"1.0.0","module":"Rayo Customer Survey","restaurant":"کافه‌رستوران رایو","updatedAt":null},
+  "settings": {
+    "serviceChannels": ["سالن","حضوری","بیرون‌بر","اسنپ"],
+    "satisfactionLevels": ["خیلی راضی","راضی","متوسط","ناراضی","خیلی ناراضی"],
+    "satisfactionReasons": ["کیفیت غذا","طعم","برخورد پرسنل","سرعت سرویس","فضا و محیط","نظافت","ارزش خرید","سایر"],
+    "dissatisfactionReasons": ["کیفیت غذا","طعم","تاخیر در سرویس","برخورد پرسنل","اشتباه سفارش","قیمت","نظافت","فضا و محیط","بسته‌بندی","سایر"]
+  },
+  "responses": [],
+  "changeLog": []
+}

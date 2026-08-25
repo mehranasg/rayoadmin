@@ -1,0 +1,129 @@
+{
+  "meta": {
+    "schemaVersion": "2.0.1",
+    "module": "Rayo Inventory & Cost Control",
+    "restaurant": "کافه‌رستوران رایو",
+    "currency": "تومان",
+    "updatedAt": null
+  },
+  "settings": {
+    "varianceAlertPercent": 5,
+    "varianceAlertValueToman": 500000,
+    "carryForwardMode": "actual-closing",
+    "suggestedKeywords": [
+      "نوشابه",
+      "کوکاکولا",
+      "پپسی",
+      "دلستر",
+      "گوشت",
+      "مرغ",
+      "روغن زیتون"
+    ],
+    "defaultPriority": "متوسط",
+    "effectiveCostMethod": "allocate_known_and_unknown_losses",
+    "inputCurrency": "تومان",
+    "paymentLocations": [
+      {
+        "id": "PAYLOC-001",
+        "name": "حساب جاری پارسیان",
+        "type": "bank",
+        "isActive": true,
+        "notes": ""
+      },
+      {
+        "id": "PAYLOC-002",
+        "name": "حساب پارسیان کوتاه‌مدت / تنخواه",
+        "type": "bank",
+        "isActive": true,
+        "notes": ""
+      },
+      {
+        "id": "PAYLOC-003",
+        "name": "صندوق نقدی",
+        "type": "cash",
+        "isActive": true,
+        "notes": ""
+      },
+      {
+        "id": "PAYLOC-004",
+        "name": "تنخواه صندوقدار",
+        "type": "petty-cash",
+        "isActive": true,
+        "notes": ""
+      },
+      {
+        "id": "PAYLOC-005",
+        "name": "کارت/حساب دیگر",
+        "type": "other",
+        "isActive": true,
+        "notes": ""
+      }
+    ],
+    "mainLocationId": "LOC-MAIN",
+    "defaultSalesLocationId": "LOC-KITCHEN",
+    "costMethod": "WEIGHTED_AVERAGE",
+    "countApprovalRequired": true
+  },
+  "trackedIngredients": [],
+  "periods": [],
+  "itemMappings": [],
+  "changeLog": [],
+  "purchaseInvoices": [],
+  "supplierPayments": [],
+  "stockReceipts": [],
+  "wasteRecords": [],
+  "salesPeriods": [],
+  "stocktakes": [],
+  "locations": [
+    {
+      "id": "LOC-MAIN",
+      "code": "MAIN",
+      "name": "انبار اصلی",
+      "type": "main",
+      "section": "انبار",
+      "isActive": true,
+      "notes": ""
+    },
+    {
+      "id": "LOC-KITCHEN",
+      "code": "KITCHEN",
+      "name": "آشپزخانه",
+      "type": "section",
+      "section": "آشپزخانه",
+      "isActive": true,
+      "notes": ""
+    },
+    {
+      "id": "LOC-BAR",
+      "code": "BAR",
+      "name": "بار",
+      "type": "section",
+      "section": "بار",
+      "isActive": true,
+      "notes": ""
+    },
+    {
+      "id": "LOC-HOOKAH",
+      "code": "HOOKAH",
+      "name": "قلیان",
+      "type": "section",
+      "section": "قلیان",
+      "isActive": true,
+      "notes": ""
+    },
+    {
+      "id": "LOC-HALL",
+      "code": "HALL",
+      "name": "سالن / سرویس",
+      "type": "section",
+      "section": "سالن",
+      "isActive": true,
+      "notes": ""
+    }
+  ],
+  "openingBalances": [],
+  "inventoryMovements": [],
+  "consumptionRecords": [],
+  "periodClosures": [],
+  "wasteShiftDeclarations": []
+}

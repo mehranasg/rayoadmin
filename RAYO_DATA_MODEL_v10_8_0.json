@@ -1,0 +1,5603 @@
+{
+  "version": "10.8.0",
+  "generatedFrom": "Rayo Admin v10.8.0 source + seed schemas + current create/update paths",
+  "notes": [
+    "This is a migration blueprint, not an assertion that SQL Server currently exists.",
+    "Fields marked observed are present in seed/source; proposed fields are normalization recommendations.",
+    "Money is generally stored in Toman unless source explicitly says Rial.",
+    "Operational Jalali dates are currently strings YYYY/MM/DD; for SQL migration keep JalaliDateText and also persist GregorianDate when practical."
+  ],
+  "modules": {
+    "hr": {
+      "tables": [
+        {
+          "name": "Personnel",
+          "currentJsonPath": "hr.personnel",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Name",
+              "sqlType": "nvarchar(150)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "MainPosition",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "BackupPosition",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelGroup",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Section",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SubSection",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Nationality",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "InsuranceStatus",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "StartDateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Phone",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "EmploymentType",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "EmploymentStatus",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "TransportMonthlyToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "FixedAllowanceToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "HourlyRateToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "MonthlyCreditToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "MealCreditToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "GradeId",
+              "sqlType": "nvarchar(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ExperienceMonths",
+              "sqlType": "int",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "BankName",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "AccountHolderName",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "AccountNumber",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CardNumber",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Iban",
+              "sqlType": "nvarchar(34)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed/proposed"
+            },
+            {
+              "name": "IsArchived",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "PersonnelUserAccess",
+          "currentJsonPath": "hr.personnel[].username/userPassword/userAccess",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Username",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PasswordHash",
+              "sqlType": "varbinary(512)",
+              "nullable": true,
+              "source": "proposed",
+              "note": "Current frontend stores plaintext userPassword; migrate to server-side hash."
+            },
+            {
+              "name": "IsEnabled",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": [
+            "Do not carry plaintext passwords into SQL Server."
+          ]
+        },
+        {
+          "name": "PersonnelPermission",
+          "currentJsonPath": "hr.personnel[].userAccess.permissions",
+          "primaryKey": "(PersonnelId,PermissionCode)",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PermissionCode",
+              "sqlType": "nvarchar(80)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IsAllowed",
+              "sqlType": "bit",
+              "nullable": false,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "WeeklyPlan",
+          "currentJsonPath": "hr.weeklyPlans",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "WeekStartJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": [
+            "Current cells object should normalize into WeeklyPlanAssignment."
+          ]
+        },
+        {
+          "name": "WeeklyPlanAssignment",
+          "currentJsonPath": "hr.weeklyPlans[].cells",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "WeeklyPlanId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DayIndex",
+              "sqlType": "tinyint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Section",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Position",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "MonthlyPlan",
+          "currentJsonPath": "hr.monthlyPlans",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "YearJalali",
+              "sqlType": "smallint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "MonthJalali",
+              "sqlType": "tinyint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CopiedFrom",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": [
+            "Current cells object should normalize into MonthlyPlanAssignment."
+          ]
+        },
+        {
+          "name": "MonthlyPlanAssignment",
+          "currentJsonPath": "hr.monthlyPlans[].cells",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "MonthlyPlanId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Section",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Position",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "ShiftRecord",
+          "currentJsonPath": "hr.shiftRecords",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Position",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Section",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ScheduledHours",
+              "sqlType": "decimal(8,2)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ActualHours",
+              "sqlType": "decimal(8,2)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "StaffingRequirement",
+          "currentJsonPath": "hr.staffingRequirements",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DayIndex",
+              "sqlType": "tinyint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Section",
+              "sqlType": "nvarchar(100)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Position",
+              "sqlType": "nvarchar(100)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "RequiredCount",
+              "sqlType": "decimal(8,2)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IsActive",
+              "sqlType": "bit",
+              "nullable": false,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "Holiday",
+          "currentJsonPath": "hr.holidays",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Title",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "IsActive",
+              "sqlType": "bit",
+              "nullable": false,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "TipGroup",
+          "currentJsonPath": "hr.tipGroups",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ReceiveDateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "HallGroup",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "TotalAmountToman",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ReceiveMethod",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SettledAmountToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SettlementDateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SettlementMethod",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedByPersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "TipParticipant",
+          "currentJsonPath": "hr.tipGroups[].participants",
+          "primaryKey": "(TipGroupId,PersonnelId)",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "TipGroupId",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Weight",
+              "sqlType": "decimal(12,4)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "CalculatedShareToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "PenaltyReward",
+          "currentJsonPath": "hr.penaltiesRewards",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "AmountToman",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Reason",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ApprovedBy",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Source",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SourceId",
+              "sqlType": "nvarchar(40)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "WorkViolation",
+          "currentJsonPath": "hr.workViolations",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ViolationType",
+              "sqlType": "nvarchar(120)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Details",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "WarningGiven",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "WarningText",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "HasFine",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "FineAmountToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PenaltyId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "RegisteredBy",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "DelayRecord",
+          "currentJsonPath": "hr.delays",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "YearJalali",
+              "sqlType": "smallint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "MonthJalali",
+              "sqlType": "tinyint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ScheduledTime",
+              "sqlType": "time",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ActualTime",
+              "sqlType": "time",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "PersonnelPayment",
+          "currentJsonPath": "hr.payments",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "SalaryYearJalali",
+              "sqlType": "smallint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SalaryMonthJalali",
+              "sqlType": "tinyint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "AmountToman",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Method",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SourceAccount",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Tracking",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "RegisteredBy",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReferenceCode",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Source",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SourceId",
+              "sqlType": "nvarchar(40)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "PersonnelConsumption",
+          "currentJsonPath": "hr.consumptions",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "YearJalali",
+              "sqlType": "smallint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "MonthJalali",
+              "sqlType": "tinyint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "AmountToman",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "LeaveRecord",
+          "currentJsonPath": "hr.leaves",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "FromDateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ToDateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Count",
+              "sqlType": "decimal(8,2)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "LeaveRequest",
+          "currentJsonPath": "hr.leaveRequests",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "FromDateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ToDateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Count",
+              "sqlType": "decimal(8,2)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ManagerNote",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReviewedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "AdvanceRequest",
+          "currentJsonPath": "hr.advanceRequests",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "AmountToman",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ManagerNote",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PaymentId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReviewedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "PayrollClosure",
+          "currentJsonPath": "hr.payrollClosures",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "YearJalali",
+              "sqlType": "smallint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "MonthJalali",
+              "sqlType": "tinyint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Version",
+              "sqlType": "int",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IsActive",
+              "sqlType": "bit",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "FinalizedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "FinalizedBy",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "TotalNetToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "TotalPaidToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "TotalUnpaidToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": [
+            "Nested rows/payments should be separate snapshot tables."
+          ]
+        },
+        {
+          "name": "PayrollClosureRow",
+          "currentJsonPath": "hr.payrollClosures[].rows",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "PayrollClosureId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "SnapshotJson",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed",
+              "note": "Phase-1 safe option; later normalize payroll calculation fields."
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "ProtocolGroup",
+          "currentJsonPath": "hr.lists.protocolGroups",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Name",
+              "sqlType": "nvarchar(120)",
+              "nullable": false,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "Protocol",
+          "currentJsonPath": "hr.protocols",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Title",
+              "sqlType": "nvarchar(200)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "GroupId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Content",
+              "sqlType": "nvarchar(max)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "AudienceAll",
+              "sqlType": "bit",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IsActive",
+              "sqlType": "bit",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "ProtocolAudienceSection",
+          "currentJsonPath": "hr.protocols[].audienceSections",
+          "primaryKey": "(ProtocolId,Section)",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "ProtocolId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Section",
+              "sqlType": "nvarchar(100)",
+              "nullable": false,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "ChecklistTemplate",
+          "currentJsonPath": "hr.checklistTemplates",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Name",
+              "sqlType": "nvarchar(200)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Mode",
+              "sqlType": "nvarchar(40)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Section",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "IsActive",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "ChecklistTemplateItem",
+          "currentJsonPath": "hr.checklistTemplates[].items",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ChecklistTemplateId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Stage",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Text",
+              "sqlType": "nvarchar(500)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "SortOrder",
+              "sqlType": "int",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "ChecklistTemplateResponsible",
+          "currentJsonPath": "hr.checklistTemplates[].responsiblePersonnelIds",
+          "primaryKey": "(ChecklistTemplateId,PersonnelId)",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "ChecklistTemplateId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "ChecklistRecord",
+          "currentJsonPath": "hr.checklistRecords",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ChecklistTemplateId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Section",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CompletionPercent",
+              "sqlType": "decimal(5,2)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SubmittedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "ChecklistRecordItem",
+          "currentJsonPath": "hr.checklistRecords[].items",
+          "primaryKey": "(ChecklistRecordId,ItemId)",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "ChecklistRecordId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ItemId",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "TextSnapshot",
+              "sqlType": "nvarchar(500)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Stage",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "IsDone",
+              "sqlType": "bit",
+              "nullable": false,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "Reservation",
+          "currentJsonPath": "hr.reservations",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Time",
+              "sqlType": "time",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CustomerName",
+              "sqlType": "nvarchar(150)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Phone",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PartySize",
+              "sqlType": "int",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Area",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "DepositAmountToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "DepositMethod",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedByPersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "DailyManagerMessage",
+          "currentJsonPath": "hr.dailyMessages",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Title",
+              "sqlType": "nvarchar(200)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Text",
+              "sqlType": "nvarchar(max)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IsArchived",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedBy",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "backendModule": "personnel"
+    },
+    "suppliers": {
+      "tables": [
+        {
+          "name": "Supplier",
+          "currentJsonPath": "suppliers.suppliers",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Code",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Name",
+              "sqlType": "nvarchar(200)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ContactName",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Phone",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "ProcurementItem",
+          "currentJsonPath": "suppliers.items",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Code",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "MainGroup",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SubGroup",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Name",
+              "sqlType": "nvarchar(200)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Specification",
+              "sqlType": "nvarchar(300)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PurchaseUnit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ConsumptionUnit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ConversionFactor",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReorderPoint",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "TargetStock",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UsageLocation",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PreferredSupplierCode",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "AlternateSupplierCode",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SupplierItem",
+          "currentJsonPath": "suppliers.supplierItems",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "SupplierId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ItemId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "SupplierItemCode",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "LastPriceToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "IsPreferred",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "PurchaseRequest",
+          "currentJsonPath": "suppliers.purchaseRequests",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Section",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "RequestedByPersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": [
+            "If current request lines are nested, normalize to PurchaseRequestLine."
+          ]
+        },
+        {
+          "name": "PurchaseRequestLine",
+          "currentJsonPath": "suppliers.purchaseRequests[].lines",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "PurchaseRequestId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ItemId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Unit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "backendModule": "suppliers"
+    },
+    "pricing": {
+      "tables": [
+        {
+          "name": "Ingredient",
+          "currentJsonPath": "pricing.ingredients",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Code",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Name",
+              "sqlType": "nvarchar(200)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Category",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PurchaseUnit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "RecipeUnit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PackageQuantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "LastPurchasePriceToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "WastePercent",
+              "sqlType": "decimal(9,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "LastPurchaseDateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SepidsJson",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed/proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "MenuItem",
+          "currentJsonPath": "pricing.menuItems",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Code",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Name",
+              "sqlType": "nvarchar(200)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Category",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CurrentPriceToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CustomTargetCostPercent",
+              "sqlType": "decimal(9,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ManualCostToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ManualCostEnabled",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "LastPriceChangeAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Unit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SiteStatus",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SepidsJson",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed/proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "RecipeLine",
+          "currentJsonPath": "pricing.recipes",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "MenuItemId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IngredientId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "RecipeVersion",
+          "currentJsonPath": "pricing.recipeVersions",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "MenuItemId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "EffectiveDateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedBy",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": [
+            "Version lines should be separate RecipeVersionLine rows."
+          ]
+        },
+        {
+          "name": "RecipeVersionLine",
+          "currentJsonPath": "pricing.recipeVersions[].lines",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "RecipeVersionId",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IngredientId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": false,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "MenuPriceHistory",
+          "currentJsonPath": "pricing.priceHistory",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "MenuItemId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "OldPriceToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "NewPriceToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Source",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "IngredientPriceHistory",
+          "currentJsonPath": "pricing.ingredientPriceHistory",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IngredientId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PriceToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Source",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "InvoiceId",
+              "sqlType": "nvarchar(40)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "backendModule": "pricing"
+    },
+    "inventory": {
+      "tables": [
+        {
+          "name": "InventoryLocation",
+          "currentJsonPath": "inventory.locations",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Code",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Name",
+              "sqlType": "nvarchar(150)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Section",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "IsActive",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "TrackedIngredient",
+          "currentJsonPath": "inventory.trackedIngredients",
+          "primaryKey": "IngredientId",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "IngredientId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IsTracked",
+              "sqlType": "bit",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "MinStock",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "TargetStock",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "PurchaseInvoice",
+          "currentJsonPath": "inventory.purchaseInvoices",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "SupplierId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Number",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "DiscountToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PaidAmountToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PaymentMethod",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PaymentLocationId",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PaymentLocationNameSnapshot",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SettlementStatus",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PaymentStatus",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedByPersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "PurchaseInvoiceLine",
+          "currentJsonPath": "inventory.purchaseInvoices[].lines",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "PurchaseInvoiceId",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IngredientId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PurchaseQuantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "StockQuantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UnitPriceToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PurchaseUnit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "RecipeUnit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PackageQuantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SupplierPayment",
+          "currentJsonPath": "inventory.supplierPayments",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "SupplierId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "InvoiceId",
+              "sqlType": "nvarchar(40)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "AmountToman",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Method",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PaymentLocationId",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PaymentLocationNameSnapshot",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Reference",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "StockReceipt",
+          "currentJsonPath": "inventory.stockReceipts",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "InvoiceId",
+              "sqlType": "nvarchar(40)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "IngredientId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PurchaseQuantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "UnitPriceToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PurchaseUnit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "RecipeUnit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "LocationId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReceivedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReceivedBy",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "InventoryMovement",
+          "currentJsonPath": "inventory.inventoryMovements",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "MovementType",
+              "sqlType": "nvarchar(60)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IngredientId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "FromLocationId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ToLocationId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReasonCode",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReferenceType",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReferenceId",
+              "sqlType": "nvarchar(60)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SourceKey",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "InvoiceNumber",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReviewStatus",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedBy",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "WasteRecord",
+          "currentJsonPath": "inventory.wasteRecords",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "LocationId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "EventType",
+              "sqlType": "nvarchar(60)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ItemId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Known",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Reason",
+              "sqlType": "nvarchar(200)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "InvoiceNumber",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ResponsiblePersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReportedByPersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReviewStatus",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "MovementId",
+              "sqlType": "nvarchar(40)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "WasteShiftDeclaration",
+          "currentJsonPath": "inventory.wasteShiftDeclarations",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "LocationId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DeclarationType",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "EventCount",
+              "sqlType": "int",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "ConsumptionRecord",
+          "currentJsonPath": "inventory.consumptionRecords",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "LocationId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "EventType",
+              "sqlType": "nvarchar(60)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ItemId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Reason",
+              "sqlType": "nvarchar(200)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ResponsiblePersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ReportedByPersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "MovementId",
+              "sqlType": "nvarchar(40)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SalesPeriod",
+          "currentJsonPath": "inventory.salesPeriods",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "FromDateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ToDateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Reference",
+              "sqlType": "nvarchar(200)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SalesSource",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedBy",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SalesPeriodLine",
+          "currentJsonPath": "inventory.salesPeriods[].lines",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "SalesPeriodId",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "MenuItemId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "SalePriceToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SaleAmountToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "Stocktake",
+          "currentJsonPath": "inventory.stocktakes",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Shift",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "LocationId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "IsOpeningBaseline",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CountedByPersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ApprovedBy",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SubmittedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ApprovedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "StocktakeLine",
+          "currentJsonPath": "inventory.stocktakes[].lines",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "StocktakeId",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IngredientId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ExpectedQty",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ActualQty",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "VarianceQty",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "VariancePercent",
+              "sqlType": "decimal(12,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UnitCostToman",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "VarianceValueToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PurchasePriceToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "OpeningBalance",
+          "currentJsonPath": "inventory.openingBalances",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "LocationId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "IngredientId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,6)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "UnitCostToman",
+              "sqlType": "decimal(18,6)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "InventoryPeriodClosure",
+          "currentJsonPath": "inventory.periodClosures",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "FromDateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ToDateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SalesToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "COGSToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "WasteToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "VarianceToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ClosedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ClosedBy",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "InventoryItemMapping",
+          "currentJsonPath": "inventory.itemMappings",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "ExternalCode",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ExternalName",
+              "sqlType": "nvarchar(200)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "MenuItemId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "IngredientId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SourceSystem",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "backendModule": "inventory"
+    },
+    "cashreport": {
+      "tables": [
+        {
+          "name": "Cashier",
+          "currentJsonPath": "cashreport.cashiers",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Name",
+              "sqlType": "nvarchar(150)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "DailyCashReport",
+          "currentJsonPath": "cashreport.reports",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "CashierId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "PayloadJson",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed",
+              "note": "Current report shape is broader and should be normalized after exporting real live examples."
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": [
+            "Before final SQL DDL, export several live cashreport.reports records and split payment/count dimensions."
+          ]
+        },
+        {
+          "name": "SalesAnalyticsDaily",
+          "currentJsonPath": "cashreport.salesAnalytics.daily",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ChecksCount",
+              "sqlType": "int",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CustomersCount",
+              "sqlType": "int",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "SalesToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SourceFile",
+              "sqlType": "nvarchar(255)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SalesAnalyticsMonthly",
+          "currentJsonPath": "cashreport.salesAnalytics.monthly",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "YearJalali",
+              "sqlType": "smallint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "MonthJalali",
+              "sqlType": "tinyint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ChecksCount",
+              "sqlType": "int",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SalesToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SourceFile",
+              "sqlType": "nvarchar(255)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SalesAnalyticsItemDaily",
+          "currentJsonPath": "cashreport.salesAnalytics.itemDaily",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "bigint",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "MenuItemCode",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "MenuItemName",
+              "sqlType": "nvarchar(200)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SalesToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SourceFile",
+              "sqlType": "nvarchar(255)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "backendModule": "cashreport"
+    },
+    "assets": {
+      "tables": [
+        {
+          "name": "Asset",
+          "currentJsonPath": "assets.assets",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "ItemId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "TrackingMode",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "AssetTag",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Name",
+              "sqlType": "nvarchar(200)",
+              "nullable": false,
+              "source": "observed"
+            },
+            {
+              "name": "Category",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Location",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Unit",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Brand",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Model",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "SerialNumber",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PurchaseDateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PurchaseCostToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "BaseUnitPriceToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "PricingGroup",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "AnnualDepreciationRate",
+              "sqlType": "decimal(9,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "ValuationQuantity",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "WarrantyUntilJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "NextServiceDateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "InitialQuantity",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "MinimumRequired",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "UpdatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "observed"
+            },
+            {
+              "name": "IsArchived",
+              "sqlType": "bit",
+              "nullable": true,
+              "source": "observed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "AssetMaintenance",
+          "currentJsonPath": "assets.maintenanceRecords",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "AssetId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Type",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "CostToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Vendor",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "NextServiceDateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "AssetQuantityTransaction",
+          "currentJsonPath": "assets.quantityTransactions",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "AssetId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "TransactionType",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "AssetIncident",
+          "currentJsonPath": "assets.assetIncidents",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "AssetId",
+              "sqlType": "nvarchar(30)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "IncidentType",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "PersonnelId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Description",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "AssetCount",
+          "currentJsonPath": "assets.counts",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "AssetId",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Location",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ExpectedQuantity",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ActualQuantity",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "VarianceQuantity",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "backendModule": "assets"
+    },
+    "finance": {
+      "tables": [
+        {
+          "name": "FinanceEntry",
+          "currentJsonPath": "finance.entries",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "EntryType",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Category",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "AmountToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ReferenceType",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ReferenceId",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "FinanceMonthlyOverride",
+          "currentJsonPath": "finance.monthlyOverrides",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "YearJalali",
+              "sqlType": "smallint",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "MonthJalali",
+              "sqlType": "tinyint",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "FieldCode",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "AmountToman",
+              "sqlType": "bigint",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "backendModule": "finance"
+    },
+    "survey": {
+      "tables": [
+        {
+          "name": "SurveyResponse",
+          "currentJsonPath": "survey.responses",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(40)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ServiceChannel",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Phone",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "SatisfactionLevel",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Reason",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Comment",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "CreatedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "backendModule": "survey"
+    },
+    "errorlog": {
+      "tables": [
+        {
+          "name": "ErrorLogEntry",
+          "currentJsonPath": "errorlog.entries",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "OccurredAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Source",
+              "sqlType": "nvarchar(120)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Module",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Severity",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Message",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Stack",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ContextJson",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "backendModule": "errorlog"
+    },
+    "sepidsaudit": {
+      "tables": [
+        {
+          "name": "SepidzImportBatch",
+          "currentJsonPath": "sepidsaudit.importBatches",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "ImportType",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "FileName",
+              "sqlType": "nvarchar(255)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ImportedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ImportedBy",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SepidzRawBlock",
+          "currentJsonPath": "sepidsaudit.rawBlocks",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "ImportBatchId",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "RawJson",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SepidzAuditEvent",
+          "currentJsonPath": "sepidsaudit.events",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "ImportBatchId",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "EventType",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "DateJalali",
+              "sqlType": "char(10)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "TicketNumber",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "PersonnelName",
+              "sqlType": "nvarchar(150)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "AmountToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "RiskScore",
+              "sqlType": "decimal(9,2)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SepidzAuditEventItem",
+          "currentJsonPath": "sepidsaudit.eventItems",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "EventId",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ItemCode",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ItemName",
+              "sqlType": "nvarchar(200)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Quantity",
+              "sqlType": "decimal(18,4)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "AmountToman",
+              "sqlType": "decimal(18,3)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SepidzAuditChange",
+          "currentJsonPath": "sepidsaudit.changes",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "EventId",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "FieldName",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "BeforeValue",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "AfterValue",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SepidzAuditAlert",
+          "currentJsonPath": "sepidsaudit.alerts",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "EventId",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "AlertType",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "RiskLevel",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Message",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Status",
+              "sqlType": "nvarchar(30)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SepidzAuditReview",
+          "currentJsonPath": "sepidsaudit.reviews",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "EventId",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ReviewedBy",
+              "sqlType": "nvarchar(100)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ReviewedAt",
+              "sqlType": "datetime2",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Decision",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "Notes",
+              "sqlType": "nvarchar(max)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        },
+        {
+          "name": "SepidzAuditLink",
+          "currentJsonPath": "sepidsaudit.links",
+          "primaryKey": "Id",
+          "confidence": "observed+proposed",
+          "fields": [
+            {
+              "name": "Id",
+              "sqlType": "nvarchar(50)",
+              "nullable": false,
+              "source": "proposed"
+            },
+            {
+              "name": "EventId",
+              "sqlType": "nvarchar(50)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ReferenceType",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "proposed"
+            },
+            {
+              "name": "ReferenceId",
+              "sqlType": "nvarchar(80)",
+              "nullable": true,
+              "source": "proposed"
+            }
+          ],
+          "notes": []
+        }
+      ],
+      "backendModule": "sepidsaudit"
+    }
+  },
+  "relationships": [
+    {
+      "fromTable": "PersonnelUserAccess",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "PersonnelPermission",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "WeeklyPlanAssignment",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "MonthlyPlanAssignment",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "ShiftRecord",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "TipParticipant",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "PenaltyReward",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "WorkViolation",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "DelayRecord",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "PersonnelPayment",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "PersonnelConsumption",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "LeaveRecord",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "LeaveRequest",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "AdvanceRequest",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "ChecklistTemplateResponsible",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "ChecklistRecord",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "Reservation",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "WeeklyPlanAssignment",
+      "fromColumn": "WeeklyPlanId",
+      "toTable": "WeeklyPlan",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "MonthlyPlanAssignment",
+      "fromColumn": "MonthlyPlanId",
+      "toTable": "MonthlyPlan",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "TipParticipant",
+      "fromColumn": "TipGroupId",
+      "toTable": "TipGroup",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "WorkViolation",
+      "fromColumn": "PenaltyId",
+      "toTable": "PenaltyReward",
+      "toColumn": "Id",
+      "cardinality": "0..1:1"
+    },
+    {
+      "fromTable": "PayrollClosureRow",
+      "fromColumn": "PayrollClosureId",
+      "toTable": "PayrollClosure",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "PayrollClosureRow",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "Protocol",
+      "fromColumn": "GroupId",
+      "toTable": "ProtocolGroup",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "ProtocolAudienceSection",
+      "fromColumn": "ProtocolId",
+      "toTable": "Protocol",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "ChecklistTemplateItem",
+      "fromColumn": "ChecklistTemplateId",
+      "toTable": "ChecklistTemplate",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "ChecklistTemplateResponsible",
+      "fromColumn": "ChecklistTemplateId",
+      "toTable": "ChecklistTemplate",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "ChecklistRecord",
+      "fromColumn": "ChecklistTemplateId",
+      "toTable": "ChecklistTemplate",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "ChecklistRecordItem",
+      "fromColumn": "ChecklistRecordId",
+      "toTable": "ChecklistRecord",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SupplierItem",
+      "fromColumn": "SupplierId",
+      "toTable": "Supplier",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SupplierItem",
+      "fromColumn": "ItemId",
+      "toTable": "ProcurementItem",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "PurchaseRequestLine",
+      "fromColumn": "PurchaseRequestId",
+      "toTable": "PurchaseRequest",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "PurchaseRequestLine",
+      "fromColumn": "ItemId",
+      "toTable": "ProcurementItem",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "RecipeLine",
+      "fromColumn": "MenuItemId",
+      "toTable": "MenuItem",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "RecipeLine",
+      "fromColumn": "IngredientId",
+      "toTable": "Ingredient",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "RecipeVersion",
+      "fromColumn": "MenuItemId",
+      "toTable": "MenuItem",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "RecipeVersionLine",
+      "fromColumn": "RecipeVersionId",
+      "toTable": "RecipeVersion",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "RecipeVersionLine",
+      "fromColumn": "IngredientId",
+      "toTable": "Ingredient",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "MenuPriceHistory",
+      "fromColumn": "MenuItemId",
+      "toTable": "MenuItem",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "IngredientPriceHistory",
+      "fromColumn": "IngredientId",
+      "toTable": "Ingredient",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "PurchaseInvoice",
+      "fromColumn": "SupplierId",
+      "toTable": "Supplier",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "PurchaseInvoiceLine",
+      "fromColumn": "PurchaseInvoiceId",
+      "toTable": "PurchaseInvoice",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "PurchaseInvoiceLine",
+      "fromColumn": "IngredientId",
+      "toTable": "Ingredient",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SupplierPayment",
+      "fromColumn": "SupplierId",
+      "toTable": "Supplier",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SupplierPayment",
+      "fromColumn": "InvoiceId",
+      "toTable": "PurchaseInvoice",
+      "toColumn": "Id",
+      "cardinality": "N:0..1"
+    },
+    {
+      "fromTable": "StockReceipt",
+      "fromColumn": "InvoiceId",
+      "toTable": "PurchaseInvoice",
+      "toColumn": "Id",
+      "cardinality": "N:0..1"
+    },
+    {
+      "fromTable": "StockReceipt",
+      "fromColumn": "IngredientId",
+      "toTable": "Ingredient",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "StockReceipt",
+      "fromColumn": "LocationId",
+      "toTable": "InventoryLocation",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "InventoryMovement",
+      "fromColumn": "IngredientId",
+      "toTable": "Ingredient",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "InventoryMovement",
+      "fromColumn": "FromLocationId",
+      "toTable": "InventoryLocation",
+      "toColumn": "Id",
+      "cardinality": "N:0..1"
+    },
+    {
+      "fromTable": "InventoryMovement",
+      "fromColumn": "ToLocationId",
+      "toTable": "InventoryLocation",
+      "toColumn": "Id",
+      "cardinality": "N:0..1"
+    },
+    {
+      "fromTable": "WasteRecord",
+      "fromColumn": "ItemId",
+      "toTable": "Ingredient",
+      "toColumn": "Id",
+      "cardinality": "N:1",
+      "note": "When Type=ingredient"
+    },
+    {
+      "fromTable": "WasteRecord",
+      "fromColumn": "LocationId",
+      "toTable": "InventoryLocation",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "WasteShiftDeclaration",
+      "fromColumn": "LocationId",
+      "toTable": "InventoryLocation",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "WasteShiftDeclaration",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "ConsumptionRecord",
+      "fromColumn": "ItemId",
+      "toTable": "Ingredient",
+      "toColumn": "Id",
+      "cardinality": "N:1",
+      "note": "When Type=ingredient"
+    },
+    {
+      "fromTable": "SalesPeriodLine",
+      "fromColumn": "SalesPeriodId",
+      "toTable": "SalesPeriod",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SalesPeriodLine",
+      "fromColumn": "MenuItemId",
+      "toTable": "MenuItem",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "Stocktake",
+      "fromColumn": "LocationId",
+      "toTable": "InventoryLocation",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "StocktakeLine",
+      "fromColumn": "StocktakeId",
+      "toTable": "Stocktake",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "StocktakeLine",
+      "fromColumn": "IngredientId",
+      "toTable": "Ingredient",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "OpeningBalance",
+      "fromColumn": "LocationId",
+      "toTable": "InventoryLocation",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "OpeningBalance",
+      "fromColumn": "IngredientId",
+      "toTable": "Ingredient",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "Cashier",
+      "fromColumn": "PersonnelId",
+      "toTable": "Personnel",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "AssetMaintenance",
+      "fromColumn": "AssetId",
+      "toTable": "Asset",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "AssetQuantityTransaction",
+      "fromColumn": "AssetId",
+      "toTable": "Asset",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "AssetIncident",
+      "fromColumn": "AssetId",
+      "toTable": "Asset",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "AssetCount",
+      "fromColumn": "AssetId",
+      "toTable": "Asset",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SepidzRawBlock",
+      "fromColumn": "ImportBatchId",
+      "toTable": "SepidzImportBatch",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SepidzAuditEvent",
+      "fromColumn": "ImportBatchId",
+      "toTable": "SepidzImportBatch",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SepidzAuditEventItem",
+      "fromColumn": "EventId",
+      "toTable": "SepidzAuditEvent",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SepidzAuditChange",
+      "fromColumn": "EventId",
+      "toTable": "SepidzAuditEvent",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SepidzAuditAlert",
+      "fromColumn": "EventId",
+      "toTable": "SepidzAuditEvent",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SepidzAuditReview",
+      "fromColumn": "EventId",
+      "toTable": "SepidzAuditEvent",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    },
+    {
+      "fromTable": "SepidzAuditLink",
+      "fromColumn": "EventId",
+      "toTable": "SepidzAuditEvent",
+      "toColumn": "Id",
+      "cardinality": "N:1"
+    }
+  ]
+}

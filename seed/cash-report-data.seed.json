@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "schemaVersion": "1.1.0",
+    "module": "Rayo Cash Report",
+    "restaurant": "کافه‌رستوران رایو",
+    "currency": "ریال",
+    "updatedAt": null
+  },
+  "settings": {
+    "inputCurrency": "ریال",
+    "displayCurrency": "تومان",
+    "discrepancyLimit": 1000000,
+    "publicUsername": "sandogh",
+    "reportLockAfterDays": 30
+  },
+  "cashiers": [
+    {
+      "id": "CASHIER-0001",
+      "personnelId": "EMP-0007",
+      "name": "تارا",
+      "status": "فعال",
+      "notes": ""
+    },
+    {
+      "id": "CASHIER-0002",
+      "personnelId": "EMP-0008",
+      "name": "فرشته",
+      "status": "فعال",
+      "notes": ""
+    }
+  ],
+  "reports": [],
+  "changeLog": [],
+  "salesAnalytics": {
+    "daily": [],
+    "monthly": [],
+    "itemDaily": []
+  }
+}
