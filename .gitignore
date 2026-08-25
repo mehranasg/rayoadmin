@@ -1,0 +1,27 @@
+# داده زنده و Backup
+backups/
+live-data/
+*.live.json
+*.backup.json
+
+# فایل‌های موقت
+temp/
+tmp/
+*.tmp
+*.log
+
+# سیستم‌عامل و ادیتور
+.DS_Store
+Thumbs.db
+.vscode/settings.local.json
+
+# خروجی‌های فشرده
+*.zip
+
+# در صورت مهاجرت آینده به React
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
