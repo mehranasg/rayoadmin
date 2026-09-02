@@ -20,4 +20,4 @@ const css=document.createElement('link');css.rel='stylesheet';css.href='./css/08
 function install(){window.toggleRayoMenu=window.toggleRayoMenu||toggleMenu;if(file()==='pricing.html'&&new URLSearchParams(location.search).get('tab')==='menu'&&window.pricingUI)pricingUI.tab='menu';if(typeof renderView==='function'&&!renderView.__v10101){const old=renderView;window.renderView=function(){const r=old.apply(this,arguments);setTimeout(after,0);return r};renderView.__v10101=true}after();setTimeout(after,400);setTimeout(after,1100);document.documentElement.dataset.rayoBuild='10.12.0'}
 document.readyState==='loading'?document.addEventListener('DOMContentLoaded',install,{once:true}):install();window.RayoPhase1={saveFeatures,after};
 })();
-(()=>{const s=document.createElement('script');s.src='./js/45-menu-management-v10-11.js?v=10.12.0';document.head.appendChild(s)})();
+(()=>{if(document.querySelector('script[src*="45-menu-management-v10-11.js"]'))return;const s=document.createElement('script');s.src='./js/45-menu-management-v10-11.js?v=10.12.0';document.head.appendChild(s)})();

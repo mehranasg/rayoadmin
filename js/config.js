@@ -520,6 +520,26 @@ async function loadOrBootstrap(module){
   return loadModule(module);
 }
 
+function cashAmount(value,{blankAsZero=true}={}){
+  if(typeof value==='number')return Number.isFinite(value)?{ok:true,value}:{ok:false,value:null,error:'مقدار عددی معتبر نیست'};
+  const raw=String(value??'').trim();
+  if(!raw)return blankAsZero?{ok:true,value:0,blank:true}:{ok:false,value:null,error:'مقدار خالی است'};
+  const normalized=raw.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/٫/g,'.').replace(/[٬,،\s]/g,'');
+  if(!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized))return{ok:false,value:null,error:`مقدار «${raw}» عدد معتبر نیست`};
+  const number=Number(normalized);return Number.isFinite(number)?{ok:true,value:number}:{ok:false,value:null,error:`مقدار «${raw}» خارج از محدوده است`};
+}
+function cashVariance(report={}){
+  const fields=['netReceivable','tipDelivery','tipValet','tipHall','cardToCard','cash',...Array.from({length:6},(_,i)=>`pos${i+1}`)],values={},errors=[];
+  for(const field of fields){const parsed=cashAmount(report[field]);if(parsed.ok)values[field]=parsed.value;else errors.push({field,message:parsed.error})}
+  const adjustments=[];for(const [index,row] of (Array.isArray(report.otherTransactions)?report.otherTransactions:[]).entries()){const parsed=cashAmount(row?.amount);if(!parsed.ok)errors.push({field:`otherTransactions[${index}].amount`,message:parsed.error});else adjustments.push((Number(row?.sign)===-1?-1:1)*parsed.value)}
+  if(errors.length)return{valid:false,errors};
+  const posTotal=Array.from({length:6},(_,i)=>values[`pos${i+1}`]).reduce((a,b)=>a+b,0),actualReceived=posTotal+values.cardToCard+values.cash,tipsTotal=values.tipDelivery+values.tipValet+values.tipHall;
+  const tipsInThisCashbox=report.tipsOutsideCashbox===true?0:tipsTotal,expectedCashbox=values.netReceivable+(report.netReceivableIncludesTips===true?0:tipsInThisCashbox),initialVariance=actualReceived-expectedCashbox,adjustmentsTotal=adjustments.reduce((a,b)=>a+b,0),finalVariance=initialVariance+adjustmentsTotal;
+  const stored=Number(report.finalVariance),hasStored=Number.isFinite(stored)&&report.finalVariance!==''&&report.finalVariance!=null;
+  return{valid:true,formulaVersion:'cash-variance-v2',currency:'ریال',posTotal,cardToCard:values.cardToCard,cash:values.cash,actualReceived,netReceivable:values.netReceivable,tipsTotal,tipsInThisCashbox,expectedCashbox,initialVariance,adjustmentsTotal,finalVariance,status:initialVariance>0?'اضافه صندوق':initialVariance<0?'کسری صندوق':'تراز',finalStatus:finalVariance>0?'اضافه صندوق':finalVariance<0?'کسری صندوق':'تراز',storedVariance:hasStored?stored:null,historicalDifference:hasStored&&stored!==finalVariance?finalVariance-stored:0};
+}
+window.RayoCashVariance={parseAmount:cashAmount,calculate:cashVariance,formula:'(جمع کارتخوان‌ها + کارت‌به‌کارت + نقدی) − (خالص دریافتی + انعام داخل همین صندوق)',currency:'ریال'};
+
 window.RAYO_API_GATEWAY={
   loadUrl:LOAD_URL,
   saveUrl:SAVE_URL,
