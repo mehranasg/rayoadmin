@@ -113,7 +113,6 @@ function installSupplierEnhancements(){
   if(!views.suppliers.__p8sup){const old=views.suppliers;const w=function(){if(window.supplierUI?.detailSupplierId)return supplierDetailPage();let h=old();const tab=new URLSearchParams(location.search).get('tab');if(tab==='requests'){
       h=h.replace(/(<button class="btn btn-sm" onclick="p2ReviewPurchaseRequest\('([^']+)'\)">بررسی<\/button>)/g,(m,btn,id)=>`${btn} <button class="btn btn-sm" onclick="p8ClosePurchaseRequest('${id}')">بستن</button>`).replace(/تحویل شد/g,'تحویل شد').replace('همه وضعیت‌ها</option>','همه وضعیت‌ها</option><option>بسته‌شده</option>');
     }else if(window.supplierUI?.tab==='suppliers'){
-      h=h.replace(/<button class="btn btn-sm" onclick="editSupplierAdmin\('([^']+)'\)">ویرایش<\/button>/g,(m,id)=>`<button class="btn btn-sm" onclick="p8SupplierDetail('${id}')">مشاهده</button><button class="btn btn-sm" onclick="editSupplierAdmin('${id}')">ویرایش</button>`);
       // keep exactly one supplier Excel importer and add one blank template link
       const occurrences=(h.match(/>ورود Excel<\/button>/g)||[]).length;if(occurrences>1){let seen=0;h=h.replace(/\s*<button class="btn" onclick="document\.getElementById\('p2SupExcel'\)\.click\(\)">ورود Excel<\/button>/g,m=>(++seen===1?m:''))}
       if(h.includes('>ورود Excel</button>')&&!h.includes("RayoDownloadTemplate('suppliers')"))h=h.replace('>ورود Excel</button>',`>ورود Excel</button> ${templateButton('suppliers')}`);

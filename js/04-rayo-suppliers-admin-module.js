@@ -105,8 +105,8 @@ function viewsSuppliers(){
   if(!supplierLoaded){setTimeout(()=>supEnsureLoaded(false),0);return pageHead('تأمین‌کنندگان','')+'<div class="card empty">در حال بارگذاری…</div>'}
   const active=supplierState.suppliers.filter(x=>x.status==='فعال').length;
   const actions=`<button class="btn" onclick="supRefreshData()">↻ بروزرسانی</button> <button class="btn btn-primary" onclick="supSaveData(true)">ذخیره روی سرور</button>`;
-  return pageHead('مدیریت تأمین‌کنندگان','',actions)+
-    `<div class="grid grid-4"><div class="card kpi supplier-kpi"><div class="label">کل تأمین‌کنندگان</div><div class="value">${supplierState.suppliers.length}</div></div><div class="card kpi supplier-kpi"><div class="label">تأمین‌کننده فعال</div><div class="value">${active}</div></div><div class="card kpi supplier-kpi"><div class="label">اقلام ثبت‌شده</div><div class="value">${supplierState.items.length}</div></div><div class="card kpi supplier-kpi"><div class="label">ارتباط‌ها</div><div class="value">${supplierState.supplierItems.length}</div></div></div>`+
+  return pageHead('مدیریت تأمین‌کنندگان','تعریف، جست‌وجو و مدیریت اطلاعات تأمین‌کنندگان',actions)+
+    (supplierUI.tab==='suppliers'?'':`<div class="grid grid-4"><div class="card kpi supplier-kpi"><div class="label">کل تأمین‌کنندگان</div><div class="value">${supplierState.suppliers.length}</div></div><div class="card kpi supplier-kpi"><div class="label">تأمین‌کننده فعال</div><div class="value">${active}</div></div><div class="card kpi supplier-kpi"><div class="label">اقلام ثبت‌شده</div><div class="value">${supplierState.items.length}</div></div><div class="card kpi supplier-kpi"><div class="label">ارتباط‌ها</div><div class="value">${supplierState.supplierItems.length}</div></div></div>`)+
     supTabs()+
     (supplierUI.tab==='suppliers'?suppliersAdminList():supplierUI.tab==='relations'?supplierRelationsList():supplierJsonSettings());
 }

@@ -11,7 +11,7 @@ const norm=x=>S(x).normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک')
 const actor=()=>sessionStorage.getItem('rayo_admin_user')||'admin';
 const now=()=>new Date().toISOString();
 const typeLabels={MENU_INGREDIENT:'ماده اولیه منو',MENU_CONSUMABLE:'ملزومات مستقیم منو',OPERATIONAL_CONSUMABLE:'مصرفی عملیاتی',GENERAL_INVENTORY:'کالای عمومی / قطعه',NON_STOCK:'خدمت / هزینه غیرموجودی'};
-const tabRows=[['suppliers','تأمین‌کنندگان'],['relations','اقلام هر تأمین‌کننده'],['orderDesk','میز سفارش‌گذاری'],['orders','سفارش‌های ثبت‌شده'],['accounts','حساب و بدهی‌ها'],['payment','ثبت پرداخت'],['json','تنظیمات']];
+const tabRows=[['dashboard','داشبورد'],['suppliers','تأمین‌کنندگان'],['relations','اقلام هر تأمین‌کننده'],['priceCompare','مقایسه قیمت تأمین‌کنندگان'],['orderDesk','میز سفارش‌گذاری'],['orders','سفارش‌های ثبت‌شده'],['accounts','حساب و بدهی‌ها'],['payment','ثبت پرداخت'],['json','تنظیمات']];
 let installed=false;
 
 function states(){return{pricing:window.getPricingState?.(),suppliers:window.getSupplierState?.()}}
@@ -19,8 +19,8 @@ function supplierName(s){return s?.company||s?.contactName||s?.code||'—'}
 function typeOf(i){return typeLabels[i?.itemType]?i.itemType:'MENU_INGREDIENT'}
 function typeForLegacy(x){const t=norm([x?.mainGroup,x?.subGroup,x?.name].join(' '));if(/خدمت|سرویس|اجاره|حمل|تعمیر/.test(t))return'NON_STOCK';if(/تجهیز|قطعه|لوازم|ابزار|یدک/.test(t))return'GENERAL_INVENTORY';if(/بستهبندی|یکبارمصرف|ظروف|کاپ|لیوان|جعبه|پاکت|سینگل|نی/.test(t))return'MENU_CONSUMABLE';if(/شوینده|بهداشت|نظافت|دستمال|دستکش|اسکاچ|مایع|اداری|صندوق/.test(t))return'OPERATIONAL_CONSUMABLE';return'MENU_INGREDIENT'}
 function catalogTabs(active){return `<div class="supplier-module-tabs v1010-tabs">${tabRows.map(([k,l])=>`<button class="tab-pill ${active===k?'active':''}" onclick="RayoCatalogV1010.tab('${k}')">${l}</button>`).join('')}</div>`}
-function currentTab(){let t=new URLSearchParams(location.search).get('tab')||window.supplierUI?.tab||'suppliers';if(t==='items'||t==='sync')t='relations';return t}
-function tab(t){const u=new URL(location.href);if(t==='suppliers')u.searchParams.delete('tab');else u.searchParams.set('tab',t);history.replaceState({},'',u);if(window.supplierUI)window.supplierUI.tab=t;renderView()}
+function currentTab(){let t=new URLSearchParams(location.search).get('tab')||window.supplierUI?.tab||'dashboard';if(t==='items'||t==='sync')t='relations';return t}
+function tab(t){const u=new URL(location.href);if(t==='dashboard')u.searchParams.delete('tab');else u.searchParams.set('tab',t);history.replaceState({},'',u);if(window.supplierUI)window.supplierUI.tab=t;renderView()}
 function replaceTabs(h,active){return h.replace(/<div class="supplier-module-tabs[^>]*>[\s\S]*?<\/div>/,catalogTabs(active))}
 function stripLegacyActions(h){return h.replace(/\s*<button class="btn" onclick="window\.RayoV1092&&RayoV1092\.supplierTab\('sync'\)">همگام‌سازی اقلام<\/button>/,'').replace(/اقلام ثبت‌شده<\/div><div class="value">[^<]*/,'اقلام کاتالوگ مرکزی</div><div class="value">'+F(A(states().pricing?.ingredients).length))}
 function ensure(){return Promise.all([window.pcEnsureLoaded?.(true),window.supEnsureLoaded?.(true)]).then(()=>renderView())}
@@ -41,4 +41,4 @@ function wrap(){if(installed||typeof views==='undefined'||!views.suppliers)retur
 function install(){if(!wrap())return setTimeout(install,80);window.RayoCatalogV1010={tab,editRelation,saveRelation,previewMigration,applyMigration,typeLabels};window.editSupplierRelation=editRelation;document.documentElement.dataset.rayoBuild='10.10.0';if(new URLSearchParams(location.search).get('catalog')==='1'&&window.pricingUI){pricingUI.tab='ingredients';setTimeout(()=>renderView(),80)}setTimeout(()=>{document.querySelectorAll('.v109-version').forEach(v=>v.textContent='Rayo Admin v10.10.0');try{renderView()}catch(_){}},120)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
-(()=>{const s=document.createElement('script');s.src='./js/44-phase1-polish-v10-10-1.js?v=10.11.0';document.head.appendChild(s)})();
+(()=>{if(document.querySelector('script[src*="44-phase1-polish-v10-10-1.js"]'))return;const s=document.createElement('script');s.src='./js/44-phase1-polish-v10-10-1.js?v=10.12.1';document.head.appendChild(s)})();

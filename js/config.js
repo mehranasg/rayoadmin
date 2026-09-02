@@ -3,7 +3,7 @@
 
 /*
   Rayo API gateway v10.10.0
-  - تنها API معتبر: RayoData/Load و RayoData/Save.
+  - APIهای معتبر: RayoData/Load، RayoData/Save، RayoData/Query و RayoData/Mutate.
   - تمام درخواست‌ها حتما QueryString با نام module دارند.
   - داده عملیاتی هرگز از فایل JSON روی هاست به عنوان fallback خوانده نمی‌شود.
   - فایل‌های Seed فقط با اقدام صریح مدیر برای مقداردهی اولیه یا Reset استفاده می‌شوند؛ Load عادی هرگز Seed را نمی‌خواند یا روی API نمی‌نویسد.
@@ -14,6 +14,8 @@ if(!API_ORIGIN)throw new Error('RAYO_ENV.API_ORIGIN تعریف نشده است؛
 const API_ROOT=`${API_ORIGIN}${ENV.API_PREFIX||'/api/v1.0'}${ENV.API_CONTROLLER||'/RayoData'}`;
 const LOAD_URL=`${API_ROOT}/Load`;
 const SAVE_URL=`${API_ROOT}/Save`;
+const QUERY_URL=`${API_ROOT}/Query`;
+const MUTATE_URL=`${API_ROOT}/Mutate`;
 const TIMEOUT_MS=Number(ENV.TIMEOUT_MS)||25000;
 const BACKEND_MODULES={
   hr:'personnel',
@@ -28,12 +30,27 @@ const BACKEND_MODULES={
   sepidsaudit:'sepidsaudit'
 };
 const SUPPORTED_MODULES=Object.keys(BACKEND_MODULES);
-const MODULE_RUNTIME_STATUS=Object.fromEntries(SUPPORTED_MODULES.map(m=>[m,{state:'idle',initialized:null,lastError:'',lastSuccessAt:null}]));
+const MODULE_RUNTIME_STATUS=Object.fromEntries(SUPPORTED_MODULES.map(m=>[m,{state:'idle',initialized:null,lastError:'',lastSuccessAt:null,sourceValid:false,readOnly:true}]));
 const MODULE_LOAD_PROMISES=new Map();
+const QUERY_PROMISES=new Map();
+const MODULE_VERSIONS=Object.create(null);
 const SEED_OBJECTS=new WeakSet();
 window.RAYO_SEED_POLICY='manual-initialize-or-reset-only';
 function currentPageFile(){return (location.pathname.split('/').pop()||'index.html').toLowerCase()}
-function setModuleStatus(module,state,error=''){const s=MODULE_RUNTIME_STATUS[module]||(MODULE_RUNTIME_STATUS[module]={});s.state=state;s.lastError=error?String(error?.message||error):'';if(state==='ready')s.lastSuccessAt=new Date().toISOString()}
+function frontendModuleName(module){
+  const name=String(module||'').trim();
+  if(SUPPORTED_MODULES.includes(name))return name;
+  const found=SUPPORTED_MODULES.find(key=>BACKEND_MODULES[key]===name);
+  if(found)return found;
+  if(typeof RayoApiError==='function')throw new RayoApiError({code:'invalid_module',message:`نام ماژول نامعتبر است: ${module}`});
+  throw new Error(`نام ماژول نامعتبر است: ${module}`);
+}
+function setModuleStatus(module,state,error=''){
+  const key=frontendModuleName(module),s=MODULE_RUNTIME_STATUS[key]||(MODULE_RUNTIME_STATUS[key]={});
+  s.state=state;s.lastError=error?String(error?.message||error):'';
+  if(state==='ready'){s.lastSuccessAt=new Date().toISOString();s.sourceValid=true;s.readOnly=false}
+  else if(state==='error'||state==='conflict'){s.sourceValid=false;s.readOnly=true}
+}
 const MODULE_ALIASES={
   hr:['hr','humanResources','personnelPayroll','main','initialData','personnel','personel'],
   suppliers:['suppliers','supplier','suppliersModule','supplierModule','supplierData','suppliersData'],
@@ -106,11 +123,44 @@ function clone(x){return JSON.parse(JSON.stringify(x))}
 function unique(arr){return [...new Set((arr||[]).filter(Boolean))]}
 function appendQuery(url,key,value){const sep=url.includes('?')?'&':'?';return `${url}${sep}${encodeURIComponent(key)}=${encodeURIComponent(value)}`}
 function backendModuleName(module){
-  if(!SUPPORTED_MODULES.includes(module))throw new Error(`نام ماژول نامعتبر است: ${module}`);
-  return BACKEND_MODULES[module];
+  return BACKEND_MODULES[frontendModuleName(module)];
 }
 function moduleLoadUrl(module){return appendQuery(LOAD_URL,'module',backendModuleName(module))}
 function moduleSaveUrl(module){return appendQuery(SAVE_URL,'module',backendModuleName(module))}
+function rememberModuleVersion(module,value){
+  const version=Number(value);
+  if(Number.isFinite(version)&&version>=0)MODULE_VERSIONS[backendModuleName(module)]=version;
+  return Number.isFinite(version)&&version>=0?version:null;
+}
+function moduleVersion(module){
+  const value=MODULE_VERSIONS[backendModuleName(module)];
+  return Number.isFinite(value)?value:null;
+}
+
+class RayoApiError extends Error{
+  constructor({status=0,code='api_error',message='خطا در ارتباط با API',response=null,url='',method='',cause=null}={}){
+    super(String(message||'خطا در ارتباط با API'));
+    this.name=code==='version_conflict'?'RayoVersionConflictError':'RayoApiError';
+    this.status=Number(status)||0;this.code=String(code||'api_error');this.response=response;this.url=url;this.method=method;
+    if(cause)this.cause=cause;
+  }
+}
+function responseErrorInfo(payload,text=''){
+  const x=isObject(payload)?payload:{};
+  return{code:String(ciGet(x,'code')??ciGet(x,'errorCode')??ciGet(x,'error')??'api_error'),message:String(ciGet(x,'message')??ciGet(x,'errorMessage')??ciGet(x,'title')??text??'خطا در ارتباط با API')};
+}
+function stableStringify(value){
+  if(Array.isArray(value))return`[${value.map(stableStringify).join(',')}]`;
+  if(isObject(value))return`{${Object.keys(value).sort().map(k=>`${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
+  return JSON.stringify(value);
+}
+function requestId(){
+  if(globalThis.crypto?.randomUUID)return globalThis.crypto.randomUUID();
+  if(!globalThis.crypto?.getRandomValues)throw new Error('مرورگر امکان تولید امن requestId را ندارد.');
+  const bytes=new Uint8Array(16);globalThis.crypto.getRandomValues(bytes);bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+  const hex=[...bytes].map(x=>x.toString(16).padStart(2,'0')).join('');
+  return`${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
 
 function parseJsonString(value){
   let x=value;
@@ -260,52 +310,56 @@ function normalizeModule(payload,module){
 
 async function fetchTimeout(url,options={},timeoutMs=TIMEOUT_MS){
   const controller=new AbortController();
+  const externalSignal=options.signal;
+  const abort=()=>controller.abort(externalSignal?.reason);
+  if(externalSignal?.aborted)abort();else externalSignal?.addEventListener?.('abort',abort,{once:true});
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
     return await fetch(url,{...options,signal:controller.signal,cache:'no-store',credentials:'omit'});
   }catch(error){
-    if(error?.name==='AbortError')throw new Error('Timeout');
-    if(String(error?.message||'').toLowerCase().includes('failed to fetch'))throw new Error('CORS یا ارتباط شبکه');
+    if(error?.name==='AbortError')throw new RayoApiError({status:0,code:externalSignal?.aborted?'request_aborted':'timeout',message:externalSignal?.aborted?'درخواست لغو شد':'مهلت ارتباط با API پایان یافت',url,method:options.method||'GET',cause:error});
+    if(String(error?.message||'').toLowerCase().includes('failed to fetch'))throw new RayoApiError({status:0,code:'network_error',message:'CORS یا ارتباط شبکه',url,method:options.method||'GET',cause:error});
     throw error;
-  }finally{clearTimeout(timer)}
+  }finally{clearTimeout(timer);externalSignal?.removeEventListener?.('abort',abort)}
 }
-async function responsePayload(response){
+async function responsePayload(response,url='',method='GET'){
   const text=await response.text();
-  if(!response.ok)throw new Error(`HTTP ${response.status}${text.trim()?` — ${text.trim().slice(0,220)}`:''}`);
-  if(!text.trim())throw new Error('پاسخ خالی');
-  const parsed=parseJsonString(text);
-  if(typeof parsed==='string')throw new Error(`پاسخ JSON معتبر نیست: ${parsed.slice(0,160)}`);
+  const parsed=text.trim()?parseJsonString(text):null;
+  if(!response.ok){const info=responseErrorInfo(parsed,text.trim().slice(0,500)),code=response.status===409&&info.code==='api_error'?'version_conflict':info.code;throw new RayoApiError({status:response.status,code,message:info.message||`HTTP ${response.status}`,response:parsed??text,url,method})}
+  if(!text.trim())throw new RayoApiError({status:response.status,code:'empty_response',message:'پاسخ خالی',response:null,url,method});
+  if(typeof parsed==='string')throw new RayoApiError({status:response.status,code:'invalid_json',message:`پاسخ JSON معتبر نیست: ${parsed.slice(0,160)}`,response:parsed,url,method});
   return parsed;
 }
 async function loadModule(module){
-  if(MODULE_LOAD_PROMISES.has(module))return MODULE_LOAD_PROMISES.get(module);
+  const moduleKey=frontendModuleName(module),backend=backendModuleName(moduleKey);
+  if(MODULE_LOAD_PROMISES.has(moduleKey))return MODULE_LOAD_PROMISES.get(moduleKey);
   const task=(async()=>{
-    setModuleStatus(module,'loading');
+    setModuleStatus(moduleKey,'loading');
     let lastError=null;
     for(const wait of [0,700]){
       if(wait)await new Promise(r=>setTimeout(r,wait));
       try{
-        const url=appendQuery(moduleLoadUrl(module),'_',Date.now());
+        const url=appendQuery(moduleLoadUrl(moduleKey),'_',Date.now());
         const response=await fetchTimeout(url,{method:'GET',headers:{'Accept':'application/json'}});
-        const payload=await responsePayload(response);
-        const raw=extractModule(payload,module);
-        const value=normalizeModule(payload,module);
-        setModuleStatus(module,'ready');
-        MODULE_RUNTIME_STATUS[module].initialized=rawModuleInitialized(raw);
+        const payload=await responsePayload(response,url,'GET');
+        const raw=extractModule(payload,moduleKey);
+        const value=normalizeModule(payload,moduleKey);
+        setModuleStatus(moduleKey,'ready');
+        MODULE_RUNTIME_STATUS[moduleKey].initialized=rawModuleInitialized(raw);
+        rememberModuleVersion(backend,ciGet(payload,'version')??ciGet(raw,'version')??ciGet(ciGet(raw,'meta'),'version'));
         return value;
       }catch(error){
         lastError=error;
         const msg=String(error?.message||error||'');
-        if(!msg.includes('HTTP 500'))break;
+        if(error?.status!==500&&!msg.includes('HTTP 500'))break;
       }
     }
-    const backend=backendModuleName(module);
-    const wrapped=new Error(`ماژول ${backend}: ${String(lastError?.message||lastError||'خطا در دریافت اطلاعات')}`);
-    setModuleStatus(module,'error',wrapped);
+    const wrapped=lastError instanceof RayoApiError?lastError:new RayoApiError({code:'load_failed',message:`ماژول ${backend}: ${String(lastError?.message||lastError||'خطا در دریافت اطلاعات')}`,response:lastError});
+    setModuleStatus(moduleKey,'error',wrapped);
     throw wrapped;
   })();
-  MODULE_LOAD_PROMISES.set(module,task);
-  try{return await task}finally{MODULE_LOAD_PROMISES.delete(module)}
+  MODULE_LOAD_PROMISES.set(moduleKey,task);
+  try{return await task}finally{MODULE_LOAD_PROMISES.delete(moduleKey)}
 }
 
 function rayoSetSaveStatus(kind,text,module=''){
@@ -333,8 +387,35 @@ async function postJson(url,data){
     body:JSON.stringify(data)
   });
   const text=await response.text();
-  if(!response.ok)throw new Error(`HTTP ${response.status}${text.trim()?` — ${text.trim().slice(0,220)}`:''}`);
+  if(!response.ok){const parsed=text.trim()?parseJsonString(text):null,info=responseErrorInfo(parsed,text.trim().slice(0,500));throw new RayoApiError({status:response.status,code:info.code,message:info.message||`HTTP ${response.status}`,response:parsed??text,url,method:'POST'})}
   return text;
+}
+
+function responseObject(payload,requiredKey=''){
+  const queue=[payload],seen=new Set();
+  while(queue.length){const value=parseJsonString(queue.shift());if(!isObject(value)||seen.has(value))continue;seen.add(value);if(!requiredKey||ciGet(value,requiredKey)!==undefined)return value;for(const key of ['data','result','value','payload','response']){const child=ciGet(value,key);if(child!==undefined)queue.push(child)}}
+  return isObject(payload)?payload:{};
+}
+async function queryCollection(options={}){
+  if(!isObject(options))throw new RayoApiError({code:'invalid_query',message:'تنظیمات Query باید یک شیء باشد.'});
+  const moduleKey=frontendModuleName(options.module),module=backendModuleName(moduleKey),collection=String(options.collection||'').trim();
+  if(!collection)throw new RayoApiError({code:'invalid_collection',message:'نام Collection برای Query الزامی است.'});
+  const page=Math.max(1,Math.trunc(Number(options.page)||1)),pageSize=Math.min(500,Math.max(1,Math.trunc(Number(options.pageSize)||100)));
+  const request={module,collection,filters:isObject(options.filters)?options.filters:{},dateField:String(options.dateField||''),from:String(options.from||''),to:String(options.to||''),sortBy:String(options.sortBy||''),descending:options.descending===true,includeArchived:options.includeArchived===true,page,pageSize};
+  const key=stableStringify(request);
+  if(QUERY_PROMISES.has(key))return QUERY_PROMISES.get(key);
+  const task=(async()=>{try{const response=await fetchTimeout(QUERY_URL,{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8','Accept':'application/json'},body:JSON.stringify(request),signal:options.signal});const payload=await responsePayload(response,QUERY_URL,'POST'),result=responseObject(payload,'items'),items=arrayValue(ciGet(result,'items'));if(!items)throw new RayoApiError({status:response.status,code:'invalid_query_response',message:'پاسخ Query فاقد items معتبر است.',response:payload,url:QUERY_URL,method:'POST'});rememberModuleVersion(module,ciGet(result,'version')??ciGet(payload,'version'));setModuleStatus(moduleKey,'ready');return{items,page:Number(ciGet(result,'page'))||page,pageSize:Number(ciGet(result,'pageSize'))||pageSize,total:Number(ciGet(result,'total'))||0,totalPages:Number(ciGet(result,'totalPages'))||0,version:moduleVersion(module),updatedAt:ciGet(result,'updatedAt')??null}}catch(error){setModuleStatus(moduleKey,'error',error);throw error}})();
+  QUERY_PROMISES.set(key,task);try{return await task}finally{QUERY_PROMISES.delete(key)}
+}
+async function mutateRecord(options={}){
+  if(!isObject(options))throw new RayoApiError({code:'invalid_mutation',message:'تنظیمات Mutate باید یک شیء باشد.'});
+  const moduleKey=frontendModuleName(options.module),module=backendModuleName(moduleKey),collection=String(options.collection||'').trim(),operation=String(options.operation||'').trim();
+  if(!collection)throw new RayoApiError({code:'invalid_collection',message:'نام Collection برای Mutate الزامی است.'});
+  if(!['insert','update','upsert','archive'].includes(operation))throw new RayoApiError({code:'invalid_operation',message:'عملیات Mutate معتبر نیست.'});
+  const expectedVersion=options.expectedVersion===undefined?moduleVersion(module):Number(options.expectedVersion);
+  if(!Number.isFinite(expectedVersion)||expectedVersion<0)throw new RayoApiError({code:'version_unavailable',message:`نسخه ماژول ${module} در حافظه موجود نیست؛ ابتدا Query یا Load معتبر انجام دهید.`});
+  const request={module,collection,operation,recordId:String(options.recordId||''),idField:String(options.idField||'id'),expectedVersion,requestId:String(options.requestId||requestId()),data:isObject(options.data)?options.data:{}};
+  try{const response=await fetchTimeout(MUTATE_URL,{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8','Accept':'application/json'},body:JSON.stringify(request),signal:options.signal});const payload=await responsePayload(response,MUTATE_URL,'POST'),result=responseObject(payload,'version');rememberModuleVersion(module,ciGet(result,'version')??ciGet(payload,'version'));setModuleStatus(moduleKey,'ready');return result}catch(error){if(error instanceof RayoApiError&&error.status===409){error.code='version_conflict';error.name='RayoVersionConflictError';setModuleStatus(moduleKey,'conflict',error)}throw error}
 }
 function verificationMatches(sent,received){
   const sentToken=sent?.meta?.serverSaveToken;
@@ -360,36 +441,37 @@ async function verifySavedModule(module,data){
   return{checked:null,verified:false,warning:lastError?.message||'تأیید نسخه سرور با تأخیر انجام می‌شود'};
 }
 async function saveModule(module,data,{verify=true,allowSeedWrite=false,allowUnconfirmedWrite=false,allowInitialize=false}={}){
+  const moduleKey=frontendModuleName(module),backend=backendModuleName(moduleKey);
   if(SEED_OBJECTS.has(data)&&!allowSeedWrite)throw new Error('ذخیره خودکار Seed مسدود شد؛ Seed فقط از مسیر صریح «بارگذاری اولیه» یا «بازنشانی اطلاعات» توسط مدیر مجاز است.');
-  const liveConfirmed=MODULE_RUNTIME_STATUS[module]?.state==='ready';
-  const initialized=MODULE_RUNTIME_STATUS[module]?.initialized===true;
-  if(module!=='errorlog'&&!liveConfirmed&&!allowUnconfirmedWrite)throw new Error(`ذخیره ${backendModuleName(module)} مسدود شد: نسخه زنده این ماژول در این نشست از سرور با موفقیت Load نشده است. ابتدا بروزرسانی/Load سرور را انجام دهید.`);
-  if(module!=='errorlog'&&!initialized&&!allowInitialize)throw new Error(`ذخیره ${backendModuleName(module)} مسدود شد: این ماژول هنوز مقداردهی اولیه نشده است. از تنظیمات ← «بارگذاری اطلاعات اولیه» استفاده کنید.`);
-  if(!isObject(data))throw new Error(`ساختار داده ${backendModuleName(module)} برای ذخیره معتبر نیست.`);
+  const liveConfirmed=MODULE_RUNTIME_STATUS[moduleKey]?.state==='ready';
+  const initialized=MODULE_RUNTIME_STATUS[moduleKey]?.initialized===true;
+  if(moduleKey!=='errorlog'&&!liveConfirmed&&!allowUnconfirmedWrite)throw new Error(`ذخیره ${backend} مسدود شد: نسخه زنده این ماژول در این نشست از سرور با موفقیت Load نشده است. ابتدا بروزرسانی/Load سرور را انجام دهید.`);
+  if(moduleKey!=='errorlog'&&!initialized&&!allowInitialize)throw new Error(`ذخیره ${backend} مسدود شد: این ماژول هنوز مقداردهی اولیه نشده است. از تنظیمات ← «بارگذاری اطلاعات اولیه» استفاده کنید.`);
+  if(!isObject(data))throw new Error(`ساختار داده ${backend} برای ذخیره معتبر نیست.`);
   data.meta=isObject(data.meta)?data.meta:{};
-  data.meta.serverSaveToken=`${backendModuleName(module).toUpperCase()}-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+  data.meta.serverSaveToken=`${backend.toUpperCase()}-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
   data.meta.updatedAt=new Date().toISOString();
-  const url=moduleSaveUrl(module);
+  const url=moduleSaveUrl(moduleKey);
   try{
-    window.RayoSaveStatus?.saving?.(module);
+    window.RayoSaveStatus?.saving?.(moduleKey);
     await postJson(url,data);
     if(!verify){
-      if(module!=='errorlog')rayoSetSaveStatus('verified',`● ارسال به سرور انجام شد — ${new Date().toLocaleTimeString('fa-IR')} (بدون بازخوانی تأییدی)`,module);
+      if(moduleKey!=='errorlog')rayoSetSaveStatus('verified',`● ارسال به سرور انجام شد — ${new Date().toLocaleTimeString('fa-IR')} (بدون بازخوانی تأییدی)`,moduleKey);
       return{ok:true,verified:null,verificationSkipped:true};
     }
-    window.RayoSaveStatus?.verifying?.(module);
-    const result=await verifySavedModule(module,data);
+    window.RayoSaveStatus?.verifying?.(moduleKey);
+    const result=await verifySavedModule(moduleKey,data);
     if(result?.verified){
-      window.RayoSaveStatus?.verified?.(module);
+      window.RayoSaveStatus?.verified?.(moduleKey);
       return{ok:true,verified:true,checked:result.checked};
     }
     const msg=result?.warning||'تأیید نسخه سرور انجام نشد';
-    window.RayoSaveStatus?.warning?.(module,msg);
+    window.RayoSaveStatus?.warning?.(moduleKey,msg);
     const err=new Error(`ارسال انجام شد اما ذخیره روی سرور تأیید نشد. اطلاعات این صفحه را نبندید. ${msg}`);
-    try{window.RayoErrorLog?.capture?.(err,{source:'save-verify-required',module,severity:'error'})}catch(_){ }
+    try{window.RayoErrorLog?.capture?.(err,{source:'save-verify-required',module:moduleKey,severity:'error'})}catch(_){ }
     throw err;
   }catch(error){
-    if(!String(error?.message||'').includes('اطلاعات این صفحه را نبندید'))window.RayoSaveStatus?.error?.(module,String(error?.message||error||''));
+    if(!String(error?.message||'').includes('اطلاعات این صفحه را نبندید'))window.RayoSaveStatus?.error?.(moduleKey,String(error?.message||error||''));
     throw error;
   }
 }
@@ -441,6 +523,8 @@ async function loadOrBootstrap(module){
 window.RAYO_API_GATEWAY={
   loadUrl:LOAD_URL,
   saveUrl:SAVE_URL,
+  queryUrl:QUERY_URL,
+  mutateUrl:MUTATE_URL,
   backendModuleName,
   moduleLoadUrl,
   moduleSaveUrl,
@@ -450,13 +534,20 @@ window.RAYO_API_GATEWAY={
   loadModule,
   loadOrBootstrap,
   saveModule,
+  queryCollection,
+  mutateRecord,
+  createRequestId:requestId,
+  getModuleVersion:moduleVersion,
+  moduleVersions:MODULE_VERSIONS,
+  ApiError:RayoApiError,
   looksLikeModule,
   canonicalizeObject,
   apiVersion:'10.10.0',
+  apiPrefix:String(ENV.API_PREFIX||'/api/v1.0'),
   dataSource:'RayoData API only',
   currentPageFile,
-  getModuleStatus:(module)=>clone(MODULE_RUNTIME_STATUS[module]||{state:'unknown',initialized:null}),
-  isModuleInitialized:(module)=>MODULE_RUNTIME_STATUS[module]?.initialized===true,
+  getModuleStatus:(module)=>clone(MODULE_RUNTIME_STATUS[frontendModuleName(module)]||{state:'unknown',initialized:null,sourceValid:false,readOnly:true}),
+  isModuleInitialized:(module)=>MODULE_RUNTIME_STATUS[frontendModuleName(module)]?.initialized===true,
   supportedModules:()=>SUPPORTED_MODULES.slice(),
   seedConfig,
   loadSeedFile,
