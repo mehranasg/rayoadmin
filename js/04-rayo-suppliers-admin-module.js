@@ -13,7 +13,7 @@ const SUPPLIER_EMPTY_DATA={
   suppliers:[],items:[],supplierItems:[],purchaseRequests:[],changeLog:[]
 };
 let supplierState=null,supplierLoaded=false,supplierLoading=false,supplierFileHandle=null;
-const supplierUI={tab:'suppliers',search:'',group:'',status:'',itemSearch:'',itemGroup:'',relationSupplier:'',relationItem:''};
+const supplierUI={tab:'suppliers',search:'',group:'',status:'',activityType:'',itemSearch:'',itemGroup:'',relationSupplier:'',relationItem:''};
 
 function supClone(x){return JSON.parse(JSON.stringify(x))}
 function supArr(x){return Array.isArray(x)?x:[]}
@@ -90,6 +90,8 @@ function supNextCode(prefix,arr,key='code'){let max=0;supArr(arr).forEach(x=>{co
 function supText(v){return String(v??'').trim()}
 function supMoney(v){const num=Number(String(v??'').replace(/[^\d.-]/g,''));return Number.isFinite(num)&&num?`${num.toLocaleString('fa-IR')} تومان`:'—'}
 function supDisplayName(s){return s.company||s.contactName||s.code||'بدون نام'}
+function supActivity(s){return ['goods','service','both'].includes(s?.activityType)?s.activityType:'goods'}
+function supActivityLabel(s){return({goods:'تأمین کالا',service:'خدمات‌دهنده',both:'کالا و خدمات'})[supActivity(s)]}
 function supSupplierByCode(code){return supplierState?.suppliers.find(x=>x.code===code)}
 function supItemByCode(code){return supplierState?.items.find(x=>x.code===code)}
 function supRelationCountForSupplier(code){return supplierState.supplierItems.filter(x=>x.supplierCode===code).length}
@@ -113,9 +115,9 @@ function viewsSuppliers(){
 function suppliersAdminList(){
   const q=supplierUI.search.toLowerCase(),rows=supplierState.suppliers.filter(s=>{
     const hay=[s.code,s.company,s.contactName,s.phone,s.mobile,s.mainGroup,s.purchaseItemsSummary].join(' ').toLowerCase();
-    return(!q||hay.includes(q))&&(!supplierUI.group||s.mainGroup===supplierUI.group)&&(!supplierUI.status||s.status===supplierUI.status)
+    return(!q||hay.includes(q))&&(!supplierUI.group||s.mainGroup===supplierUI.group)&&(!supplierUI.status||s.status===supplierUI.status)&&(!supplierUI.activityType||supActivity(s)===supplierUI.activityType)
   });
-  return `<div class="card"><div class="section-head"><div><h2>لیست تأمین‌کنندگان</h2></div><div class="supplier-list-actions"><button class="btn btn-primary" onclick="editSupplierAdmin()">+ افزودن تأمین‌کننده</button></div></div><div class="toolbar"><div class="field"><label>جست‌وجو</label><input value="${esc(supplierUI.search)}" data-live-filter="supplierUI.search" oninput="rayoLiveFilter(this,supplierUI,'search')" placeholder="نام، شرکت، کد یا تلفن"></div><div class="field"><label>گروه</label><select onchange="supplierUI.group=this.value;renderView()"><option value="">همه گروه‌ها</option>${supListOptions('supplierGroups').map(x=>`<option ${supplierUI.group===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>وضعیت</label><select onchange="supplierUI.status=this.value;renderView()"><option value="">همه وضعیت‌ها</option>${supListOptions('statuses').map(x=>`<option ${supplierUI.status===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div></div></div><div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>کد</th><th>نام/شرکت</th><th>گروه</th><th>تماس</th><th>فاکتور</th><th>تسویه</th><th>اقلام مرتبط</th><th>وضعیت</th><th></th></tr></thead><tbody>${rows.map(s=>`<tr><td>${esc(s.code||'—')}</td><td class="supplier-name-cell"><b>${esc(supDisplayName(s))}</b><small>${s.company&&s.contactName?`رابط: ${esc(s.contactName)}`:''}</small></td><td>${esc(s.mainGroup||'—')}</td><td>${esc(s.mobile||s.phone||'—')}</td><td>${esc(s.invoiceType||'—')}</td><td>${esc(s.settlementMethod||'—')}</td><td>${supRelationCountForSupplier(s.code)}</td><td>${badge(s.status||'نامشخص')}</td><td class="supplier-actions"><button class="btn btn-sm" onclick="editSupplierAdmin('${s.id}')">ویرایش</button><button class="btn btn-sm" onclick="supplierUI.tab='relations';supplierUI.relationSupplier='${esc(s.code)}';renderView()">اقلام</button><button class="btn btn-danger btn-sm" onclick="deleteSupplierAdmin('${s.id}')">حذف</button></td></tr>`).join('')||'<tr><td colspan="9" class="empty">تأمین‌کننده‌ای ثبت نشده است.</td></tr>'}</tbody></table></div></div>`;
+  return `<div class="card"><div class="section-head"><div><h2>فهرست طرف‌های تجاری</h2></div><div class="supplier-list-actions"><button class="btn btn-primary" onclick="editSupplierAdmin()">+ افزودن طرف تجاری</button></div></div><div class="toolbar"><div class="field"><label>جست‌وجو</label><input value="${esc(supplierUI.search)}" data-live-filter="supplierUI.search" oninput="rayoLiveFilter(this,supplierUI,'search')" placeholder="نام، شرکت، کد یا تلفن"></div><div class="field"><label>نوع فعالیت</label><select onchange="supplierUI.activityType=this.value;renderView()"><option value="">همه</option><option value="goods" ${supplierUI.activityType==='goods'?'selected':''}>تأمین کالا</option><option value="service" ${supplierUI.activityType==='service'?'selected':''}>خدمات‌دهنده</option><option value="both" ${supplierUI.activityType==='both'?'selected':''}>کالا و خدمات</option></select></div><div class="field"><label>گروه</label><select onchange="supplierUI.group=this.value;renderView()"><option value="">همه گروه‌ها</option>${supListOptions('supplierGroups').map(x=>`<option ${supplierUI.group===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>وضعیت</label><select onchange="supplierUI.status=this.value;renderView()"><option value="">همه وضعیت‌ها</option>${supListOptions('statuses').map(x=>`<option ${supplierUI.status===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div></div></div><div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>کد</th><th>نام/شرکت</th><th>نوع فعالیت</th><th>تخصص/گروه</th><th>تماس</th><th>تسویه</th><th>اقلام مرتبط</th><th>وضعیت</th><th></th></tr></thead><tbody>${rows.map(s=>`<tr><td>${esc(s.code||'—')}</td><td class="supplier-name-cell"><b>${esc(supDisplayName(s))}</b><small>${s.company&&s.contactName?`رابط: ${esc(s.contactName)}`:''}</small></td><td>${esc(supActivityLabel(s))}<br><small>${esc(s.partyKind==='person'?'شخص حقیقی':'شرکت/فروشگاه')}</small></td><td>${esc(s.serviceSpecialty||s.mainGroup||'—')}</td><td>${esc(s.mobile||s.phone||'—')}</td><td>${esc(s.settlementMethod||'—')}</td><td>${supActivity(s)==='service'?'لازم نیست':supRelationCountForSupplier(s.code)}</td><td>${badge(s.status||'نامشخص')}</td><td class="supplier-actions"><button class="btn btn-sm" onclick="editSupplierAdmin('${s.id}')">ویرایش</button>${supActivity(s)!=='service'?`<button class="btn btn-sm" onclick="supplierUI.tab='relations';supplierUI.relationSupplier='${esc(s.code)}';renderView()">اقلام</button>`:''}<button class="btn btn-danger btn-sm" onclick="deleteSupplierAdmin('${s.id}')">حذف</button></td></tr>`).join('')||'<tr><td colspan="9" class="empty">طرف تجاری ثبت نشده است.</td></tr>'}</tbody></table></div></div>`;
 }
 function supplierItemsList(){
   const q=supplierUI.itemSearch.toLowerCase(),rows=supplierState.items.filter(x=>{
@@ -134,10 +136,12 @@ function supplierJsonSettings(){
 
 function editSupplierAdmin(id){
   const current=id?supplierState.suppliers.find(x=>x.id===id):null;
-  const initial=current||{code:supNextCode('SUP',supplierState.suppliers),status:'فعال',invoiceType:'نامشخص',hasTelegram:'خیر',hasWhatsapp:'خیر',hasBale:'خیر',hasPhoneCall:'بله'};
-  openForm(id?'ویرایش تأمین‌کننده':'افزودن تأمین‌کننده',[
+  const initial=current||{code:supNextCode('SUP',supplierState.suppliers),status:'فعال',activityType:'goods',partyKind:'company',invoiceType:'نامشخص',hasTelegram:'خیر',hasWhatsapp:'خیر',hasBale:'خیر',hasPhoneCall:'بله'};
+  openForm(id?'ویرایش طرف تجاری':'افزودن طرف تجاری',[
     {name:'code',label:'کد تأمین‌کننده'},{name:'status',label:'وضعیت',type:'select',options:supListOptions('statuses')},{name:'mainGroup',label:'گروه اصلی',type:'select',options:supListOptions('supplierGroups')},
+    {name:'activityType',label:'نوع فعالیت',type:'select',options:[{value:'goods',label:'تأمین کالا'},{value:'service',label:'خدمات‌دهنده'},{value:'both',label:'کالا و خدمات'}]},{name:'partyKind',label:'ماهیت طرف',type:'select',options:[{value:'company',label:'شرکت / فروشگاه'},{value:'person',label:'شخص حقیقی'}]},
     {name:'company',label:'نام شرکت / فروشگاه'},{name:'contactName',label:'نام رابط'},{name:'mobile',label:'موبایل'},{name:'phone',label:'تلفن'},
+    {name:'serviceSpecialty',label:'تخصص / نوع خدمت'},{name:'serviceDescription',label:'شرح خدمات',type:'textarea',full:true},
     {name:'invoiceType',label:'نوع فاکتور',type:'select',options:supListOptions('invoiceTypes')},{name:'orderMethod',label:'نحوه سفارش‌گذاری',type:'select',options:supListOptions('orderMethods')},{name:'orderOwner',label:'مسئول سفارش',type:'select',options:supListOptions('orderOwners')},
     {name:'orderDays',label:'روزهای سفارش‌گیری (با ویرگول جدا کنید)'},{name:'deliveryDays',label:'روزهای ارسال/تحویل (با ویرگول جدا کنید)'},{name:'deliveryTime',label:'بازه یا زمان معمول تحویل'},
     {name:'settlementMethod',label:'نحوه تسویه',type:'select',options:supListOptions('settlementMethods')},{name:'settlementDays',label:'مهلت تسویه (روز)',type:'number'},{name:'minimumOrderToman',label:'حداقل سفارش (تومان)',type:'number'},
@@ -178,7 +182,7 @@ function editSupplierRelation(id){
   const current=id?supplierState.supplierItems.find(x=>x.id===id):null;
   const initial=current||{supplierCode:supplierUI.relationSupplier||'',itemCode:supplierUI.relationItem||'',isPrimary:'خیر',status:'فعال'};
   openForm(id?'ویرایش ارتباط':'افزودن ارتباط',[
-    {name:'supplierCode',label:'تأمین‌کننده',type:'select',options:supSelectObjects(supplierState.suppliers,s=>`${s.code} | ${supDisplayName(s)}`)},
+    {name:'supplierCode',label:'تأمین‌کننده',type:'select',options:supSelectObjects(supplierState.suppliers.filter(s=>supActivity(s)!=='service'),s=>`${s.code} | ${supDisplayName(s)}`)},
     {name:'itemCode',label:'قلم',type:'select',options:supSelectObjects(supplierState.items,i=>`${i.code} | ${i.name}`)},
     {name:'suppliedSpecification',label:'برند / مشخصات تأمین‌شده',full:true},{name:'lastPurchasePriceToman',label:'آخرین قیمت خرید (تومان)',type:'number'},{name:'lastPurchaseDate',label:'تاریخ آخرین خرید'},
     {name:'minimumOrder',label:'حداقل سفارش'},{name:'deliveryTime',label:'زمان تحویل'},{name:'specialTerms',label:'شرایط ویژه',type:'textarea',full:true},{name:'isPrimary',label:'تأمین‌کننده اصلی؟',type:'select',options:supListOptions('yesNo')},{name:'status',label:'وضعیت',type:'select',options:supListOptions('statuses')},{name:'notes',label:'توضیحات',type:'textarea',full:true}
@@ -190,7 +194,7 @@ function editSupplierRelation(id){
     await supCommit(id?'ویرایش ارتباط تأمین‌کننده و قلم':'افزودن ارتباط تأمین‌کننده و قلم');
   });
 }
-async function deleteSupplierAdmin(id){const s=supplierState.suppliers.find(x=>x.id===id);if(!s||!confirm(`تأمین‌کننده «${supDisplayName(s)}» و ارتباط‌هایش حذف شود؟`))return;supplierState.suppliers=supplierState.suppliers.filter(x=>x.id!==id);supplierState.supplierItems=supplierState.supplierItems.filter(x=>x.supplierCode!==s.code);await supCommit('حذف تأمین‌کننده')}
+async function deleteSupplierAdmin(id){const s=supplierState.suppliers.find(x=>x.id===id);if(!s||!confirm(`طرف تجاری «${supDisplayName(s)}» غیرفعال و آرشیو شود؟ سوابق و ارتباط‌ها حفظ می‌شوند.`))return;Object.assign(s,{status:'غیرفعال',isArchived:true,archivedAt:new Date().toISOString(),archivedReason:'آرشیو با اقدام مدیر'});await supCommit('آرشیو طرف تجاری')}
 async function deleteSupplierItem(id){const i=supplierState.items.find(x=>x.id===id);if(!i||!confirm(`قلم «${i.name}» و ارتباط‌هایش حذف شود؟`))return;supplierState.items=supplierState.items.filter(x=>x.id!==id);supplierState.supplierItems=supplierState.supplierItems.filter(x=>x.itemCode!==i.code);await supCommit('حذف قلم')}
 async function deleteSupplierRelation(id){if(!confirm('این ارتباط حذف شود؟'))return;supplierState.supplierItems=supplierState.supplierItems.filter(x=>x.id!==id);await supCommit('حذف ارتباط تأمین‌کننده و قلم')}
 

@@ -1,0 +1,22 @@
+const fs=require('fs'),assert=require('assert');
+const base=fs.readFileSync('js/00-base.js','utf8'),settlement=fs.readFileSync('js/34-final-operational-review-v10-1.js','utf8'),css=fs.readFileSync('css/08-phase1-polish-v10-10-1.css','utf8');
+const checks=[];function ok(name,value){assert.ok(value,name);checks.push(name)}
+ok('year is a dropdown',base.includes('<label>سال تعلق انعام</label><select onchange="tipFilterChanged(\'year\',this.value)">'));
+ok('current Jalali year initializes once when invalid',base.includes('function tipEnsureSelectedYear()')&&base.includes("ui.tipFilter.year=String(tipCurrentYear())"));
+ok('Persian and English year digits normalize',base.includes("normalizeDigits(String(value??''))"));
+ok('history years and current year are listed',base.includes('tipGatewayState.availableYears')&&base.includes('new Set([current,selected,...tipGatewayState.availableYears])'));
+ok('filter uses entitlement receiveDate locally',base.includes('periodOf(g.receiveDate)')&&base.includes('p.year===Number(f.year)'));
+ok('payment date is not used by tip filter',!base.slice(base.indexOf('function tipRowsLocal'),base.indexOf('async function tipRefresh')).includes('settlementDate'));
+ok('invalid dates do not enter year options',base.includes('if(y)tipGatewayState.availableYears.add(y)'));
+ok('reference loading is one shared promise',base.includes('if(tipGatewayState.referencesPromise)return tipGatewayState.referencesPromise'));
+ok('reference lists use read-only module load',base.includes("await RAYO_API_GATEWAY.loadModule('hr')")&&!base.slice(base.indexOf('async function tipLoadReferences'),base.indexOf('function tipRowsLocal')).includes('saveModule'));
+ok('empty required lists cause explicit error',base.includes('فهرست‌های ضروری فرم انعام خالی است'));
+ok('form waits and has explicit retry',base.includes('در حال دریافت فهرست‌های فرم انعام')&&base.includes('تلاش مجدد</button>'));
+const view=base.slice(base.lastIndexOf('viewsTips=function()'),base.indexOf('async function tipRetryQuery'));
+ok('code column removed but internal id handlers remain',!view.includes('<th>کد</th>')&&view.includes("editTip('${esc(g.id)}')")&&view.includes("archiveTipRecord('${esc(g.id)}')"));
+ok('empty, loading and load error states differ',base.includes('در حال دریافت فهرست‌ها و انعام‌ها')&&base.includes('داده با موفقیت دریافت شد، اما برای فیلترهای انتخاب‌شده')&&base.includes('tipGatewayState.error.message'));
+ok('monthly settlement capability is present',settlement.includes('function saveTipSettlement()')&&settlement.includes('function voidTipSettlement(id)'));
+ok('guide contains seven steps and real action labels',(settlement.match(/<li>/g)||[]).length>=7&&settlement.includes('تسویه انعام ماهانه')&&settlement.includes('ثبت تسویه ماهانه')&&settlement.includes('ابطال تسویه'));
+ok('guide has mobile styling',css.includes('@media(max-width:640px){.tip-guide'));
+ok('no guessed timeout in tip bootstrap',!base.slice(base.indexOf("const TIP_QUERY_COLLECTION='tipGroups'"),base.indexOf('const views=')).includes('setTimeout(ensureTipGateway'));
+console.log(`PASS ${checks.length}`);checks.forEach(x=>console.log('  ✓ '+x));

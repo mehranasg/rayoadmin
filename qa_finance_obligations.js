@@ -1,0 +1,17 @@
+const fs=require('fs'),assert=require('assert');
+const src=fs.readFileSync('js/20-finance-module.js','utf8');
+const nav=fs.readFileSync('js/44-phase1-polish-v10-10-1.js','utf8');
+for(const token of ['fin.parties=A(fin.parties)','fin.obligations=A(fin.obligations)','fin.settlements=A(fin.settlements)','fin.checks=A(fin.checks)','sourceCheckId','status:\'void\'','saveModule(\'finance\',fin)','جمع ناقص','Asia/Tehran'])assert(src.includes(token),`missing ${token}`);
+assert(nav.includes("['بدهی‌ها، مطالبات و چک‌ها','finance.html?view=obligations']"));
+assert(nav.includes("['financeLedger','link','🧾','بدهی‌ها، مطالبات و چک‌ها','finance.html?view=obligations']"));
+assert(!src.includes('localStorage'));
+assert(!/saveModule\([^)]*(inventory|suppliers)/.test(src));
+const N=x=>Number(x)||0,active=x=>x.status!=='void',calc=(o,settlements,checks)=>{const settled=settlements.filter(x=>x.obligationId===o.id&&active(x)).reduce((a,x)=>a+N(x.amountToman),0),balance=Math.max(0,N(o.amountToman)-settled),pendingChecks=checks.filter(x=>x.obligationId===o.id&&active(x)&&x.status==='pending').reduce((a,x)=>a+N(x.amountToman),0);return{settled,balance,pendingChecks,uncovered:Math.max(0,balance-pendingChecks)}};
+const o={id:'OBL-1',amountToman:100000000},checks=[{id:'CHK-1',obligationId:o.id,amountToman:60000000,status:'pending'}],settlements=[];
+assert.deepStrictEqual(calc(o,settlements,checks),{settled:0,balance:100000000,pendingChecks:60000000,uncovered:40000000});
+settlements.push({id:'SET-1',sourceCheckId:'CHK-1',obligationId:o.id,amountToman:60000000,status:'active'});checks[0].status='cleared';
+assert.deepStrictEqual(calc(o,settlements,checks),{settled:60000000,balance:40000000,pendingChecks:0,uncovered:40000000});
+assert.strictEqual(settlements.filter(x=>x.sourceCheckId==='CHK-1'&&active(x)).length,1);
+settlements[0].status='void';checks[0].status='returned';
+assert.deepStrictEqual(calc(o,settlements,checks),{settled:0,balance:100000000,pendingChecks:0,uncovered:100000000});
+console.log('finance obligations QA: passed');

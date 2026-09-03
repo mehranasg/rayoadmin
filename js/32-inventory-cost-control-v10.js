@@ -47,7 +47,7 @@ function optionRows(rows,selected,label=x=>x.name){return A(rows).map(x=>`<optio
 function ensureSchema(){
  if(!inv||!pricing)return false;
  inv.settings=inv.settings||{};pricing.settings=pricing.settings||{};
- for(const k of ['locations','openingBalances','inventoryMovements','consumptionRecords','purchaseInvoices','supplierPayments','stockReceipts','wasteRecords','wasteShiftDeclarations','salesPeriods','stocktakes','trackedIngredients','periodClosures','changeLog'])if(!Array.isArray(inv[k]))inv[k]=[];
+ for(const k of ['locations','openingBalances','inventoryMovements','consumptionRecords','purchaseInvoices','supplierPayments','supplierDirectDebts','stockReceipts','wasteRecords','wasteShiftDeclarations','salesPeriods','stocktakes','trackedIngredients','periodClosures','changeLog'])if(!Array.isArray(inv[k]))inv[k]=[];
  if(!Array.isArray(pricing.recipeVersions))pricing.recipeVersions=[];
  if(!Array.isArray(pricing.changeLog))pricing.changeLog=[];
  if(!inv.locations.length)inv.locations.push(
