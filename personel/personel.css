@@ -1,0 +1,16 @@
+/* Mobile-first shell for the multi-page personnel panel. */
+.staff-panel-body .side-main-link{display:flex;text-decoration:none}
+.staff-panel-body .staff-topbar-main{min-width:0}
+.staff-panel-body .form-grid>.field{display:grid;grid-template-columns:minmax(88px,36%) minmax(0,1fr);align-items:center;gap:8px 10px}
+.staff-panel-body .form-grid>.field>label{margin:0;line-height:1.45}
+.staff-panel-body .form-grid>.field>input,.staff-panel-body .form-grid>.field>select,.staff-panel-body .form-grid>.field>textarea,.staff-panel-body .form-grid>.field>.password-input-shell{min-width:0;width:100%}
+.staff-panel-body .form-grid>.field>textarea{min-height:72px}
+.staff-panel-body .form-grid>.field.full{grid-template-columns:minmax(88px,24%) minmax(0,1fr)}
+.staff-panel-body .form-grid>.field.full>*:not(label){grid-column:2}
+.staff-panel-body[data-staff-view="dashboard"] #staffView>.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.staff-panel-body[data-staff-view="dashboard"] .module-link .card{margin:0;padding:12px;min-height:112px}
+.staff-panel-body[data-staff-view="dashboard"] .module-icon{font-size:23px;margin-bottom:5px}
+.staff-panel-body[data-staff-view="dashboard"] .module-link h3{font-size:13px;line-height:1.5;margin-bottom:3px}
+.staff-panel-body[data-staff-view="dashboard"] .module-link p{font-size:10px;line-height:1.5}
+@media(max-width:680px){.staff-panel-body .main{padding-inline:10px}.staff-panel-body .topbar{gap:6px;padding-inline:10px}.staff-panel-body .topbar .top-actions{gap:4px}.staff-panel-body .form-grid{grid-template-columns:1fr!important;gap:10px}.staff-panel-body .form-grid>.field,.staff-panel-body .form-grid>.field.full{grid-column:1!important;grid-template-columns:minmax(78px,32%) minmax(0,1fr)!important;gap:7px}.staff-panel-body .form-grid>.field>label{font-size:11px}.staff-panel-body .form-grid>.field.full>*:not(label){grid-column:2}.staff-panel-body .form-grid>.field .staff-asset-picker,.staff-panel-body .form-grid>.field .permission-grid,.staff-panel-body .form-grid>.field .tip-weight-grid{grid-column:2;min-width:0}.staff-panel-body[data-staff-view="dashboard"] #staffView>.grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px}.staff-panel-body[data-staff-view="dashboard"] .module-link .card{padding:9px;min-height:96px}.staff-panel-body[data-staff-view="dashboard"] .page-head{margin-bottom:10px}.staff-panel-body[data-staff-view="dashboard"] .page-head h1{font-size:19px}.staff-panel-body[data-staff-view="dashboard"] .module-link p{display:none}}
+@media(max-width:390px){.staff-panel-body .form-grid>.field,.staff-panel-body .form-grid>.field.full{grid-template-columns:minmax(72px,30%) minmax(0,1fr)!important}.staff-panel-body #staffTitle{display:block;max-width:112px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.staff-panel-body[data-staff-view="dashboard"] .module-link h3{font-size:12px}}

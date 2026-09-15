@@ -1,0 +1,21 @@
+const assert=require('assert');
+(async()=>{
+  const target=(await fetch('http://127.0.0.1:9224/json').then(r=>r.json())).find(x=>x.type==='page'&&x.url.includes('8766'));
+  assert(target);const ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise((ok,no)=>{ws.onopen=ok;ws.onerror=no});let id=0;const jobs=new Map;
+  ws.onmessage=e=>{const m=JSON.parse(e.data),j=jobs.get(m.id);if(j){jobs.delete(m.id);m.error?j.no(Error(m.error.message)):j.ok(m.result)}};
+  const call=(method,params={})=>new Promise((ok,no)=>{const n=++id;jobs.set(n,{ok,no});ws.send(JSON.stringify({id:n,method,params}))});
+  const ev=async expression=>{const r=await call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(r.exceptionDetails.exception?.description||r.exceptionDetails.text);return r.result.value};
+  await ev(`sessionStorage.setItem('rayo_admin_user','qa-admin')`);await call('Page.navigate',{url:'http://127.0.0.1:8766/menu-management.html'});await new Promise(r=>setTimeout(r,1800));
+  await ev(`(()=>{const p=getPricingState();p.menuItems=[{id:'M1',code:'M-1',name:'پیتزا تست',category:'پیتزا',currentPriceToman:200000,status:'فعال'}];p.ingredients=[{id:'I1',code:'I-1',name:'پنیر تست',category:'لبنیات',itemType:'MENU_INGREDIENT',recipeUnit:'گرم',purchaseUnit:'کیلوگرم',packageQuantity:1000,lastPurchasePriceToman:300000,status:'فعال'}];p.recipes=[{id:'R1',menuItemId:'M1',ingredientId:'I1',quantity:100,notes:''}];p.lists.menuCategories=['پیتزا'];p.settings.categoryTargets={پیتزا:35};renderView()})()`);
+  assert.strictEqual(await ev(`document.getElementById('topTitle').textContent`),'مدیریت منو');
+  await ev(`pcOpenRecipe('M1')`);assert((await ev(`document.getElementById('modalTitle').textContent`)).includes('پیتزا تست'));const popupText=await ev(`document.getElementById('modalBody').textContent`);assert(popupText.includes('قیمت فعلی'));assert(popupText.includes('پنیر تست'));
+  await ev(`closeModal()`);await call('Page.navigate',{url:'http://127.0.0.1:8766/menu-management.html?tab=recipes'});await new Promise(r=>setTimeout(r,900));
+  await ev(`(()=>{const p=getPricingState();p.menuItems=[{id:'M1',code:'M-1',name:'پیتزا تست',category:'پیتزا',currentPriceToman:200000,status:'فعال'}];p.ingredients=[{id:'I1',code:'I-1',name:'پنیر تست',category:'لبنیات',itemType:'MENU_INGREDIENT',recipeUnit:'گرم',purchaseUnit:'کیلوگرم',packageQuantity:1000,lastPurchasePriceToman:300000,status:'فعال'}];p.recipes=[{id:'R1',menuItemId:'M1',ingredientId:'I1',quantity:100,notes:''}];pricingUI.recipeItemId='';renderView()})()`);
+  assert.strictEqual(await ev(`document.getElementById('v1011RecipeMenu').value`),'');assert((await ev(`document.getElementById('v1011RecipeDetail').textContent`)).includes('ابتدا یک آیتم'));
+  await ev(`document.getElementById('v1011RecipeMenuSearch').value='ناموجود';RayoMenuV1011.recipeFilter()`);assert.strictEqual(await ev(`document.querySelector('#v1011RecipeMenu option[value="M1"]').hidden`),true);
+  await ev(`document.getElementById('v1011RecipeMenuSearch').value='پیتزا';RayoMenuV1011.recipeFilter()`);assert.strictEqual(await ev(`document.querySelector('#v1011RecipeMenu option[value="M1"]').hidden`),false);
+  await ev(`RayoMenuV1011.selectRecipe('M1')`);assert((await ev(`document.getElementById('v1011RecipeDetail').textContent`)).includes('قیمت پیشنهادی'));
+  await ev(`pcEditRecipeLine('M1')`);await ev(`document.getElementById('v1011RecipeIngredientSearch').value='پنیر';RayoMenuV1011.renderIngredientResults('پنیر')`);assert((await ev(`document.getElementById('v1011IngredientResults').textContent`)).includes('پنیر تست'));
+  await ev(`RayoMenuV1011.chooseIngredient('I1')`);assert((await ev(`document.getElementById('pc_r_qty_label').textContent`)).includes('گرم'));assert((await ev(`document.getElementById('v1011SelectedIngredient').textContent`)).includes('واحد مقدار: گرم'));
+  ws.close();console.log('PASS menu recipe UI: title, popup, empty selection, filters and ingredient unit');
+})().catch(e=>{console.error(e);process.exitCode=1});

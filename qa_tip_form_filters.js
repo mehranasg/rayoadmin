@@ -9,6 +9,7 @@ ok('filter uses entitlement receiveDate locally',base.includes('periodOf(g.recei
 ok('payment date is not used by tip filter',!base.slice(base.indexOf('function tipRowsLocal'),base.indexOf('async function tipRefresh')).includes('settlementDate'));
 ok('invalid dates do not enter year options',base.includes('if(y)tipGatewayState.availableYears.add(y)'));
 ok('reference loading is one shared promise',base.includes('if(tipGatewayState.referencesPromise)return tipGatewayState.referencesPromise'));
+ok('tip array normalizer is defined before query rendering',base.indexOf('const A=x=>Array.isArray(x)?x:[];')<base.indexOf("const TIP_QUERY_COLLECTION='tipGroups'"));
 ok('reference lists use read-only module load',base.includes("await RAYO_API_GATEWAY.loadModule('hr')")&&!base.slice(base.indexOf('async function tipLoadReferences'),base.indexOf('function tipRowsLocal')).includes('saveModule'));
 ok('empty required lists cause explicit error',base.includes('فهرست‌های ضروری فرم انعام خالی است'));
 ok('form waits and has explicit retry',base.includes('در حال دریافت فهرست‌های فرم انعام')&&base.includes('تلاش مجدد</button>'));

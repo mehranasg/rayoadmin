@@ -69,7 +69,7 @@ const MODULE_FIELDS={
   suppliers:{arrays:['suppliers','items','supplierItems','purchaseRequests','changeLog'],objects:['meta','lists']},
   pricing:{arrays:['ingredients','menuItems','recipes','recipeVersions','priceHistory','ingredientPriceHistory','changeLog'],objects:['meta','settings','lists']},
   inventory:{arrays:['trackedIngredients','periods','itemMappings','changeLog','purchaseInvoices','supplierPayments','stockReceipts','wasteRecords','wasteShiftDeclarations','consumptionRecords','salesPeriods','stocktakes','locations','openingBalances','inventoryMovements','periodClosures','operationalUsagePeriods'],objects:['meta','settings']},
-  cashreport:{arrays:['cashiers','reports','changeLog'],objects:['meta','settings','salesAnalytics']},
+  cashreport:{arrays:['cashiers','transferAccounts','cashRecipients','reports','changeLog'],objects:['meta','settings','salesAnalytics']},
   assets:{arrays:['assets','maintenanceRecords','quantityTransactions','assetIncidents','counts','changeLog'],objects:['meta','settings','lists']},
   finance:{arrays:['entries','monthlyOverrides','changeLog'],objects:['meta','settings']},
   survey:{arrays:['responses','changeLog'],objects:['meta','settings']},
@@ -92,7 +92,7 @@ const MODULE_DEFAULTS={
   },
   cashreport:{
     meta:{schemaVersion:'1.0.0',module:'Rayo Cash Report',restaurant:'کافه‌رستوران رایو',currency:'ریال',updatedAt:null},
-    settings:{inputCurrency:'ریال',displayCurrency:'تومان',discrepancyLimit:1000000},salesAnalytics:{daily:[],monthly:[],itemDaily:[]},cashiers:[],reports:[],changeLog:[]
+    settings:{inputCurrency:'ریال',displayCurrency:'تومان',discrepancyLimit:1000000},salesAnalytics:{daily:[],monthly:[],itemDaily:[]},cashiers:[],transferAccounts:[],cashRecipients:[],reports:[],changeLog:[]
   },
   assets:{
     meta:{schemaVersion:'1.0.0',module:'Rayo Assets',restaurant:'کافه‌رستوران رایو',currency:'تومان',updatedAt:null},

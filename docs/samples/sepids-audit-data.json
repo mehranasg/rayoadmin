@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "initialized": true,
+    "schemaVersion": "1.0.0",
+    "module": "Rayo Sepidz Audit",
+    "restaurant": "کافه‌رستوران رایو",
+    "currency": "تومان",
+    "initializationSource": "manual-upload",
+    "initializedAt": "2026-09-04T00:00:00+03:30",
+    "updatedAt": "2026-09-04T00:00:00+03:30"
+  },
+  "settings": {
+    "sourceCurrency": "ریال",
+    "currencyDivisor": 10,
+    "deletedAmountThresholdToman": 5000000,
+    "lateDeleteMinutes": 20,
+    "repeatEditThreshold": 2,
+    "riskHigh": 60,
+    "riskCritical": 80,
+    "highRiskMenuItemIds": [],
+    "menuAliases": {}
+  },
+  "importBatches": [],
+  "rawBlocks": [],
+  "events": [],
+  "eventItems": [],
+  "changes": [],
+  "alerts": [],
+  "reviews": [],
+  "links": []
+}

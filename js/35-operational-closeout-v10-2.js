@@ -9,7 +9,7 @@ const M=x=>`${F(Math.round(N(x)))} تومان`;
 const now=()=>new Date().toISOString();
 const today=()=>window.RayoJalali?.today?.()||'';
 let personnelScope='فعال';
-const targetHrViews=new Set(['protocols','checklistTemplates','checklistReports','payroll','payslip','tips','penalties','delays','payments','consumption','leaves','salaryCalculator','salaryReverse','salaryPersonnel','salaryRates','salarySettings','costForecast','personnelProfile','personnelReports']);
+const targetHrViews=new Set(['protocols','checklistTemplates','checklistReports','payslip','tips','penalties','delays','payments','consumption','leaves','salaryCalculator','salaryReverse','salaryPersonnel','salaryRates','salarySettings','costForecast','personnelProfile','personnelReports']);
 const moduleResetLabels={hr:'پرسنل و حقوق',suppliers:'تأمین‌کنندگان',pricing:'قیمت‌گذاری و رسپی',inventory:'انبار و کنترل مصرف',cashreport:'گزارش صندوق',assets:'اموال و دارایی',finance:'مالی',survey:'نظرسنجی',sepidsaudit:'Audit سپیدز',errorlog:'لاگ خطا'};
 function hrState(){try{return typeof state!=='undefined'?state:null}catch(_){return null}}
 function currentViewName(){return new URLSearchParams(location.search).get('view')||window.currentView||''}

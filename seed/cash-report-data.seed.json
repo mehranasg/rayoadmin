@@ -29,6 +29,8 @@
       "notes": ""
     }
   ],
+  "transferAccounts": [],
+  "cashRecipients": [],
   "reports": [],
   "changeLog": [],
   "salesAnalytics": {

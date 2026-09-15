@@ -96,7 +96,10 @@ function supSupplierByCode(code){return supplierState?.suppliers.find(x=>x.code=
 function supItemByCode(code){return supplierState?.items.find(x=>x.code===code)}
 function supRelationCountForSupplier(code){return supplierState.supplierItems.filter(x=>x.supplierCode===code).length}
 function supRelationCountForItem(code){return supplierState.supplierItems.filter(x=>x.itemCode===code).length}
-function supListOptions(key){return supArr(supplierState?.lists?.[key])}
+function supListOptions(key){
+  const options=supArr(supplierState?.lists?.[key]);
+  return key==='orderMethods'?supUnique([...options,'اس ام اس']):options;
+}
 function supSelectObjects(arr,labelFn,valueKey='code'){return supArr(arr).map(x=>({value:x[valueKey],label:labelFn(x)}))}
 
 function supTabs(){

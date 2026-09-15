@@ -1,0 +1,13 @@
+const fs=require('fs'),assert=require('assert');
+const admin=fs.readFileSync('js/11-rayo-cash-report-module.js','utf8');
+const publicApp=fs.readFileSync('cash-report/js/app.js','utf8');
+const html=fs.readFileSync('cash-report.html','utf8');
+const finance=fs.readFileSync('js/20-finance-module.js','utf8');
+const config=fs.readFileSync('js/config.js','utf8');
+for(const token of ['transferAccounts','cashRecipients','cardToCardAccountId','cashRecipientId','cardToCardAccountNameSnapshot','cashRecipientNameSnapshot'])assert(admin.includes(token),`admin missing ${token}`);
+for(const token of ['cardToCardAccount','cashRecipient','fillDestinations','loadOrBootstrap(MODULE)'])assert(publicApp.includes(token)||html.includes(token),`public cash report missing ${token}`);
+for(const token of ['سایر دریافت، پرداخت‌ها','+ دریافت','+ پرداخت','financeAccountOptions','accountId','accountNameSnapshot'])assert(finance.includes(token),`finance missing ${token}`);
+assert(config.includes("'transferAccounts','cashRecipients','reports'"),'cashreport contract does not retain destination arrays');
+const loadBody=publicApp.slice(publicApp.indexOf('async function loadApi'),publicApp.indexOf('async function loadState'));
+assert(!loadBody.includes('saveModule'),'normal public load must not save');
+console.log('cash destinations QA: passed');
