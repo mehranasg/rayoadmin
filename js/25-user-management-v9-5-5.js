@@ -79,7 +79,7 @@ function install(){
   titles.userManagement='مدیریت دسترسی‌ها';views.userManagement=view;
   Object.assign(window,{RayoUserManagement:{ui},openUserManagementEditorV955:openEditor,saveUserManagementV955:saveEditor});
   const file=(location.pathname.split('/').pop()||'').toLowerCase(),q=new URLSearchParams(location.search).get('view');
-  if(file==='personnel.html'&&q==='userManagement')setTimeout(()=>goView('userManagement'),200);
+  if(file==='personnel.html'&&q==='userManagement')(currentView==='userManagement'&&renderView());
 }
 install();
 })();

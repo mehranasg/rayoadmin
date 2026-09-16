@@ -54,7 +54,7 @@ function install(){
   if(views.personnelProfile&&!views.personnelProfile.__v953){const old=views.personnelProfile,w=()=>profileAddon(old());w.__v953=true;views.personnelProfile=w}
   if(views.dashboard&&!views.dashboard.__advanceV953){const old=views.dashboard,w=()=>dashboardAdvanceCard(old());w.__advanceV953=true;views.dashboard=w}
   Object.assign(window,{personnelReportsUI:reportUI,editWorkViolationV953:editViolation,saveWorkViolationV953:saveViolation,deleteWorkViolationV953:deleteViolation,toggleViolationCustomV953,saveViolationSettingsV953:saveViolationSettings});
-  const file=(location.pathname.split('/').pop()||'').toLowerCase(),q=new URLSearchParams(location.search).get('view');if(file==='personnel.html'&&q&&views[q])setTimeout(()=>goView(q),250);
+  const file=(location.pathname.split('/').pop()||'').toLowerCase(),q=new URLSearchParams(location.search).get('view');if(file==='personnel.html'&&q&&views[q])(currentView===q&&renderView());
   setTimeout(()=>window.RayoJalali?.mark?.(),400);
 }
 install();

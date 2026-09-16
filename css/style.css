@@ -284,3 +284,6 @@ body.staff-panel-body .main{padding-top:82px}
 .password-eye-btn:hover,.password-eye-btn:focus-visible{background:rgba(127,127,127,.12);outline:none}
 .password-eye-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .password-eye-btn .eye-off{display:none}.password-eye-btn.is-visible .eye-open{display:none}.password-eye-btn.is-visible .eye-off{display:block}
+
+/* Preserve layout while the initial route and its view patches are installed. */
+html.rayo-starting #appShell{visibility:hidden}
