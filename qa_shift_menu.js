@@ -26,6 +26,6 @@ check('گروه جاری هم‌زمان Open و Active می‌شود',menu.incl
 check('قابلیت shift در تنظیمات نمایش وجود دارد و نبود کلید آن را مخفی نمی‌کند',menu.includes("['shift','مدیریت شیفت پلن']")&&menu.includes("vis()[k]!==false"));
 check('Router تمام Deep Linkهای شیفت را می‌پذیرد',shiftViews.every(view=>shell.includes(`'${view}'`))&&shell.includes("q&&hrViews.has(q)"));
 check('Viewهای اصلی شیفت واقعاً ثبت شده‌اند',shiftViews.filter(view=>view!=='staffingCapacity').every(view=>base.includes(`${view}:`))&&overrides.includes('views.staffingCapacity=viewsStaffingCapacityV6'));
-check('همه صفحات مشترک Cache Key جدید منو را بارگذاری می‌کنند',htmlFiles.length>=14&&htmlFiles.every(name=>fs.readFileSync(name,'utf8').includes('44-phase1-polish-v10-10-1.js?v=10.12.1-personnel-list-columns-1')));
+check('همه صفحات مشترک Cache Key جدید منو را بارگذاری می‌کنند',htmlFiles.length>=14&&htmlFiles.every(name=>fs.readFileSync(name,'utf8').includes('44-phase1-polish-v10-10-1.js?v=10.12.1-personnel-tabs-layout-1')));
 
 console.log(`PASS ${passed}`);
