@@ -2,12 +2,13 @@ const assert=require('assert'),fs=require('fs'),vm=require('vm');
 const code=fs.readFileSync('js/46-inventory-operations-v10-12.js','utf8');
 function setup(){
  const state={settings:{mainLocationId:'main'},stocktakes:[],locations:[{id:'main',name:'انبار'}]},items=[{id:'a',name:'آرد',recipeUnit:'گرم'},{id:'b',name:'شیر'},{id:'c',name:'نمک'}];
- const inputs=items.map(i=>({dataset:{v1012BulkQty:i.id},value:''}));
+ const inputs=items.map(i=>({dataset:{v1012BulkQty:i.id},value:''})),prices=items.map(i=>({dataset:{v1012BulkPrice:i.id},value:''}));
  const els={v1012BulkDate:{value:'۱۴۰۵/۰۶/۲۴'},v1012BulkLoc:{value:'main'},v1012BulkOpening:{checked:false},v1012BulkFields:{disabled:false},v1012BulkStatus:{textContent:''}};
  let saves=0,failure=null;const errors=[];
  const context={console,URLSearchParams,location:{pathname:'/test.html',search:''},sessionStorage:{getItem:()=> 'admin'},document:{readyState:'loading',querySelector:()=>null,createElement:()=>({}),head:{appendChild(){}},addEventListener(){},getElementById:id=>els[id],querySelectorAll:s=>s==='[data-v1012-bulk-qty]'?inputs:[]},setTimeout(){},getInventoryState:()=>state,getPricingState:()=>({ingredients:items}),RayoJalali:{today:()=> '1405/06/24'},RayoInventoryV10:{isReady:()=>true,positionAtLocation:()=>({quantity:10,unitCost:2,baseDate:'1405/06/01',baseQuantity:10,movementNet:0,salesConsumption:0})},RAYO_API_GATEWAY:{createRequestId:()=>String(saves+1),saveModule:async(module)=>{assert.equal(module,'inventory');saves++;await Promise.resolve();if(failure)throw failure},loadModule:async()=>{throw Error('offline')}},toast:(msg,error)=>{if(error)errors.push(msg)}};
  context.window=context;vm.createContext(context);vm.runInContext(code,context);
- return {state,items,inputs,els,context,errors,api:context.RayoInventoryV1012,saves:()=>saves,fail:e=>failure=e};
+ const query=context.document.querySelectorAll;context.document.querySelectorAll=s=>s==='[data-v1012-bulk-price]'?prices:query(s);
+ return {state,items,inputs,prices,els,context,errors,api:context.RayoInventoryV1012,saves:()=>saves,fail:e=>failure=e};
 }
 function searchChecks(){
  const t=setup();
@@ -49,5 +50,8 @@ function searchChecks(){
  t.inputs[0].value='5';await t.api.saveBulkCount();assert.equal(t.saves(),1);t.inputs[0].value='4';t.fail(null);await t.api.saveBulkCount();assert.equal(t.saves(),2);assert.equal(t.state.stocktakes[0].id,'ST-BULK-1');
  t=setup();t.state.settings.countApprovalRequired=true;t.els.v1012BulkOpening.checked=true;t.inputs[0].value='2';await t.api.saveBulkCount();assert.equal(t.state.stocktakes[0].status,'submitted');assert.equal(t.state.stocktakes[0].lines[0].variance,0);
  t=setup();t.state.periodClosures=[{status:'closed',from:'1405/06/01',to:'1405/06/31'}];t.inputs[0].value='1';await t.api.saveBulkCount();assert.equal(t.saves(),0);
+ t=setup();t.items[0].packageQuantity=5;t.inputs[0].value='۲٫۳۴';t.prices[0].value='۱۲۰٬۰۰۰';await t.api.saveBulkCount();assert.equal(t.state.stocktakes[0].lines[0].unitCost,120000);assert.equal(t.state.stocktakes[0].lines[0].purchasePriceToman,600000);assert.equal(t.state.stocktakes[0].lines[0].actual,2.34);assert.equal(t.saves(),1);assert.equal(t.prices[0].value,'');
+ t=setup();t.inputs[0].value='2.5';t.prices[0].value='bad';await t.api.saveBulkCount();assert.equal(t.saves(),0);assert.equal(t.inputs[0].value,'2.5');
+ t=setup();t.inputs[0].value='2.5';t.prices[0].value='120';t.fail(Object.assign(Error('offline'),{code:'network_error'}));await t.api.saveBulkCount();assert.equal(t.prices[0].value,'120');t.prices[0].value='121';await t.api.saveBulkCount();assert.equal(t.saves(),1,'uncertain retry cannot change its price');
  console.log('PASS bulk count: load, zero, decimals, blanks, double-click, date overlap, invalid quantities, rollback, retry identity, approval policy, opening baseline, closed period');
 })().catch(e=>{console.error(e);process.exitCode=1});
