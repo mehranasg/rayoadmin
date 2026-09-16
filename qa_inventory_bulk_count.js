@@ -7,9 +7,36 @@ function setup(){
  let saves=0,failure=null;const errors=[];
  const context={console,URLSearchParams,location:{pathname:'/test.html',search:''},sessionStorage:{getItem:()=> 'admin'},document:{readyState:'loading',querySelector:()=>null,createElement:()=>({}),head:{appendChild(){}},addEventListener(){},getElementById:id=>els[id],querySelectorAll:s=>s==='[data-v1012-bulk-qty]'?inputs:[]},setTimeout(){},getInventoryState:()=>state,getPricingState:()=>({ingredients:items}),RayoJalali:{today:()=> '1405/06/24'},RayoInventoryV10:{isReady:()=>true,positionAtLocation:()=>({quantity:10,unitCost:2,baseDate:'1405/06/01',baseQuantity:10,movementNet:0,salesConsumption:0})},RAYO_API_GATEWAY:{createRequestId:()=>String(saves+1),saveModule:async(module)=>{assert.equal(module,'inventory');saves++;await Promise.resolve();if(failure)throw failure},loadModule:async()=>{throw Error('offline')}},toast:(msg,error)=>{if(error)errors.push(msg)}};
  context.window=context;vm.createContext(context);vm.runInContext(code,context);
- return {state,inputs,els,errors,api:context.RayoInventoryV1012,saves:()=>saves,fail:e=>failure=e};
+ return {state,items,inputs,els,context,errors,api:context.RayoInventoryV1012,saves:()=>saves,fail:e=>failure=e};
+}
+function searchChecks(){
+ const t=setup();
+ t.items[0].name='کیک یزدی';t.items[0].code='120';
+ t.items[1].name='شیر کم\u200cچرب';t.items[1].code='121';
+ const select=t.els.v1012RecIng={value:'a',innerHTML:''};
+ t.api.filterReceiptItems('كيك يزدي');assert(select.innerHTML.includes('value="a"'));assert(!select.innerHTML.includes('value="b"'));assert.equal(select.value,'a');
+ t.api.filterReceiptItems('١٢١');assert(select.innerHTML.includes('value="b"'));assert(!select.innerHTML.includes('value="a"'));assert.equal(select.value,'');
+ t.api.filterReceiptItems('شیر کم چرب');assert(select.innerHTML.includes('value="b"'));
+ t.api.filterReceiptItems('نام ناموجود');assert(!select.innerHTML.includes('value="a"'));assert(select.innerHTML.includes('قلمی یافت نشد'));
+ t.api.filterReceiptItems('');assert(t.items.every(i=>select.innerHTML.includes(`value="${i.id}"`)));
+ const rows=Array.from({length:60},(_,n)=>({hidden:n>=25,dataset:{search:`${n} قلم`,...(n>=25?{rayoPageHidden:'1'}:{})},querySelector:()=>null,cells:[],isConnected:true}));
+ t.context.document.querySelectorAll=s=>s==='[data-v1012-bulk-row]'?rows:[];
+ const label={textContent:''},table={isConnected:true,tBodies:[{rows}]};
+ const listState=new WeakMap([[table,{page:1,pageSize:25,sortIndex:-1,direction:'',original:rows,meta:{querySelector:()=>label},prev:{},next:{},pageLabel:{}}]]);
+ const phase=fs.readFileSync('js/44-phase1-polish-v10-10-1.js','utf8');
+ const pagination=phase.slice(phase.indexOf('function listRows('),phase.indexOf('function enhanceList('));
+ const c={listState,table};vm.createContext(c);vm.runInContext(pagination,c);
+ t.inputs[0].value='12';
+ t.api.filterBulkItems('۵۹');vm.runInContext('renderList(table)',c);
+ assert.deepEqual(rows.filter(r=>!r.hidden),[rows[59]],'pagination must not restore nonmatching rows');
+ t.api.filterBulkItems('نام ناموجود');vm.runInContext('renderList(table)',c);assert(rows.every(r=>r.hidden));
+ t.api.filterBulkItems('');vm.runInContext('renderList(table)',c);assert.equal(rows.filter(r=>!r.hidden).length,25);
+ t.api.filterBulkItems('۵۹');vm.runInContext('renderList(table)',c);assert.deepEqual(rows.filter(r=>!r.hidden),[rows[59]]);
+ assert.equal(t.inputs[0].value,'12','filtering preserves entered quantities');assert.equal(t.saves(),0,'search must never save');
+ console.log('PASS receipt and bulk search: Persian/Arabic letters and digits, selection, reset, no results, real pagination, quantity preservation, no save');
 }
 (async()=>{
+ searchChecks();
  let t=setup();assert.equal(t.saves(),0,'loading must not save');
  t.inputs[0].value='۰';t.inputs[1].value='١٢٫٥';
  await Promise.all([t.api.saveBulkCount(),t.api.saveBulkCount()]);
