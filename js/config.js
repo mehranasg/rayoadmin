@@ -68,7 +68,7 @@ const MODULE_FIELDS={
   hr:{arrays:['personnel','weeklyPlans','monthlyPlans','shiftRecords','monthlyAdjustments','tipGroups','penaltiesRewards','delays','payments','consumptions','leaves','leaveRequests','payrollClosures','staffingRequirements','holidays','changeLog'],objects:['meta','lists','settings','salaryModel','floorMap']},
   suppliers:{arrays:['suppliers','items','supplierItems','purchaseRequests','changeLog'],objects:['meta','lists']},
   pricing:{arrays:['ingredients','menuItems','recipes','recipeVersions','priceHistory','ingredientPriceHistory','changeLog'],objects:['meta','settings','lists']},
-  inventory:{arrays:['trackedIngredients','periods','itemMappings','changeLog','purchaseInvoices','supplierPayments','stockReceipts','wasteRecords','wasteShiftDeclarations','consumptionRecords','salesPeriods','stocktakes','locations','openingBalances','inventoryMovements','periodClosures','operationalUsagePeriods'],objects:['meta','settings']},
+  inventory:{arrays:['trackedIngredients','periods','itemMappings','changeLog','purchaseInvoices','supplierPayments','stockReceipts','wasteRecords','wasteShiftDeclarations','consumptionRecords','salesPeriods','stocktakes','locations','openingBalances','inventoryMovements','periodClosures','operationalUsagePeriods','operationalConsumptionProfiles'],objects:['meta','settings']},
   cashreport:{arrays:['cashiers','transferAccounts','cashRecipients','reports','changeLog'],objects:['meta','settings','salesAnalytics']},
   assets:{arrays:['assets','maintenanceRecords','quantityTransactions','assetIncidents','counts','changeLog'],objects:['meta','settings','lists']},
   finance:{arrays:['entries','monthlyOverrides','changeLog'],objects:['meta','settings']},
