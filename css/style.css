@@ -217,7 +217,7 @@
  .v102-snapp-row{grid-template-columns:1fr}.v102-snapp-row>.btn{width:100%}
  .staff-manager-message{margin-top:0}
 }
-@media(max-width:420px){.topbar{font-size:12px}.topbar .btn{padding:7px 8px;font-size:11px}.main{padding:10px}.card{padding:11px}.modal-backdrop{padding:8px!important}.modal{max-height:88dvh!important}.jalali-selects{grid-template-columns:1fr!important}.jalali-actions .btn{flex:1 1 100%}}
+@media(max-width:420px){.topbar{font-size:12px}.topbar .btn{padding:7px 8px;font-size:11px}.main{padding:10px}.card{padding:11px}.modal-backdrop{padding:8px!important}.modal{max-height:88dvh!important}.jalali-selects{grid-template-columns:repeat(3,minmax(0,1fr))!important}.jalali-actions .btn{flex:1 1 100%}}
 
 /* ===== Rayo v10.3 final inventory ===== */
 .v103-snapp-row{border:1px solid var(--border);border-radius:12px;padding:10px;background:#fbfcfd}
