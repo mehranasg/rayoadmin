@@ -32,7 +32,7 @@ check('catalog value wins and legacy tracked value is fallback only',reorderCont
 
 check('form shows unit and threshold explanation',pricing.includes('pc_i_reorder_unit')&&pricing.includes('وقتی موجودی به این مقدار یا کمتر برسد'));
 check('save stores reorderPoint on the central ingredient',/reorderPoint:reorder\.value/.test(pricing));
-check('failed save restores the item and keeps modal open',/const ok=await pcCommit/.test(pricing)&&/if\(!ok\)/.test(pricing));
+check('failed save restores the item and keeps modal open',/const ok=(?:staged&&)?await pcCommit/.test(pricing)&&/if\(!ok\)/.test(pricing));
 check('old tracked value is recovered for editing without load-time migration',base.includes('RayoReorder?.point'));
 check('inventory list uses total-position and shared assessment',inventory.includes('currentTotalPosition')&&inventory.includes('RayoReorder?.assess'));
 check('order desk uses the same shared assessment',desk.includes('RayoReorder?.assess'));

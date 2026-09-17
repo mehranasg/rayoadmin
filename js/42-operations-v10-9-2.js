@@ -67,7 +67,7 @@ function currentPosition(ing){return window.RayoInventoryV10?.currentTotalPositi
 function weightedPaidUnit(inv,ing){
   const rs=A(inv?.stockReceipts).filter(r=>!['void','pending','rejected'].includes(S(r.status).toLowerCase())&&r.ingredientId===ing.id&&N(r.quantity)>0);
   const q=rs.reduce((a,r)=>a+N(r.quantity),0),v=rs.reduce((a,r)=>{const stock=N(r.quantity),buy=N(r.purchaseQuantity),price=N(r.unitPrice),unit=stock&&buy?buy*price/stock:N(r.unitCostToman);return a+stock*unit},0);
-  return q>0?v/q:N(ing.lastPurchasePriceToman)/(N(ing.packageQuantity)||1);
+  return q>0?v/q:RayoIngredientMath.grossCost(ing,states().pr);
 }
 function activeRequest(sup,ingredientId){return A(sup.purchaseRequests).filter(isOpenOrder).find(x=>x.ingredientId===ingredientId)}
 function orderRows(){
