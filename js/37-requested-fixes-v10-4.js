@@ -18,7 +18,7 @@ function dedupeImportButtons(){
 }
 function ensureResetCard(){return}
 function ensureStaffVisibilitySettings(){
-  if(file()!=='personnel.html'||new URLSearchParams(location.search).get('view')!=='settings')return;
+  if(!['personnel.html','settings.html'].includes(file())||currentView!=='settings')return;
   const root=document.getElementById('view');if(!root||root.querySelector('.v106-staff-visibility-card'))return;
   let h=null;try{h=typeof state!=='undefined'?state:null}catch(_){}
   if(!h)return;h.settings=h.settings||{};

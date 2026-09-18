@@ -28,7 +28,7 @@ const MENU=[
  {label:'خرید و تامین',icon:'🚚',key:'purchase',items:[['تأمین‌کنندگان','suppliers.html'],['حساب و سوابق خرید','suppliers.html?tab=accounts'],['درخواست‌های خرید','suppliers.html?tab=requests'],['ثبت فاکتور خرید / حسابداری','suppliers.html?tab=invoice'],['ثبت پرداخت تأمین‌کننده','suppliers.html?tab=payment']]},
  {label:'گزارشات',icon:'📈',key:'reports',items:[['گزارش‌های مدیریتی','reports.html'],['پیش‌بینی هزینه و حقوق','personnel.html?view=costForecast'],['سود و زیان ماهانه','finance.html'],['محاسبه‌گر سود','finance.html?view=calculator'],['رزروها و بیعانه‌ها','personnel.html?view=reservations'],['نظرسنجی مشتریان','survey.html']]},
  {type:'link',label:'مدیریت اموال و دارایی',icon:'🏷️',href:'assets.html'},
- {label:'تنظیمات',icon:'⚙️',key:'settings',items:[['تنظیمات پنل و فهرست‌ها','personnel.html?view=settings'],['تنظیمات تخلفات','personnel.html?view=violationSettings'],['تغییرات','personnel.html?view=changelog'],['لاگ خطاها','personnel.html?view=errorLog']]}
+ {label:'تنظیمات',icon:'⚙️',key:'settings',items:[['تنظیمات پنل و فهرست‌ها','settings.html?view=settings'],['تنظیمات تخلفات','settings.html?view=violationSettings'],['تغییرات','settings.html?view=changelog'],['لاگ خطاها','settings.html?view=errorLog']]}
 ];
 function now(){return new Date().toISOString()}
 function norm(v){return S(v).replace(/\u200c/g,' ').replace(/ي/g,'ی').replace(/ك/g,'ک').replace(/[\sـ_\-\/\\()\[\]،,:؛.؟?!]/g,'').toLowerCase()}
