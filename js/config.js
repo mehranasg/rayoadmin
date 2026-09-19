@@ -539,6 +539,13 @@ function cashVariance(report={}){
   return{valid:true,formulaVersion:'cash-variance-v2',currency:'ریال',posTotal,cardToCard:values.cardToCard,cash:values.cash,actualReceived,netReceivable:values.netReceivable,tipsTotal,tipsInThisCashbox,expectedCashbox,initialVariance,adjustmentsTotal,finalVariance,status:initialVariance>0?'اضافه صندوق':initialVariance<0?'کسری صندوق':'تراز',finalStatus:finalVariance>0?'اضافه صندوق':finalVariance<0?'کسری صندوق':'تراز',storedVariance:hasStored?stored:null,historicalDifference:hasStored&&stored!==finalVariance?finalVariance-stored:0};
 }
 window.RayoCashVariance={parseAmount:cashAmount,calculate:cashVariance,formula:'(جمع کارتخوان‌ها + کارت‌به‌کارت + نقدی) − (خالص دریافتی + انعام داخل همین صندوق)',currency:'ریال'};
+// Shared by the admin, cashier and staff forms. Editing an amount must not rename
+// historical destinations or reassign the owner of an unchanged account.
+window.RayoCashDestinations={snapshots(report,previous,refs){
+  const account=(refs.transferAccounts||[]).find(x=>x.id===report.cardToCardAccountId),recipient=(refs.cashRecipients||[]).find(x=>x.id===report.cashRecipientId),sameAccount=previous&&previous.cardToCardAccountId===report.cardToCardAccountId,sameRecipient=previous&&previous.cashRecipientId===report.cashRecipientId;
+  const ownerId=sameAccount?(previous.cardToCardOwnerIdSnapshot??account?.ownerRecipientId??''):(account?.ownerRecipientId||'');
+  return{cardToCardAccountNameSnapshot:sameAccount?(previous.cardToCardAccountNameSnapshot??account?.name??''):(account?.name||''),cardToCardOwnerIdSnapshot:ownerId,cardToCardOwnerNameSnapshot:sameAccount?(previous.cardToCardOwnerNameSnapshot??(refs.cashRecipients||[]).find(x=>x.id===ownerId)?.name??''):((refs.cashRecipients||[]).find(x=>x.id===ownerId)?.name||''),cashRecipientNameSnapshot:sameRecipient?(previous.cashRecipientNameSnapshot??recipient?.name??''):(recipient?.name||'')};
+}};
 
 window.RAYO_API_GATEWAY={
   loadUrl:LOAD_URL,

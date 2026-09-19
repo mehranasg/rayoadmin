@@ -1,5 +1,5 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert'),root=__dirname;
-const config=fs.readFileSync(path.join(root,'js/config.js'),'utf8'),start=config.indexOf('function cashAmount('),end=config.indexOf('\n\nwindow.RAYO_API_GATEWAY',start),sandbox={window:{}};
+const config=fs.readFileSync(path.join(root,'js/config.js'),'utf8').replace(/\r\n/g,'\n'),start=config.indexOf('function cashAmount('),end=config.indexOf('\n\nwindow.RAYO_API_GATEWAY',start),sandbox={window:{}};
 vm.runInNewContext(config.slice(start,end),sandbox);const api=sandbox.window.RayoCashVariance;
 function report(net,tips,received,extra={}){return{netReceivable:net,tipDelivery:tips,tipValet:0,tipHall:0,pos1:received,pos2:0,pos3:0,pos4:0,pos5:0,pos6:0,cardToCard:0,cash:0,otherTransactions:[],...extra}}
 for(const [name,row,want,status] of [
