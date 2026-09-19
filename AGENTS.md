@@ -54,3 +54,10 @@ After JavaScript changes:
 - Use Git commits for normal changes.
 - Create full ZIP releases only for milestones, deployment packages or explicit requests.
 - Do not change version numbers for incomplete work.
+
+## Documentation entry point
+
+- Start with `docs/AI_START_HERE.md`, then read only the reference sections and source/tests relevant to the task.
+- The master handoff path above is a compatibility pointer to the current references. Do not load every versioned document, archive, seed source workbook or backup by default.
+- For implementation facts, use current source/tests, then the latest explicit user request, current reference docs, and history only as context. User requests define intended changes; they do not prove a feature exists.
+- Historical documents are not current requirements. Record discrepancies and preserve all data-safety rules above.
