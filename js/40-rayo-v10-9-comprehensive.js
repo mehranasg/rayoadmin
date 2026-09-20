@@ -11,7 +11,7 @@ const file=()=>((location.pathname.split('/').pop()||'index.html').toLowerCase()
 const today=()=>window.RayoJalali?.today?.()||'';
 let salesMode='entry';
 
-function invoiceTotal(x){return Math.max(0,A(x?.lines).reduce((a,l)=>a+N(l.purchaseQuantity||l.quantity)*N(l.unitPrice),0)-N(x?.discount))}
+function invoiceTotal(x){return Math.max(0,A(x?.lines).reduce((a,l)=>a+(S(l.lineTotalToman)!==''?N(l.lineTotalToman):N(l.purchaseQuantity||l.quantity)*N(l.unitPrice)),0)-N(x?.discount)+N(x?.taxToman)+N(x?.extraCostToman))}
 function reorderPointValue(item,inv){if(item&&Object.prototype.hasOwnProperty.call(item,'reorderPoint')&&item.reorderPoint!==''&&item.reorderPoint!==null&&item.reorderPoint!==undefined){const n=Number(item.reorderPoint);return Number.isFinite(n)&&n>=0?n:null}const legacy=A(inv?.trackedIngredients).find(x=>x.ingredientId===item?.id);if(legacy&&Object.prototype.hasOwnProperty.call(legacy,'reorderPoint')&&legacy.reorderPoint!==''&&legacy.reorderPoint!==null&&legacy.reorderPoint!==undefined){const n=Number(legacy.reorderPoint);return Number.isFinite(n)&&n>=0?n:null}return null}
 function reorderAssessment(item,inv,position){const eligible=item&&!['غیرفعال','آرشیو','آرشیوشده'].includes(S(item.status))&&item.itemType!=='NON_STOCK'&&item.inventoryTracked!==false&&!item.isArchived&&!item.archived,point=reorderPointValue(item,inv),raw=position?.current??position?.quantity,known=raw!==null&&raw!==undefined&&Number.isFinite(Number(raw)),stock=known?Number(raw):null;return{eligible,point,stock,known,need:Boolean(eligible&&point!==null&&known&&stock<=point)}}
 window.RayoReorder={point:reorderPointValue,assess:reorderAssessment};

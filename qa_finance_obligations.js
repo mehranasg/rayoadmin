@@ -1,7 +1,7 @@
 const fs=require('fs'),assert=require('assert');
 const src=fs.readFileSync('js/20-finance-module.js','utf8');
 const nav=fs.readFileSync('js/44-phase1-polish-v10-10-1.js','utf8');
-for(const token of ['fin.parties=A(fin.parties)','fin.obligations=A(fin.obligations)','fin.settlements=A(fin.settlements)','fin.checks=A(fin.checks)','sourceCheckId','status:\'void\'','saveModule(\'finance\',fin)','جمع ناقص','Asia/Tehran'])assert(src.includes(token),`missing ${token}`);
+for(const token of ['fin.parties=A(fin.parties)','fin.obligations=A(fin.obligations)','fin.settlements=A(fin.settlements)','fin.checks=A(fin.checks)','sourceCheckId','finCClearAccount','reference:`CHECK:${id}:${c.number}`','status:\'void\'','saveModule(\'finance\',fin)','جمع ناقص','Asia/Tehran'])assert(src.includes(token),`missing ${token}`);
 assert(nav.includes("['بدهی‌ها، مطالبات و چک‌ها','finance.html?view=obligations']"));
 assert(nav.includes("['financeLedger','link','🧾','بدهی‌ها، مطالبات و چک‌ها','finance.html?view=obligations']"));
 assert(!src.includes('localStorage'));

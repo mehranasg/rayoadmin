@@ -59,8 +59,8 @@
 | فروش | تحلیل روز/ماه/آیتم/سال | 24، 28 | cashreport.salesAnalytics | Implemented | متوسط | موجودی از salesPeriods جداست | تطبیق source |
 | سپیدز | parser block/preview/dedup/risk/review | 33، templates | sepidsaudit | Implemented | متوسط | score اثبات تخلف نیست | fixture نهایی فایل‌ها |
 | سپیدز | اتصال قطعی event به فروش invoice | 33 | داده واردشده | Partial | متوسط | شماره/ساختار همه فروش‌ها کافی نیست | قرارداد گزارش فروش |
-| مالی | تعهد/تسویه/چک/مانده اولیه | 20؛ qa_finance_obligations | finance | Implemented | زیاد | ثبت داخلی؛ اتصال بانکی ندارد | reconcile |
-| مالی | حفظ سابقهٔ entries معمولی | 20::deleteEntry | finance.entries | Partial | زیاد | غیرcustody فیزیکی حذف می‌شود | CUR-04 |
+| مالی | تعهد/تسویه/چک/مانده اولیه و گردش وجه | 20؛ qa_finance_obligations، qa_opening_settlement | finance + منابع وجه | Implemented | زیاد | ثبت داخلی؛ اتصال بانکی ندارد؛ حساب رویدادهای Legacy ممکن است نامعلوم باشد | reconcile موارد هشدار |
+| مالی | حفظ سابقهٔ entries معمولی | 20::deleteEntry | finance.entries | Implemented | زیاد | رکوردهای جدید با void حفظ می‌شوند | کنترل داده Legacy |
 | مالی | P&L/override/سناریو | 20 | finance + cash/inventory/HR | Implemented | متوسط | تقریبی، جای حسابداری رسمی نیست | کنترل دوباره‌شماری |
 | اموال | دارایی/تعمیر/تعداد/incident/ارزش | 12، 19، 30؛ qa_ui_lists_assets | assets | Implemented | متوسط | Seed تجمیعی؛ tag کامل ناموجود | دادهٔ مجاز و UAT |
 | نظرسنجی | ثبت/پیگیری/روند/خروجی | 21 و 22 | survey | Implemented | متوسط | Backend مجوز PII نامعلوم | آزمون scope |

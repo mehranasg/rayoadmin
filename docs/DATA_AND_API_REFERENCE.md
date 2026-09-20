@@ -77,12 +77,12 @@ Gateway با spread سطح بالا و merge شیءهای شناخته‌شده 
 | supplierItems | supplierCode, ingredientId, itemCode, itemCodeSnapshot, itemNameSnapshot, lastPurchasePriceToman, deliveryTime, isPrimary | `isPrimary` در برخی داده‌ها رشتهٔ «بله» است؛ boolean فرض نشود |
 | purchaseRequests | id, date، supplierId/supplierCode، lines در فرم جدید؛ فیلدهای تخت legacy نیز وجود دارند، status, notes, createdAt/updatedAt | وضعیت سفارش فارسی با فاکتور یکسان نیست؛ فرم‌های 42 و 22 مرجع‌اند |
 | purchaseInvoices | id, supplierId, invoiceNumber, date, lines, status، paymentStatus، pricingSyncStatus | `draft/finalized/void` در مسیر جاری؛ lines دارای ingredientId, quantity, unitPrice؛ دادهٔ قدیمی شکل‌های دیگر دارد |
-| supplierPayments | id, supplierId, invoiceId اختیاری، date, amount, method, paymentLocationId, paymentLocationNameSnapshot, reference, notes | amount در این مسیر تومان؛ شناسه محل پرداخت پایدار |
+| supplierPayments | id/requestId, supplierId, invoiceId اختیاری، direction (payment/receipt)، date, amount, method, paymentLocationId, paymentLocationNameSnapshot, reference, notes، status/audit | amount در این مسیر تومان؛ reference + محل وجه کلید جلوگیری از ثبت تکراری؛ ابطال نرم |
 | supplierDirectDebts | id, supplierId, debtType, date، مبلغ/شرح و snapshot مبنا، status | تولیدکننده `saveDirectDebt` در 42؛ ابطال با دلیل، نه حذف |
 | locations | id, code, name, type, section, isActive, notes | تعریف محل در Reset حفظ می‌شود تا FK تنظیمات معتبر بماند |
-| stockReceipts | id, ingredientId, locationId, date, quantity, unitCostToman, totalPriceToman، invoiceId اختیاری، status، unitSnapshot/itemNameSnapshot/locationNameSnapshot | ورود مستقیم: یک Save inventory؛ قیمت catalog ثابت |
+| stockReceipts | id/requestId/eventKey, ingredientId, locationId, date, quantity, unitCostToman/totalPriceToman nullable، invoiceId اختیاری، referenceNumber، status، snapshotها | رسید و حرکت با sourceKey یکتا؛ مقدار/ارزش نامعلوم صفر نمی‌شود؛ قیمت catalog ثابت |
 | inventoryMovements | id, ingredientId, type, quantity، مبدأ/مقصد مطابق نوع، date, sourceKey, referenceId, status | ارتباط رسید `sourceKey: receipt:<id>`؛ از دوباره‌شماری جلوگیری شود |
-| stocktakes | id, date, locationId, status, lines، created/approved audit | lines: ingredientId, actual و قیمت اختیاری purchasePriceToman/unitCost؛ فقط approved baseline است |
+| stocktakes | id, date, locationId, status, isOpeningBaseline, notes, lines، created/approved audit | lines: ingredientId, actual و قیمت اختیاری purchasePriceToman/unitCost؛ شرح برای افتتاحیه الزامی است و فقط approved baseline است |
 | openingBalances | قلم، محل، تاریخ و مقدار/بها | ساختار legacy معتبر را حفظ؛ از شمارش تأییدشدهٔ جدیدتر عقب‌تر است |
 | salesPeriods | id، بازه/تاریخ، کانال/منبع، lines | lines: menuItemId, quantity؛ چندروزه فاقد تفکیک برای forecast کافی نیست |
 | wasteRecords/consumptionRecords | id، تاریخ، محل، قلم/نوع آیتم، مقدار، نوع مصرف/ضایعات، status/review و گزارش‌دهنده | pending پرسنلی تا تأیید اثر ندارد؛ مصرف مجاز از ضایعات جدا |
@@ -110,9 +110,11 @@ Gateway با spread سطح بالا و merge شیءهای شناخته‌شده 
 
 `transferAccounts`: id, name, status, notes و ownerRecipientId/bankName/cardNumber اختیاری. `cashRecipients`: اشخاص مرجع با شناسه/نام/وضعیت. reports دارای cardToCardOwnerIdSnapshot/cardToCardOwnerNameSnapshot و snapshot حساب/تحویل‌گیرنده‌اند. مالک صریح خالی نباید به مالک جدید نسبت داده شود.
 
-`finance.entries` در مسیر وجوه: id, date, type, custodyKind, amountToman، شناسه و نام حساب/تحویل‌گیرنده، snapshot مالک، title/notes و audit؛ type/custodyKind یکی از expense، personalWithdrawal، custodyReturn. ویرایش `revisions` می‌سازد و void علت/زمان/کاربر دارد. [جزئیات معنایی](CASH_CUSTODY_AND_DESTINATIONS.md).
+`finance.entries` در مسیر وجوه: id, date, type, entryType, accountKey, custodyKind, amountToman، شناسه و نام حساب/تحویل‌گیرنده، snapshot مالک، title/notes و audit. `type=openingBalance` و `entryType=opening` ماندهٔ جایگزین تا تاریخ مبناست و در درآمد/هزینه ماه وارد نمی‌شود. ویرایش سابقه‌دار و ابطال با علت انجام می‌شود. [جزئیات معنایی](CASH_CUSTODY_AND_DESTINATIONS.md).
 
-`finance.obligations`: id، direction (payable/receivable)، partySource/partyId، title، category، amountToman، date، dueDate، entryType (normal/opening)، period، reference، description، status/audit. `settlements`: id, requestId, obligationId, direction, date, amountToman, method, notes, status, createdAt. `checks`: id, obligationId, type, number, bank, amountToman, issueDate, dueDate, partySource, partyId, status, notes, createdAt. pending چک تسویه نیست؛ `calcObligation` مانده و بخش بدون پوشش را محاسبه می‌کند. این مدل double-entry ledger رسمی نیست.
+`finance.obligations`: id، direction (payable/receivable)، partySource/partyId، title، category، amountToman، date، dueDate، entryType (normal/opening)، period، reference، description، status/audit. `settlements`: id, requestId, reference, accountKey, obligationId, direction, date, amountToman, method, notes, status/audit. تسویه روی گردش وجه اثر دارد اما income/expense نیست. `checks`: id, obligationId, type, number, bank, amountToman, issueDate, dueDate, partySource, partyId, status, notes, createdAt. pending چک تسویه نیست؛ `calcObligation` مانده و بخش بدون پوشش را محاسبه می‌کند. این مدل double-entry ledger رسمی نیست.
+
+`hr.monthlyAdjustments` می‌تواند `openingBalanceToman`, `openingBaselineDate`, `openingBalanceMode=replacePreviousBalance`, `openingNote` داشته باشد. تاریخ مبنا باید روز اول سال/ماه انتخاب‌شده باشد؛ این مبلغ جای مانده قبل پرسنل می‌نشیند و هزینه حقوق دوره نیست. `hr.payments` برای تسویه دارای `accountKey`, `tracking`, `sourcePayrollClosureId`, `sourceKey` و status/audit است؛ پرداخت پس از قطعی‌شدن نیز مانده Snapshot را کم می‌کند ولی هزینه را دوباره نمی‌سازد.
 
 ### اموال، نظرسنجی، ممیزی و خطا
 
