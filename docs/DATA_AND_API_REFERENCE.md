@@ -82,13 +82,15 @@ Gateway با spread سطح بالا و merge شیءهای شناخته‌شده 
 | locations | id, code, name, type, section, isActive, notes | تعریف محل در Reset حفظ می‌شود تا FK تنظیمات معتبر بماند |
 | stockReceipts | id/requestId/eventKey, ingredientId, locationId, date, quantity, unitCostToman/totalPriceToman nullable، invoiceId اختیاری، referenceNumber، status، snapshotها | رسید و حرکت با sourceKey یکتا؛ مقدار/ارزش نامعلوم صفر نمی‌شود؛ قیمت catalog ثابت |
 | inventoryMovements | id, ingredientId, type, quantity، مبدأ/مقصد مطابق نوع، date, sourceKey, referenceId, status | ارتباط رسید `sourceKey: receipt:<id>`؛ از دوباره‌شماری جلوگیری شود |
-| stocktakes | id, date, locationId, status, isOpeningBaseline, notes, lines، created/approved audit | lines: ingredientId, actual و قیمت اختیاری purchasePriceToman/unitCost؛ شرح برای افتتاحیه الزامی است و فقط approved baseline است |
+| stocktakes | id, date, locationId, status, isOpeningBaseline, notes, lines، created/approved audit؛ inventoryScope و baselineBoundary اختیاری | lines: ingredientId, actual و قیمت اختیاری purchasePriceToman/unitCost؛ شرح اختیاری است و فقط approved baseline است |
 | openingBalances | قلم، محل، تاریخ و مقدار/بها | ساختار legacy معتبر را حفظ؛ از شمارش تأییدشدهٔ جدیدتر عقب‌تر است |
 | salesPeriods | id، بازه/تاریخ، کانال/منبع، lines | lines: menuItemId, quantity؛ چندروزه فاقد تفکیک برای forecast کافی نیست |
 | wasteRecords/consumptionRecords | id، تاریخ، محل، قلم/نوع آیتم، مقدار، نوع مصرف/ضایعات، status/review و گزارش‌دهنده | pending پرسنلی تا تأیید اثر ندارد؛ مصرف مجاز از ضایعات جدا |
 | periodClosures | id, from, to, status, metrics, lines | `closed` snapshot؛ بازهٔ دقیق منطبق از snapshot خوانده می‌شود |
 
 انواع حرکت مصرف‌شده در هسته: PURCHASE_RECEIPT، TRANSFER، RETURN_TO_WAREHOUSE، WASTE، SPILL، EXPIRY، BREAKAGE، MISSING، STAFF_CONSUMPTION، MANAGEMENT_GUEST، TEST_CONSUMPTION، OTHER_AUTHORIZED، ADJUSTMENT. مصرف فروش مشتق از رسپی است و حرکت ذخیره‌ای دوم نیست. نام فیلد مبدأ/مقصد و انواع قدیمی را از `RayoInventoryV10` در فایل 32 بخوانید؛ این جدول DDL نهایی نیست.
+
+حالت اختیاری `settings.inventoryControlMode=unified` محاسبه کل را به مبنای صریح `inventoryScope=RAYO` در stocktakes/openingBalances وصل می‌کند؛ نبود تنظیم یعنی حالت locations قبلی. `baselineBoundary=START/END` مرز ابتدای/پایان روز است. محل تاریخی رکورد تبدیل‌شده حفظ می‌شود و شمارش کل تازه locationId خالی دارد. changeLog مقدار قبل/بعد تغییر دامنه و حالت را حفظ می‌کند؛ خطوط گزارش baselineIds و Snapshot دوره scope/controlMode دارند. انتقال داخلی صفر است و شمارش ناقص مقدار/مغایرت null می‌دهد. هیچ مهاجرتی هنگام Load ذخیره نمی‌شود. [مهاجرت صریح، بازگردانی و آزمون‌ها](UNIFIED_INVENTORY_CONTROL.md).
 
 `stockReceipts[].isArchived` اختیاری، نبود آن false است. voidReason/voidedAt/voidedBy و archivedAt/archivedBy/unarchivedAt/unarchivedBy سابقه‌اند. آرشیو، ابطال را برنمی‌گرداند. [قواعد دقیق رسید و شمارش](INVENTORY_RECEIPT_UI.md).
 

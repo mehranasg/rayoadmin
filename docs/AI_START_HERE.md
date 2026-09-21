@@ -16,7 +16,7 @@
 | UI، route، startup | [مرجع فنی](CURRENT_IMPLEMENTATION.md)، HTML، `js/16-mpa-shell.js`، `js/44-phase1-polish-v10-10-1.js` و مالک صفحه |
 | داده، Load/Save، Query/Mutate | [مرجع داده](DATA_AND_API_REFERENCE.md)، `js/config.js` و Controller مرجع |
 | قلم، رسپی، قیمت | [مشخصات محصول](PROJECT_MASTER_SPEC.md)، فایل‌های 08، 32، 43، 45، 47؛ [افت آماده‌سازی](STANDARD_PREPARATION_LOSS.md) |
-| انبار، رسید، شمارش، مصرف | فایل‌های 09، 14، 32، 35، 36، 40، 43، 46؛ ضمیمهٔ [رسید](INVENTORY_RECEIPT_UI.md) یا [برآورد](OPERATIONAL_CONSUMPTION_FORECAST.md) |
+| انبار، رسید، شمارش، مصرف | فایل‌های 09، 14، 32، 35، 36، 40، 43، 46؛ [کنترل یکپارچه کل](UNIFIED_INVENTORY_CONTROL.md)، ضمیمهٔ [رسید](INVENTORY_RECEIPT_UI.md) یا [برآورد](OPERATIONAL_CONSUMPTION_FORECAST.md) |
 | صندوق و گردش وجوه | فایل‌های 11، 20، 22، 40، 42، `cash-report/js/app.js`؛ [گردش وجوه](CASH_CUSTODY_AND_DESTINATIONS.md) |
 | تنظیمات/بکاپ/Reset | فایل‌های 38 و 39؛ [راهنمای Reset و Restore](SETTINGS_SEPARATION_AND_TABLE_RESET.md) |
 | معماری و مهاجرت | [راهنمای چهار مسیر](REBUILD_AND_MIGRATION_GUIDE.md) و مرجع داده؛ پیشنهاد را با وضع جاری مخلوط نکنید |
