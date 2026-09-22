@@ -12,10 +12,10 @@ const context={
  console,inv,pricing,ui:{countDate:'',countLocation:'main',countSaving:false},
  A:x=>Array.isArray(x)?x:[],S:x=>String(x??'').trim(),N:x=>Number(String(x??'').replace(/[,٬]/g,''))||0,Q:x=>{const n=Number(String(x??'').replace(/[,٬]/g,''));return Number.isFinite(n)&&n>=0?n:null},D:x=>String(x??'').trim(),cmp:(a,b)=>String(a).localeCompare(String(b)),F:x=>String(Number(x)),E:x=>String(x),
  document:{getElementById:id=>els[id],querySelectorAll:s=>s==='[data-v10-count]'?counts:s==='[data-v10-cost]'?costs:[],querySelector:s=>{const m=s.match(/data-v10-cost="([^"]+)"/);return m?costs.find(x=>x.dataset.v10Cost===m[1]):null}},
- ingredient:id=>pricing.ingredients.find(x=>x.id===id),ingredientUnit:i=>i?.recipeUnit||'واحد',positionBeforeDate:()=>({quantity:10,baseDate:'1405/06/01',baseQuantity:10,salesConsumption:0,movementNet:0}),costAtDate:()=>20,uid:p=>`${p}-${++seq}`,actor:()=> 'manager',now:()=> '2026-09-20T12:00:00Z',
+ ingredient:id=>pricing.ingredients.find(x=>x.id===id),ingredientUnit:i=>i?.recipeUnit||'واحد',positionBeforeDate:()=>({quantity:10,baseDate:'1405/06/01',baseQuantity:10,salesConsumption:0,movementNet:0}),costAtDate:()=>20,uid:p=>`${p}-${++seq}`,actor:()=> 'manager',now:()=> '2026-09-20T12:00:00Z',wholeScope:st=>st?.inventoryScope==='RAYO',inRange:(d,from,to)=>!!d&&(!from||String(d).localeCompare(String(from))>=0)&&(!to||String(d).localeCompare(String(to))<=0),closeModal:()=>{},
  savePricing:async()=>{pricingSaves++},saveInv:async()=>{inventorySaves++},renderView:()=>{renders++},toastX:m=>messages.push(m)
 };
-context.window=context;vm.createContext(context);vm.runInContext([fn('countSelectionRecords'),fn('loadCountSelection'),fn('submitCount')].join('\n'),context);
+context.window=context;vm.createContext(context);vm.runInContext([fn('countSelectionRecords'),fn('loadCountSelection'),fn('submitCount'),fn('reopenCount')].join('\n'),context);
 
 (async()=>{
  context.loadCountSelection();
@@ -29,6 +29,12 @@ context.window=context;vm.createContext(context);vm.runInContext([fn('countSelec
  assert.equal(inventorySaves,1);assert.equal(pricingSaves,1);assert.equal(renders,1);assert(messages.at(-1).includes('مستقیماً تأیید'));
  els.v10CountDate.value='1405/06/25';context.loadCountSelection();assert.equal(counts[0].value,'','a date without a count starts empty');
  els.v10CountShift.value='صبح';counts[1].value='4';await context.submitCount();const fresh=inv.stocktakes.find(x=>x.date==='1405/06/25');assert(fresh);assert.equal(fresh.status,'approved','new count bypasses legacy approval setting');assert.equal(fresh.lines[0].actual,4);
- assert(!code.includes('ثبت و ارسال برای تأیید'));assert(code.includes('ذخیره و تأیید شمارش'));
- console.log('PASS inventory count: load existing values by date/location, edit in place with history, and direct approval for edited and new counts');
+ assert(code.includes('ذخیره و تأیید شمارش</button>'));
+ // A manager can explicitly pull an approved count back out of approved status for review.
+ await context.reopenCount(fresh.id);
+ assert.equal(fresh.status,'submitted','reopening clears the approved status');assert.equal(fresh.approvedAt,undefined);assert.equal(fresh.approvedBy,undefined);assert.equal(fresh.reopenedBy,'manager');assert.equal(inventorySaves,3,'reopening persists the status change');
+ fresh.status='approved';fresh.approvedAt='x';fresh.approvedBy='manager';const realWholeScope=context.wholeScope;context.wholeScope=()=>true;await context.reopenCount(fresh.id);assert.equal(fresh.status,'approved','whole-RAYO baselines are excluded from this reopen path');assert.equal(inventorySaves,3);context.wholeScope=realWholeScope;
+ inv.periodClosures=[{status:'closed',from:'1405/06/25',to:'1405/06/25'}];await context.reopenCount(fresh.id);assert.equal(fresh.status,'approved','a closed period blocks reopening');assert.equal(inventorySaves,3);
+ inv.periodClosures=[];
+ console.log('PASS inventory count: load existing values by date/location, edit in place with history, direct approval for edited and new counts, and manager reopen with closed-period guard');
 })().catch(e=>{console.error(e);process.exitCode=1});
