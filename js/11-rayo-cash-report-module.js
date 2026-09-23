@@ -298,6 +298,7 @@ async function crEditDestination(kind,id=''){
 Object.assign(window,{crTabs,crRefreshCustody,crCustodyFilter,crExportCustody,crOpenCustodyEntry,crSaveCustodyEntry,crVoidCustodyEntry,RayoCashCustody:{ledger:crCustodyLedger,normalizeDate:crLedgerDate,active:crActiveRecord}});
 
 window.crEditDestination=crEditDestination;
+window.crDestinations=crDestinations;
 document.addEventListener('submit',e=>{if(e.target?.id!=='crAdminForm')return;const r=crReadAdminForm();if(r.cardToCard>0&&!r.cardToCardAccountId){e.preventDefault();e.stopImmediatePropagation();toast('برای کارت به کارت، کارت/حساب مقصد را انتخاب کنید',true)}else if(r.cash>0&&!r.cashRecipientId){e.preventDefault();e.stopImmediatePropagation();toast('برای وجه نقد، تحویل‌گیرنده را انتخاب کنید',true)}},true);
   (function wait(){if(!crInstall())setTimeout(wait,80)})();
 })();

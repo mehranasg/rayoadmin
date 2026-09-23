@@ -1,7 +1,7 @@
 (()=>{
 const file=(location.pathname.split('/').pop()||'index.html').toLowerCase();const internal=file!=='index.html'&&file!=='';if(internal&&!sessionStorage.getItem('rayo_admin_user')){location.replace('index.html?next='+encodeURIComponent(file+location.search));return}
 const routes={dashboard:'index.html',suppliers:'suppliers.html',pricing:'pricing.html',inventory:'inventory.html',reports:'reports.html',cashReport:'cash-report-admin.html',assets:'assets.html',finance:'finance.html',survey:'survey.html',sepidsAudit:'sepids-audit.html'};
-const settingsViews=new Set(['dataManagement','settings','violationSettings','changelog','errorLog']);
+const settingsViews=new Set(['dataManagement','settings','softwareSettings','violationSettings','changelog','errorLog']);
 const requestedView=new URLSearchParams(location.search).get('view');
 if(file==='personnel.html'&&settingsViews.has(requestedView)){location.replace('settings.html'+location.search);return}
 const hrViews=new Set(['personnel','userManagement','personnelProfile','personnelReports','leaveRequests','protocols','checklistTemplates','checklistReports','violationSettings','staffingNeeds','staffingCapacity','staffingMap','annualCalendar','monthlyShiftPlan','shiftPlan','shiftHistory','shiftReport','payroll','payslip','tips','penalties','delays','payments','consumption','leaves','salaryCalculator','salaryReverse','salaryPersonnel','salaryRates','salarySettings','costForecast','dataManagement','settings','changelog','errorLog','dailyMessage','violations','advanceRequests','reservations']);

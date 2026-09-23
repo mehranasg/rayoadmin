@@ -113,8 +113,9 @@ function viewsSuppliers(){
   return pageHead('مدیریت تأمین‌کنندگان','تعریف، جست‌وجو و مدیریت اطلاعات تأمین‌کنندگان',actions)+
     (supplierUI.tab==='suppliers'?'':`<div class="grid grid-4"><div class="card kpi supplier-kpi"><div class="label">کل تأمین‌کنندگان</div><div class="value">${supplierState.suppliers.length}</div></div><div class="card kpi supplier-kpi"><div class="label">تأمین‌کننده فعال</div><div class="value">${active}</div></div><div class="card kpi supplier-kpi"><div class="label">اقلام ثبت‌شده</div><div class="value">${supplierState.items.length}</div></div><div class="card kpi supplier-kpi"><div class="label">ارتباط‌ها</div><div class="value">${supplierState.supplierItems.length}</div></div></div>`)+
     supTabs()+
-    (supplierUI.tab==='suppliers'?suppliersAdminList():supplierUI.tab==='relations'?supplierRelationsList():supplierJsonSettings());
+    (supplierUI.tab==='suppliers'?suppliersAdminList():supplierUI.tab==='relations'?supplierRelationsList():supplierUI.tab==='json'?supplierJsonSettingsShortcut():supplierJsonSettings());
 }
+function supplierJsonSettingsShortcut(){return `<div class="card"><div class="section-head"><h2>تنظیمات تأمین‌کنندگان</h2></div><p class="muted">فهرست‌های مرجع (گروه تأمین‌کننده، نوع فاکتور، روش سفارش) و محل‌های وجه اکنون در «تنظیمات نرم‌افزار» قابل مشاهده و ویرایش هستند.</p><a class="btn btn-primary" href="settings.html?view=softwareSettings&section=purchase">تنظیمات این بخش</a></div>`}
 function suppliersAdminList(){
   const q=supplierUI.search.toLowerCase(),rows=supplierState.suppliers.filter(s=>{
     const hay=[s.code,s.company,s.contactName,s.phone,s.mobile,s.mainGroup,s.purchaseItemsSummary].join(' ').toLowerCase();
@@ -227,7 +228,7 @@ function installSupplierAdminModule(){
   const group=document.createElement('div');group.className='nav-group';group.textContent='خرید و تأمین';
   const btn=document.createElement('button');btn.className='nav-btn';btn.dataset.view='suppliers';btn.innerHTML='🚚 <span>تأمین‌کنندگان</span>';btn.onclick=()=>goView('suppliers');
   sidebar.insertBefore(group,ref||null);sidebar.insertBefore(btn,ref||null);
-  window.getSupplierState=()=>supplierState;window.supplierUI=supplierUI;window.supEnsureLoaded=supEnsureLoaded;window.supRefreshData=supRefreshData;window.supSaveData=supSaveData;window.supSaveJsonToDisk=supSaveJsonToDisk;window.supExportJson=supExportJson;window.supImportJson=supImportJson;
+  window.getSupplierState=()=>supplierState;window.supplierUI=supplierUI;window.supEnsureLoaded=supEnsureLoaded;window.supRefreshData=supRefreshData;window.supSaveData=supSaveData;window.supSaveJsonToDisk=supSaveJsonToDisk;window.supExportJson=supExportJson;window.supImportJson=supImportJson;window.supplierJsonSettings=supplierJsonSettings;
   window.editSupplierAdmin=editSupplierAdmin;window.editSupplierItem=editSupplierItem;window.editSupplierRelation=editSupplierRelation;
   window.deleteSupplierAdmin=deleteSupplierAdmin;window.deleteSupplierItem=deleteSupplierItem;window.deleteSupplierRelation=deleteSupplierRelation;
 }

@@ -17,19 +17,19 @@ async function loadNineTabUI(t){
 async function run(){
  let groups=0;const test=async(name,fn)=>{await fn();groups++;console.log('PASS '+name)};
 
- await test('daily nav drops the transfer tab once single-warehouse mode is active, but the route stays reachable as read-only history',async()=>{
+ await test('single-warehouse mode is now the only mode: the transfer tab/route is gone from the UI entirely, even by direct link, though the raw record survives in the JSON untouched',async()=>{
   const t=await setup();await convert(t);
   const c=await loadNineTabUI(t);
   t.inventory.inventoryMovements.push({id:'legacy-transfer',ingredientId:'flour',movementType:'TRANSFER',date:'1405/05/20',quantity:5,fromLocationId:'main',toLocationId:'kitchen',status:'posted',createdAt:'2026-08-20T00:00:00Z'});
   c.location.search='?tab=stock';
   let html=c.views.inventory();
-  assert(!/href="inventory\.html\?tab=issue"/.test(html),'transfer tab link must not appear in the daily nav in unified mode');
+  assert(!/href="inventory\.html\?tab=issue"/.test(html),'transfer tab link must not appear in the daily nav');
   c.location.search='?tab=issue';
   html=c.views.inventory();
-  assert(!html.includes('id="v1012IssueFrom"')&&!html.includes('id="v1012IssueTo"'),'new-transfer form fields must not render in unified mode');
-  assert(html.includes('نیازی به ثبت انتقال داخلی نیست'),'unified issue tab must explain that transfers are unnecessary');
-  assert(html.includes('قبل از تک‌انبار'),'a pre-existing transfer must carry the pre-single-warehouse label');
-  assert(html.includes('آرد آزمایشی'),'the historical transfer row itself must still be visible');
+  assert(!html.includes('id="v1012IssueFrom"')&&!html.includes('id="v1012IssueTo"'),'a direct link to the old transfer tab must not render a transfer form');
+  assert(!html.includes('قبل از تک‌انبار'),'a direct link must not surface a historical-transfers view either; it silently falls back to the stock tab');
+  assert(html.includes('موجودی اقلام'),'?tab=issue now renders the stock tab instead');
+  assert.deepEqual(t.inventory.inventoryMovements.find(m=>m.id==='legacy-transfer'),{id:'legacy-transfer',ingredientId:'flour',movementType:'TRANSFER',date:'1405/05/20',quantity:5,fromLocationId:'main',toLocationId:'kitchen',status:'posted',createdAt:'2026-08-20T00:00:00Z'},'the historical record itself is untouched in the JSON, only unreachable from the UI');
  });
 
  await test('saveIssue/saveTransfer refuse to create new transfers once unified, even if called directly',async()=>{
@@ -76,14 +76,27 @@ async function run(){
   assert.equal(t.api.currentTotalPosition('flour').quantity,84,'85 - 1 waste, resolved through a real (non-blank) location id');
  });
 
- await test('location management and menu-location mapping collapse into an admin-only disclosure once unified',async()=>{
-  const t=await setup();
-  let html=t.api.renderPane('locations');
-  assert(!html.includes('فقط برای بازگشت احتمالی به چندانباره'),'multi-location mode must keep these editors open, not collapsed');
-  await convert(t);
-  html=t.api.renderPane('locations');
-  assert(html.includes('<details class="card"><summary><b>محل‌های نگهداری و مصرف (فقط برای بازگشت احتمالی به چندانباره)'),'unified mode must collapse location management behind a disclosure');
-  assert(html.includes('نگاشت آیتم منو'),'the mapping table itself must still exist (not deleted), just tucked away');
+ await test('the settings tab no longer offers the locations/unified switch or location management; only the still-relevant forecast settings remain',async()=>{
+  const t=await setup();await convert(t);
+  const c=await loadNineTabUI(t);
+  c.location.search='?tab=settings';
+  const html=c.views.inventory();
+  assert(!html.includes('rayoControlMode'),'the mode switch is retired, not just hidden behind a toggle');
+  assert(!html.includes('محل‌های نگهداری و مصرف')&&!html.includes('نگاشت آیتم منو'),'location management/menu-mapping is no longer reachable from any tab');
+  assert(html.includes('تنظیمات پیش‌بینی اقلام عملیاتی'),'the unrelated forecast settings remain');
+  // The underlying data/functions are untouched (data-safety: nothing here was deleted, only its render call).
+  assert.equal(typeof t.api.controlSettingsPane,'function');
+  assert.equal(typeof t.api.previewControlChange,'function');
+ });
+
+ await test('the count tab still lists every past stocktake (approval status, details) even though its old per-location entry form is gone',async()=>{
+  const t=await setup();await convert(t);
+  const c=await loadNineTabUI(t);
+  c.location.search='?tab=count';
+  const html=c.views.inventory();
+  assert(html.includes('data-whole-count'),'the whole-restaurant count form is still there');
+  assert(html.includes('شمارش‌ها و وضعیت تأیید'),'the history of past stocktakes must still be visible, just not behind the deleted per-location form');
+  assert(html.includes('opening-september'),'the actual historical stocktake record from setup() must still be listed');
  });
 
  await test('the stock table opens the merged ledger with one click (no location picker), and its ending balance matches the total position',async()=>{

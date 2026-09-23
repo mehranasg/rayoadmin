@@ -57,6 +57,12 @@
 /* V6: consistent numeric/table presentation */
 .data-table th,.data-table td{text-align:center!important;vertical-align:middle}
 .data-table td.actions{white-space:nowrap}
+/* Assets module: category/location list tables (amListTable) fit their own card instead of the generic 850px min-width */
+.data-table.am-list-table{min-width:0;width:100%}
+.am-list-table th:first-child,.am-list-table td:first-child{width:auto;white-space:normal;word-break:break-word}
+.am-list-table th:nth-child(2),.am-list-table td:nth-child(2){width:1%;white-space:nowrap}
+.am-list-table th:last-child{white-space:nowrap}
+.am-list-table td:last-child{width:1%}
 .money-unit{font-size:10px;color:var(--muted);font-weight:700;margin-right:4px;white-space:nowrap}
 .field[data-money-unit] label:after{content:" (" attr(data-money-unit) ")";color:var(--muted);font-size:10px;font-weight:600}
 .field[data-money-unit] input{text-align:left;direction:ltr;font-variant-numeric:tabular-nums}
@@ -287,3 +293,7 @@ body.staff-panel-body .main{padding-top:82px}
 
 /* Preserve layout while the initial route and its view patches are installed. */
 html.rayo-starting #appShell{visibility:hidden}
+
+/* Software settings hub: a dropdown instead of a wide scrolling tab row, safe at any width. */
+.sw-settings-nav{margin-bottom:14px}
+.sw-settings-nav select{width:100%;max-width:420px}
