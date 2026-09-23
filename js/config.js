@@ -67,7 +67,7 @@ const MODULE_ALIASES={
 const MODULE_FIELDS={
   hr:{arrays:['personnel','weeklyPlans','monthlyPlans','shiftRecords','monthlyAdjustments','tipGroups','penaltiesRewards','delays','payments','consumptions','leaves','leaveRequests','payrollClosures','staffingRequirements','holidays','changeLog'],objects:['meta','lists','settings','salaryModel','floorMap']},
   suppliers:{arrays:['suppliers','items','supplierItems','purchaseRequests','changeLog'],objects:['meta','lists']},
-  pricing:{arrays:['ingredients','menuItems','recipes','recipeVersions','priceHistory','ingredientPriceHistory','changeLog'],objects:['meta','settings','lists']},
+  pricing:{arrays:['ingredients','menuItems','recipes','recipeVersions','priceHistory','ingredientPriceHistory','preparedItems','changeLog'],objects:['meta','settings','lists']},
   inventory:{arrays:['trackedIngredients','periods','itemMappings','changeLog','purchaseInvoices','supplierPayments','stockReceipts','wasteRecords','wasteShiftDeclarations','consumptionRecords','salesPeriods','stocktakes','locations','openingBalances','inventoryMovements','periodClosures','operationalUsagePeriods','operationalConsumptionProfiles'],objects:['meta','settings']},
   cashreport:{arrays:['cashiers','transferAccounts','cashRecipients','reports','changeLog'],objects:['meta','settings','salesAnalytics']},
   assets:{arrays:['assets','maintenanceRecords','quantityTransactions','assetIncidents','counts','changeLog'],objects:['meta','settings','lists']},
@@ -84,7 +84,7 @@ const MODULE_DEFAULTS={
   },
   pricing:{
     meta:{schemaVersion:'1.0.0',module:'Rayo Pricing',restaurant:'کافه‌رستوران رایو',currency:'تومان',updatedAt:null},
-    settings:{},lists:{},ingredients:[],menuItems:[],recipes:[],recipeVersions:[],priceHistory:[],ingredientPriceHistory:[],changeLog:[]
+    settings:{},lists:{},ingredients:[],menuItems:[],recipes:[],recipeVersions:[],priceHistory:[],ingredientPriceHistory:[],preparedItems:[],changeLog:[]
   },
   inventory:{
     meta:{schemaVersion:'1.0.0',module:'Rayo Inventory',restaurant:'کافه‌رستوران رایو',currency:'تومان',updatedAt:null},

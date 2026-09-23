@@ -4,7 +4,8 @@ new vm.Script(code,{filename:'46-inventory-operations-v10-12.js'});
 const checks={
  singleton:code.includes('__RAYO_INVENTORY_OPERATIONS_V1012_INSTALLED'),
  receiptLock:code.includes('async function saveReceipt(keep){if(ui.receiptSaving)return;ui.receiptSaving=true;receiptButtons(true)'),
- issueLock:code.includes('async function saveIssue(){if(ui.issueSaving)return;ui.issueSaving=true;issueButtons(true)'),
+ issueLock:code.includes('async function saveIssue(){if(ui.issueSaving)return;')&&code.includes('ui.issueSaving=true;issueButtons(true)'),
+ issueSingleWarehouseBlocked:code.includes("if(RayoInventoryV10.unifiedMode?.())return toast('در حالت تک‌انبار نیازی به ثبت انتقال داخلی نیست"),
  stableReceiptId:code.includes('REC-DIRECT-${actionId}')&&code.includes('requestId:actionId'),
  stableIssueId:code.includes('MOV-ISSUE-${actionId}')&&code.includes("movementType:'TRANSFER'"),
  oneReceiptAppend:code.includes('if(!v.stockReceipts.some(x=>x.id===id))v.stockReceipts.push'),
