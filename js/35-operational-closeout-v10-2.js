@@ -40,14 +40,16 @@ function filterPersonnelRows(){const h=hrState();if(!h||!targetHrViews.has(curre
 // ---------- Money input formatting with raw value exposed to legacy handlers ----------
 function faToEn(v){return S(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d))}
 function rawMoney(v){const z=faToEn(v).replace(/[٬,،\s]/g,'').replace(/[^0-9\-]/g,'');return z==='-'?'-':z}
-function prettyMoney(v){const r=rawMoney(v);if(!r||r==='-')return r;const n=Number(r);return Number.isFinite(n)?Math.trunc(n).toLocaleString('en-US'):r}
+function prettyMoney(v){const r=rawMoney(v);if(!r||r==='-')return r;const n=Number(r);return Number.isFinite(n)?Math.trunc(n).toLocaleString('fa-IR'):r}
+function moneyDigitsBeforeCaret(el){const pos=el.selectionStart;if(pos==null)return null;return faToEn(el.value.slice(0,pos)).replace(/[^0-9\-]/g,'').length}
+function moneySetCaretByDigits(el,digits){if(digits==null)return;if(digits<=0){try{el.setSelectionRange(0,0)}catch(_){}return}const val=el.value;let count=0,pos=val.length;for(let i=0;i<val.length;i++){if(/[0-9۰-۹\-]/.test(val[i])){count++;if(count===digits){pos=i+1;break}}}try{el.setSelectionRange(pos,pos)}catch(_){}}
 function moneyLabel(inp){const f=inp.closest('.field')||inp.closest('label')||inp.parentElement;return S(f?.querySelector?.('label')?.textContent||f?.textContent||'')}
 function isMoneyInput(inp){if(!(inp instanceof HTMLInputElement)||['checkbox','radio','file','date','hidden','password'].includes(inp.type))return false;if(inp.matches('[data-raw-number], [inputmode="decimal"], [data-jalali="1"]')||inp.classList.contains('jalali-input'))return false;const l=moneyLabel(inp),id=S(inp.id).toLowerCase(),name=S(inp.name).toLowerCase();if(/تاریخ|از تاریخ|تا تاریخ|روز|ماه|سال|ساعت|درصد|تعداد|مقدار|وزن|نرخ استهلاک|نرخ درصد/.test(l))return false;if(/date|jalali|fromdate|todate/.test(id+' '+name))return false;return /(تومان|ریال|مبلغ|قیمت|حقوق|دستمزد|هزینه|فروش|دریافتی|پرداخت|بیعانه|اجاره|بودجه)/.test(l)||/(amount|price|cost|salary|payment|paid|revenue|sales)/.test(id)}
 function markMoneyInputs(root=document){root.querySelectorAll?.('input[data-v102-money="1"]').forEach(inp=>{if(!isMoneyInput(inp)){delete inp.dataset.v102Money;inp.value=faToEn(inp.value).replace(/[٬,،\s]/g,'')}});root.querySelectorAll?.('input').forEach(inp=>{if(!isMoneyInput(inp)||inp.dataset.v102Money)return;inp.dataset.v102Money='1';if(inp.type==='number')inp.type='text';inp.inputMode='numeric';inp.value=prettyMoney(inp.value)})}
 function unformatMoneyInputs(root=document){root.querySelectorAll?.('input[data-v102-money="1"]').forEach(i=>i.value=rawMoney(i.value))}
 function formatMoneyInputs(root=document){root.querySelectorAll?.('input[data-v102-money="1"]').forEach(i=>i.value=prettyMoney(i.value))}
-document.addEventListener('input',e=>{if(e.target?.matches?.('input[data-v102-money="1"]'))e.target.value=rawMoney(e.target.value)},true);
-document.addEventListener('input',e=>{if(e.target?.matches?.('input[data-v102-money="1"]'))e.target.value=prettyMoney(e.target.value)});
+document.addEventListener('input',e=>{const el=e.target;if(!el?.matches?.('input[data-v102-money="1"]'))return;const digits=moneyDigitsBeforeCaret(el);el.value=rawMoney(el.value);moneySetCaretByDigits(el,digits)},true);
+document.addEventListener('input',e=>{const el=e.target;if(!el?.matches?.('input[data-v102-money="1"]'))return;const digits=moneyDigitsBeforeCaret(el);el.value=prettyMoney(el.value);moneySetCaretByDigits(el,digits)});
 document.addEventListener('change',e=>{if(e.target?.matches?.('input[data-v102-money="1"]'))e.target.value=rawMoney(e.target.value)},true);
 document.addEventListener('change',e=>{if(e.target?.matches?.('input[data-v102-money="1"]'))e.target.value=prettyMoney(e.target.value)});
 document.addEventListener('click',()=>unformatMoneyInputs(),true);

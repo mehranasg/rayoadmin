@@ -92,7 +92,7 @@ const MODULE_DEFAULTS={
   },
   cashreport:{
     meta:{schemaVersion:'1.0.0',module:'Rayo Cash Report',restaurant:'کافه‌رستوران رایو',currency:'ریال',updatedAt:null},
-    settings:{inputCurrency:'ریال',displayCurrency:'تومان',discrepancyLimit:1000000},salesAnalytics:{daily:[],monthly:[],itemDaily:[]},cashiers:[],transferAccounts:[],cashRecipients:[],reports:[],changeLog:[]
+    settings:{inputCurrency:'ریال',displayCurrency:'تومان',discrepancyLimit:1000000,otherTransactionTypeOverrides:{},otherTransactionTypesCustom:[]},salesAnalytics:{daily:[],monthly:[],itemDaily:[]},cashiers:[],transferAccounts:[],cashRecipients:[],reports:[],changeLog:[]
   },
   assets:{
     meta:{schemaVersion:'1.0.0',module:'Rayo Assets',restaurant:'کافه‌رستوران رایو',currency:'تومان',updatedAt:null},
