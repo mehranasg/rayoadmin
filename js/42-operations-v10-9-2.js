@@ -12,7 +12,7 @@ const today=()=>window.RayoJalali?.today?.()||'';
 const actor=()=>sessionStorage.getItem('rayo_admin_user')||'admin';
 const clone=x=>JSON.parse(JSON.stringify(x));
 const file=()=>((location.pathname.split('/').pop()||'index.html').toLowerCase());
-const normalizeName=x=>S(x).normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[\u200c\u200f\u200e\s_\-–—()（）،,./\\]+/g,'').toLowerCase();
+const normalizeName=x=>S(x).normalize('NFKC').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[\u200c\u200f\u200e\s_\-–—()（）،,./\\]+/g,'').toLowerCase();
 const page=(title,sub='')=>(typeof pageHead==='function'?pageHead(title,sub):`<div class="page-head"><h1>${E(title)}</h1><p>${E(sub)}</p></div>`);
 const supplierName=s=>s?.company||s?.contactName||s?.code||'—';
 const partyActivity=s=>['goods','service','both'].includes(s?.activityType)?s.activityType:'goods';

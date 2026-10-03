@@ -34,16 +34,18 @@
 | تأمین | سفارش/فاکتور چندخطی | 42، 22 | purchaseRequests/invoices | Implemented | متوسط | tabهای قدیمی کامل نمایش داده نمی‌شوند | UAT مسیر واقعی |
 | تأمین | میز سفارش در منوی نهایی | 42، 46::supplierTabs | Legacy orderDesk | Deprecated | زیاد | کد/route سازگار باقی است | خودکار برنگردد |
 | تأمین | بدهی و مانده اولیه | 42؛ qa_supplier_parties_debts | invoices/payments/directDebts | Implemented | زیاد | دفتر رسمی حسابداری نیست | reconcile نمونه |
-| انبار | ۹ تب، موجودی کل/محل و چاپ | inventory.html، 46؛ qa_v10_12_1 | ledger/counts/pricing | Implemented | زیاد | asset چاپ/فونت نیاز مرورگر | visual check |
+| انبار | ۷ تب، موجودی کل و چاپ؛ ورود چندسطری؛ مغایرت ثبت‌شده در انبارگردانی | inventory.html، 46؛ qa_v10_12_1 | ledger/counts/pricing | Implemented | زیاد | asset چاپ/فونت نیاز مرورگر | visual check |
 | انبار | ورود مستقیم و قیمت واحد/کل | 46؛ qa_inventory_receipt_ui | stockReceipts + movement | Implemented | زیاد | catalogue price تغییر نمی‌کند | حفظ قرارداد |
 | انبار | انتقال متوازن | 32، 46؛ qa_inventory_entry_issue | inventoryMovements | Implemented | زیاد | transaction Server ندارد | concurrency Stage |
 | انبار | شمارش گروهی/اولیه/دوره‌ای | 32، 35، 46؛ qa_inventory_bulk_count | stocktakes | Implemented | زیاد | قیمت فرم‌ها واحد متفاوت دارد | کنترل labels |
 | انبار | ابطال/آرشیو رسید | 46؛ qa_inventory_receipt_ui | receipt/movement | Implemented | زیاد | نشست مدیر Client | server authorization |
 | انبار | فروش/اسنپ و مصرف رسپی | 14، 32، 36 | salesPeriods/recipeVersions | Implemented | متوسط | کامل‌بودن ورودی کانال‌ها نامعلوم | تطبیق واردسازی |
+| انبار | کنترل روزانه نوشیدنی (فرم A5، مغایرت شیفت/روز/شب‌تا‌صبح، کارت گزارش لیست/نمودار خطی با بازه و انتخاب نوشیدنی، ثبت سریع در داشبورد، فرم پرسنل personel/beverage-control.html) | 46، 22، 25؛ qa_beverage_serving_control | inventory.beverageDailyControls | Implemented | متوسط | فروش شیفت دستی وارد می‌شود؛ به Ledger موجودی وصل نیست | UAT فرم کاغذی و مرورگر |
+| اموال | شمارش هفتگی گروهی اقلام سرو، ثبت سریع شکستگی، گزارش هفتگی، فرم A5، ابطال به‌جای حذف | 12؛ qa_beverage_serving_control | assets.counts/quantityTransactions | Implemented | متوسط | حذف سابقه تعمیر هنوز فیزیکی است | visual check |
 | انبار | waste/consumption و review | 32، 34، 22 | waste/consumption/declarations | Implemented | متوسط | مدرک فایل/approval چندمرحله‌ای ندارد | UAT پایان شیفت |
 | انبار | cost/variance/closure | 32، 46 | ledger + periodClosures | Implemented | زیاد | coverage شمارش شرط اعتبار | نمایش completeness |
 | انبار | forecast زمانی/فروش‌محور | 46؛ qa_operational_forecast | operationalConsumptionProfiles | Partial | زیاد | invoice count/۳ دوره ندارد؛ missing→unknown | دادهٔ پوشش معتبر |
-| انبار | ۱۲ تب تاریخی | هسته 32 در برابر UI 46 | Legacy | Deprecated | زیاد | الگوی تاریخی تست‌ها | ۹ تب حفظ شود |
+| انبار | ۱۲ تب تاریخی | هسته 32 در برابر UI 46 | Legacy | Deprecated | زیاد | الگوی تاریخی تست‌ها | ۷ تب جاری حفظ شود |
 | HR | پرونده/فیلتر/پروفایل/گزارش | 00، 23، 44؛ qa_personnel_counts | personnel و سوابق | Implemented | زیاد | برخی فیلدها Legacy | نمونهٔ پذیرش |
 | HR | بانک/قرارداد ثابت و ساعتی | 05–07، 23؛ qa_personnel_salary_account | personnel | Implemented | زیاد | صحت حقوق قانونی ادعا نمی‌شود | golden payroll |
 | HR | وسایل تحویلی | 44::saveIssuedEquipment | personnel.accommodation.equipment | Implemented | متوسط | ثبت داخل HR | حفظ snapshot |

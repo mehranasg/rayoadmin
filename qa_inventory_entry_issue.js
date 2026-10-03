@@ -3,21 +3,21 @@ const root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8'),code=read
 new vm.Script(code,{filename:'46-inventory-operations-v10-12.js'});
 const checks={
  singleton:code.includes('__RAYO_INVENTORY_OPERATIONS_V1012_INSTALLED'),
- receiptLock:code.includes('async function saveReceipt(keep){if(ui.receiptSaving)return;ui.receiptSaving=true;receiptButtons(true)'),
+ receiptLock:code.includes('async function saveReceiptBatch(){\n if(ui.receiptSaving)return;')&&code.includes('ui.receiptSaving=true;receiptButtons(true)'),
  issueLock:code.includes('async function saveIssue(){if(ui.issueSaving)return;ui.issueSaving=true;issueButtons(true)'),
- stableReceiptId:code.includes('REC-DIRECT-${actionId}')&&code.includes('requestId:actionId'),
+ stableReceiptId:code.includes('REC-DIRECT-${actionId}-${k+1}')&&code.includes('requestId:actionId'),
  stableIssueId:code.includes('MOV-ISSUE-${actionId}')&&code.includes("movementType:'TRANSFER'"),
- oneReceiptAppend:code.includes('if(!v.stockReceipts.some(x=>x.id===id))v.stockReceipts.push'),
+ oneReceiptAppend:code.includes('if(!v.stockReceipts.some(r=>r.id===id))v.stockReceipts.push'),
  oneIssueAppend:code.includes('if(!v.inventoryMovements.some(x=>x.id===id))v.inventoryMovements.push'),
- uncertainResultCheck:code.includes("unknownSave(e)&&await inventoryRecordConfirmed('stockReceipts',id)")&&code.includes("unknownSave(e)&&await inventoryRecordConfirmed('inventoryMovements',id)"),
- failureRollback:code.includes('Object.assign(v,beforeInv)')&&code.includes('Object.assign(v,before)'),
+ uncertainResultCheck:code.includes('if(!unknownSave(e)||!await inventoryReceiptsConfirmed(ids))throw e')&&code.includes("unknownSave(e)&&await inventoryRecordConfirmed('inventoryMovements',id)"),
+ failureRollback:code.includes('if(before){Object.keys(v).forEach(k=>delete v[k]);Object.assign(v,before)}')&&code.includes('Object.assign(v,before)'),
  searchWithoutRender:code.includes("document.querySelectorAll('[data-v1012-receipt-row]')")&&code.includes("document.querySelectorAll('[data-v1012-issue-row]')"),
  persianNormalize:code.includes("replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\\s+/g,' ')"),
  voidAudit:code.includes('voidReason:reason')&&code.includes('voidedAt:at'),
  doubleVoidGuard:code.includes('اثر دوم ندارد'),
  dependencyGuards:code.includes('closedPeriod(m.date)')&&code.includes('اصلاح شمارش'),
  transferBothSides:code.includes('هر دو سمت این انتقال دقیقاً یک‌بار خنثی می‌شوند'),
- explicitButtonTypes:code.includes('<button type="submit" data-v1012-receipt-action')&&code.includes('<button type="button" data-v1012-receipt-action'),
+ explicitButtonTypes:code.includes('<button type="submit" data-v1012-receipt-action')&&code.includes('<button type="button" class="btn" onclick="RayoInventoryV1012.receiptAddRow()">'),
  noLocalStorage:!code.includes('localStorage')
 };
 for(const [name,value] of Object.entries(checks)){assert.ok(value,name);console.log('PASS',name)}

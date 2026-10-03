@@ -15,12 +15,6 @@ function searchChecks(){
  const t=setup();
  t.items[0].name='کیک یزدی';t.items[0].code='120';
  t.items[1].name='شیر کم\u200cچرب';t.items[1].code='121';
- const select=t.els.v1012RecIng={value:'a',innerHTML:''};
- t.api.filterReceiptItems('كيك يزدي');assert(select.innerHTML.includes('value="a"'));assert(!select.innerHTML.includes('value="b"'));assert.equal(select.value,'a');
- t.api.filterReceiptItems('١٢١');assert(select.innerHTML.includes('value="b"'));assert(!select.innerHTML.includes('value="a"'));assert.equal(select.value,'');
- t.api.filterReceiptItems('شیر کم چرب');assert(select.innerHTML.includes('value="b"'));
- t.api.filterReceiptItems('نام ناموجود');assert(!select.innerHTML.includes('value="a"'));assert(select.innerHTML.includes('قلمی یافت نشد'));
- t.api.filterReceiptItems('');assert(t.items.every(i=>select.innerHTML.includes(`value="${i.id}"`)));
  const rows=Array.from({length:60},(_,n)=>({hidden:n>=25,dataset:{search:`${n} قلم`,...(n>=25?{rayoPageHidden:'1'}:{})},querySelector:()=>null,cells:[],isConnected:true}));
  t.context.document.querySelectorAll=s=>s==='[data-v1012-bulk-row]'?rows:[];
  const label={textContent:''},table={isConnected:true,tBodies:[{rows}]};
@@ -35,11 +29,11 @@ function searchChecks(){
  t.api.filterBulkItems('');vm.runInContext('renderList(table)',c);assert.equal(rows.filter(r=>!r.hidden).length,25);
  t.api.filterBulkItems('۵۹');vm.runInContext('renderList(table)',c);assert.deepEqual(rows.filter(r=>!r.hidden),[rows[59]]);
  assert.equal(t.inputs[0].value,'12','filtering preserves entered quantities');assert.equal(t.saves(),0,'search must never save');
- console.log('PASS receipt and bulk search: Persian/Arabic letters and digits, selection, reset, no results, real pagination, quantity preservation, no save');
+ console.log('PASS bulk search: Persian/Arabic letters and digits, reset, no results, real pagination, quantity preservation, no save');
 }
 (async()=>{
  searchChecks();
- assert(code.includes('<details class="card v1012-direct-entry"><summary><b>ورود مستقیم به انبار</b></summary>'),'direct-entry card starts collapsed and opens from its title');
+ assert(!code.includes('v1012-direct-entry')&&code.includes('ذخیره همه ورودها'),'direct-entry card is always open; no open/close toggle');
  let t=setup();assert.equal(t.saves(),0,'loading must not save');
  t.inputs[0].value='۰';t.inputs[1].value='١٢٫٥';
  await Promise.all([t.api.saveBulkCount(),t.api.saveBulkCount()]);
@@ -56,5 +50,5 @@ function searchChecks(){
  t=setup();t.items[0].packageQuantity=5;t.inputs[0].value='۲٫۳۴';t.prices[0].value='۱۲۰٬۰۰۰';await t.api.saveBulkCount();assert.equal(t.state.stocktakes[0].lines[0].unitCost,120000);assert.equal(t.state.stocktakes[0].lines[0].purchasePriceToman,600000);assert.equal(t.state.stocktakes[0].lines[0].actual,2.34);assert.equal(t.saves(),1);assert.equal(t.prices[0].value,'');
  t=setup();t.inputs[0].value='2.5';t.prices[0].value='bad';await t.api.saveBulkCount();assert.equal(t.saves(),0);assert.equal(t.inputs[0].value,'2.5');
  t=setup();t.inputs[0].value='2.5';t.prices[0].value='120';t.fail(Object.assign(Error('offline'),{code:'network_error'}));await t.api.saveBulkCount();assert.equal(t.prices[0].value,'120');t.prices[0].value='121';await t.api.saveBulkCount();assert.equal(t.saves(),1,'uncertain retry cannot change its price');
- console.log('PASS bulk count: collapsed direct entry, zero, decimals, direct approval, same-day versioned edit without prompt, later-date guard, retry identity, optional opening note and closed period');
+ console.log('PASS bulk count: always-open direct entry, zero, decimals, direct approval, same-day versioned edit without prompt, later-date guard, retry identity, optional opening note and closed period');
 })().catch(e=>{console.error(e);process.exitCode=1});

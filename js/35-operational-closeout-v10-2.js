@@ -35,31 +35,71 @@ async function ensureEmploymentStatus(){try{const h=await RAYO_API_GATEWAY.loadO
 function scopeControl(){const h=hrState();if(!h)return'';const statuses=A(h.lists?.employmentStatuses),opts=['فعال','همه',...statuses.filter(x=>x!=='فعال')];return `<div class="card v102-person-scope"><div class="toolbar"><div class="field"><label>نمایش پرسنل بر اساس وضعیت همکاری</label><select id="v102PersonnelScope" onchange="RayoV102.setPersonnelScope(this.value)">${opts.map(x=>`<option value="${E(x)}" ${x===personnelScope?'selected':''}>${E(x==='همه'?'همه پرسنل':x)}</option>`).join('')}</select></div><div class="hint">پیش‌فرض: پرسنل فعال. برای مشاهده سوابق نیروهای غیرفعال یا اتمام همکاری، وضعیت را تغییر دهید.</div></div></div>`}
 function injectScopeControl(){if((location.pathname.split('/').pop()||'').toLowerCase()!=='personnel.html'||!targetHrViews.has(currentViewName()))return;const root=document.getElementById('view');if(!root||root.querySelector('.v102-person-scope'))return;const head=root.querySelector('.page-head,.page-title');if(head)head.insertAdjacentHTML('afterend',scopeControl());else root.insertAdjacentHTML('afterbegin',scopeControl())}
 function filterPersonnelSelects(){const h=hrState();if(!h||!targetHrViews.has(currentViewName()))return;const people=A(h.personnel),map=new Map(people.map(p=>[S(p.id),p]));document.querySelectorAll('#view select, #modalBody select').forEach(sel=>{if(sel.id==='v102PersonnelScope')return;const opts=[...sel.options],personOpts=opts.filter(o=>map.has(S(o.value)));if(!personOpts.length)return;personOpts.forEach(o=>{const p=map.get(S(o.value)),keep=personnelScope==='همه'||p?.status===personnelScope||o.selected;if(!keep)o.remove()})})}
-function filterPersonnelRows(){const h=hrState();if(!h||!targetHrViews.has(currentViewName())||personnelScope==='همه')return;const people=A(h.personnel);document.querySelectorAll('#view table.data-table tbody tr').forEach(tr=>{const txt=S(tr.textContent),matches=people.filter(p=>txt.includes(S(p.id))||(S(p.name)&&txt.includes(S(p.name))));if(matches.length===1&&matches[0].status!==personnelScope)tr.style.display='none'})}
+function filterPersonnelRows(){const h=hrState();if(!h||!targetHrViews.has(currentViewName())||personnelScope==='همه')return;const people=A(h.personnel);document.querySelectorAll('#view table.data-table tbody tr').forEach(tr=>{const txt=faToEn(tr.textContent),matches=people.filter(p=>txt.includes(S(p.id))||(S(p.name)&&txt.includes(S(p.name))));if(matches.length===1&&matches[0].status!==personnelScope)tr.style.display='none'})}
 
-// ---------- Money input formatting with raw value exposed to legacy handlers ----------
+// ---------- Numeric UX: Persian digits, live 3-digit grouping, select-on-focus ----------
+// Enhanced numeric inputs show Persian digits (amounts are also grouped), but their `value`
+// property always returns the raw English value without separators. Legacy handlers, validation
+// and saved payloads therefore read exactly what they read before; only the display changes.
+const FA_DIGITS='۰۱۲۳۴۵۶۷۸۹';
+const NATIVE_VALUE=typeof HTMLInputElement!=='undefined'?Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value'):null;
 function faToEn(v){return S(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d))}
-function rawMoney(v){const z=faToEn(v).replace(/[٬,،\s]/g,'').replace(/[^0-9\-]/g,'');return z==='-'?'-':z}
-function prettyMoney(v){const r=rawMoney(v);if(!r||r==='-')return r;const n=Number(r);return Number.isFinite(n)?Math.trunc(n).toLocaleString('fa-IR'):r}
-function moneyDigitsBeforeCaret(el){const pos=el.selectionStart;if(pos==null)return null;return faToEn(el.value.slice(0,pos)).replace(/[^0-9\-]/g,'').length}
-function moneySetCaretByDigits(el,digits){if(digits==null)return;if(digits<=0){try{el.setSelectionRange(0,0)}catch(_){}return}const val=el.value;let count=0,pos=val.length;for(let i=0;i<val.length;i++){if(/[0-9۰-۹\-]/.test(val[i])){count++;if(count===digits){pos=i+1;break}}}try{el.setSelectionRange(pos,pos)}catch(_){}}
-function moneyLabel(inp){const f=inp.closest('.field')||inp.closest('label')||inp.parentElement;return S(f?.querySelector?.('label')?.textContent||f?.textContent||'')}
-function isMoneyInput(inp){if(!(inp instanceof HTMLInputElement)||['checkbox','radio','file','date','hidden','password'].includes(inp.type))return false;if(inp.matches('[data-raw-number], [inputmode="decimal"], [data-jalali="1"]')||inp.classList.contains('jalali-input'))return false;const l=moneyLabel(inp),id=S(inp.id).toLowerCase(),name=S(inp.name).toLowerCase();if(/تاریخ|از تاریخ|تا تاریخ|روز|ماه|سال|ساعت|درصد|تعداد|مقدار|وزن|نرخ استهلاک|نرخ درصد/.test(l))return false;if(/date|jalali|fromdate|todate/.test(id+' '+name))return false;return /(تومان|ریال|مبلغ|قیمت|حقوق|دستمزد|هزینه|فروش|دریافتی|پرداخت|بیعانه|اجاره|بودجه)/.test(l)||/(amount|price|cost|salary|payment|paid|revenue|sales)/.test(id)}
-function markMoneyInputs(root=document){root.querySelectorAll?.('input[data-v102-money="1"]').forEach(inp=>{if(!isMoneyInput(inp)){delete inp.dataset.v102Money;inp.value=faToEn(inp.value).replace(/[٬,،\s]/g,'')}});root.querySelectorAll?.('input').forEach(inp=>{if(!isMoneyInput(inp)||inp.dataset.v102Money)return;inp.dataset.v102Money='1';if(inp.type==='number')inp.type='text';inp.inputMode='numeric';inp.value=prettyMoney(inp.value)})}
-function unformatMoneyInputs(root=document){root.querySelectorAll?.('input[data-v102-money="1"]').forEach(i=>i.value=rawMoney(i.value))}
-function formatMoneyInputs(root=document){root.querySelectorAll?.('input[data-v102-money="1"]').forEach(i=>i.value=prettyMoney(i.value))}
-document.addEventListener('input',e=>{const el=e.target;if(!el?.matches?.('input[data-v102-money="1"]'))return;const digits=moneyDigitsBeforeCaret(el);el.value=rawMoney(el.value);moneySetCaretByDigits(el,digits)},true);
-document.addEventListener('input',e=>{const el=e.target;if(!el?.matches?.('input[data-v102-money="1"]'))return;const digits=moneyDigitsBeforeCaret(el);el.value=prettyMoney(el.value);moneySetCaretByDigits(el,digits)});
-document.addEventListener('change',e=>{if(e.target?.matches?.('input[data-v102-money="1"]'))e.target.value=rawMoney(e.target.value)},true);
-document.addEventListener('change',e=>{if(e.target?.matches?.('input[data-v102-money="1"]'))e.target.value=prettyMoney(e.target.value)});
-document.addEventListener('click',()=>unformatMoneyInputs(),true);
-document.addEventListener('click',()=>setTimeout(()=>{markMoneyInputs();formatMoneyInputs()},0));
-document.addEventListener('submit',()=>unformatMoneyInputs(),true);
+function enToFa(v){return String(v??'').replace(/[0-9]/g,d=>FA_DIGITS[d])}
+function rawAmount(v){let s=faToEn(v).replace(/٫/g,'.').replace(/[^0-9.\-]/g,'');const neg=s.startsWith('-');s=s.replace(/-/g,'');const dot=s.indexOf('.');if(dot>=0)s=s.slice(0,dot+1)+s.slice(dot+1).replace(/\./g,'');return(neg?'-':'')+s}
+function rawNum(v,kind){return kind==='amount'?rawAmount(v):faToEn(String(v??''))}
+function showNum(v,kind){if(kind!=='amount')return enToFa(faToEn(String(v??'')));const r=rawAmount(v);if(!r||r==='-')return r;const neg=r.startsWith('-'),[i,d]=r.replace('-','').split('.');return(neg?'-':'')+enToFa(i.replace(/^0+(?=\d)/,'').replace(/\B(?=(\d{3})+(?!\d))/g,'٬'))+(d===undefined?'':'٫'+enToFa(d))}
+const NUM_SIG=/[0-9۰-۹٠-٩.٫\-]/;
+function numLabel(inp){const f=inp.closest('.field')||inp.closest('label')||inp.parentElement;return S(inp.labels?.[0]?.textContent||f?.querySelector?.('label')?.textContent||(f?.tagName==='LABEL'?f.textContent:'')||inp.getAttribute('aria-label')||inp.placeholder||'')}
+const NUM_MONEY_LABEL=/تومان|ریال|مبلغ|قیمت/;
+const NUM_DIGITS_LABEL=/تاریخ|سال|ماه|روز|ساعت|زمان|کد|شماره|تلفن|موبایل|همراه|کارت|شبا|پلاک|ملی|پستی|رمز/;
+const NUM_TEXT_LABEL=/شرح|توضیح|روش|نام|عنوان|نوع|وضعیت|محل|علت|دلیل|یادداشت|آدرس/;
+function numKind(inp){
+ if(!(inp instanceof HTMLInputElement))return'';if(inp.__faNum)return inp.__faNum;
+ const type=S(inp.getAttribute('type')||'text').toLowerCase();if(!['text','number','tel'].includes(type))return'';
+ if(inp.matches('[data-no-fa-num],[dir="ltr"],[role="combobox"],[autocomplete="username"]')||inp.closest('[dir="ltr"],[data-en-digits]'))return'';
+ const label=numLabel(inp),key=`${inp.id} ${inp.name}`.toLowerCase(),current=S(NATIVE_VALUE.get.call(inp));
+ if(inp.dataset.jalali==='1'||inp.classList.contains('jalali-input')||type==='tel')return'digits';
+ const hinted=type==='number'||/^(numeric|decimal)$/.test(S(inp.getAttribute('inputmode')))||inp.matches('[data-money],[data-v102-money],[data-raw-number]');
+ if(hinted){if(/\d[\/:]\d/.test(faToEn(current)))return'digits';if(!NUM_MONEY_LABEL.test(label)&&(NUM_DIGITS_LABEL.test(label)||/date|year|month|day|phone|mobile|tel|code|time/.test(key)))return'digits';return'amount'}
+ if(NUM_MONEY_LABEL.test(label)&&!NUM_TEXT_LABEL.test(label)&&!NUM_DIGITS_LABEL.test(label)&&/^[\d۰-۹٠-٩٬,،.٫\s-]*$/.test(current))return'amount';
+ return'';
+}
+function enhanceNumericInput(inp){
+ if(!NATIVE_VALUE||inp.__faNum)return;const kind=numKind(inp);if(!kind)return;
+ const raw=NATIVE_VALUE.get.call(inp);
+ if(S(inp.getAttribute('type')).toLowerCase()==='number'){inp.dataset.faType='number';inp.type='text'}
+ if(!inp.hasAttribute('inputmode'))inp.setAttribute('inputmode',kind==='amount'?'decimal':'numeric');
+ inp.__faNum=kind;inp.dataset.faNum=kind;
+ Object.defineProperty(inp,'value',{configurable:true,enumerable:true,get(){return rawNum(NATIVE_VALUE.get.call(this),this.__faNum)},set(v){NATIVE_VALUE.set.call(this,showNum(v,this.__faNum))}});
+ inp.value=raw;
+}
+function scanNumericInputs(root=document){if(!NATIVE_VALUE||window.RAYO_FA_DIGITS_DISABLED)return;if(root instanceof HTMLInputElement)return enhanceNumericInput(root);root.querySelectorAll?.('input').forEach(enhanceNumericInput)}
+function numCaret(el,sig){const val=NATIVE_VALUE.get.call(el);let pos=0,count=0;if(sig>0){pos=val.length;for(let i=0;i<val.length;i++){if(NUM_SIG.test(val[i])&&++count===sig){pos=i+1;break}}}try{el.setSelectionRange(pos,pos)}catch(_){}}
+// Reformat while typing without the caret jumping: count significant characters before the
+// caret, reformat, then restore the caret after the same number of significant characters.
+document.addEventListener('input',e=>{const el=e.target;if(!el?.__faNum||e.isComposing)return;const before=NATIVE_VALUE.get.call(el),next=showNum(before,el.__faNum);if(next===before)return;const pos=el.selectionStart,sig=pos==null?null:[...before.slice(0,pos)].filter(c=>NUM_SIG.test(c)).length;NATIVE_VALUE.set.call(el,next);if(sig!=null&&document.activeElement===el)numCaret(el,sig)},true);
+// Clicking a numeric field selects its value so typing replaces it (no Backspace needed). A zero
+// default is cleared on focus and restored on blur when nothing was typed, so no value is lost.
+let numSelectOnce=null;
+document.addEventListener('focusin',e=>{const el=e.target;if(!el?.__faNum||el.readOnly||el.disabled)return;const raw=el.value;if(el.__faNum==='amount'&&raw!==''&&/^-?0*\.?0*$/.test(raw)){el.__faZero=raw;NATIVE_VALUE.set.call(el,'');return}if(raw==='')return;numSelectOnce=el;setTimeout(()=>{if(document.activeElement===el)try{el.setSelectionRange(0,NATIVE_VALUE.get.call(el).length)}catch(_){try{el.select()}catch(__){}}},0);setTimeout(()=>{if(numSelectOnce===el)numSelectOnce=null},600)});
+document.addEventListener('mouseup',e=>{if(numSelectOnce&&e.target===numSelectOnce){numSelectOnce=null;e.preventDefault()}},true);
+document.addEventListener('focusout',e=>{const el=e.target;if(!el?.__faNum||el.__faZero==null)return;if(NATIVE_VALUE.get.call(el)==='')NATIVE_VALUE.set.call(el,showNum(el.__faZero,el.__faNum));el.__faZero=null});
+document.addEventListener('reset',e=>setTimeout(()=>e.target?.querySelectorAll?.('input').forEach(i=>{if(i.__faNum)i.value=NATIVE_VALUE.get.call(i)}),0));
+// Rendered text shows Persian digits. Tokens with Latin letters (IDs, codes, versions, URLs),
+// LTR/code blocks, editable text and options whose value is taken from their text are kept.
+const FA_TEXT_SKIP='script,style,textarea,code,pre,kbd,samp,datalist,[dir="ltr"],[data-en-digits],[contenteditable]:not([contenteditable="false"])';
+function faText(s){return /[0-9]/.test(s)?s.replace(/[^\s]+/g,t=>/[0-9]/.test(t)&&!/[A-Za-z@_\\]/.test(t)?t.replace(/(\d),(?=\d{3}(?!\d))/g,'$1٬').replace(/[0-9]/g,d=>FA_DIGITS[d]):t):s}
+function faTextNode(n){const p=n.parentElement;if(!p||!/[0-9]/.test(n.data)||p.closest(FA_TEXT_SKIP))return;const opt=p.closest('option');if(opt&&!opt.hasAttribute('value'))return;const next=faText(n.data);if(next!==n.data)n.data=next}
+function faPlaceholder(el){if(/[0-9]/.test(el.placeholder||'')&&el.getAttribute('dir')!=='ltr'&&!el.closest('[dir="ltr"],[data-en-digits]'))el.placeholder=faText(el.placeholder)}
+function faDigitsIn(root){if(!root)return;if(root.nodeType===3)return faTextNode(root);if(root.nodeType!==1)return;if(root.matches('input,textarea'))return faPlaceholder(root);const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[];while(w.nextNode())nodes.push(w.currentNode);nodes.forEach(faTextNode);root.querySelectorAll('input[placeholder],textarea[placeholder]').forEach(faPlaceholder)}
+function installFaDigits(){if(window.RAYO_FA_DIGITS_DISABLED||typeof MutationObserver==='undefined'||!document.body||!NATIVE_VALUE)return;faDigitsIn(document.body);scanNumericInputs(document);new MutationObserver(ms=>{for(const m of ms){if(m.type==='characterData'){faTextNode(m.target);continue}m.addedNodes.forEach(n=>{faDigitsIn(n);if(n.nodeType===1)scanNumericInputs(n)})}}).observe(document.body,{childList:true,subtree:true,characterData:true})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installFaDigits);else installFaDigits();
+window.RayoNumberUX={toEn:faToEn,toFa:enToFa,format:showNum,raw:rawNum,scan:scanNumericInputs};
 
 // ---------- Duplicate import buttons/ids and general post-render cleanup ----------
 function dedupeImports(){const seen=new Set;document.querySelectorAll('#view button,#view a.btn').forEach(b=>{const t=S(b.textContent).replace(/\s+/g,' ');if(!/ورود.*(excel|اکسل)/i.test(t))return;const key=t.toLowerCase();if(seen.has(key))b.remove();else seen.add(key)});const ids=new Set;document.querySelectorAll('#view [id],#modalBody [id]').forEach(x=>{if(ids.has(x.id))x.remove();else ids.add(x.id)})}
 function installBuildBadge(){document.documentElement.dataset.rayoBuild='10.5.2';document.querySelectorAll('.status-line').forEach(x=>{if(x.dataset.v1021Build)return;x.dataset.v1021Build='1';const b=document.createElement('span');b.className='v1021-build-badge';b.textContent=' • Build 10.5.2';x.appendChild(b)})}
-function postProcess(){try{installBuildBadge();injectScopeControl();filterPersonnelSelects();filterPersonnelRows();markMoneyInputs();formatMoneyInputs();dedupeImports()}catch(e){console.warn('v10.5.2 post-process',e)}}
+function postProcess(){try{installBuildBadge();injectScopeControl();filterPersonnelSelects();filterPersonnelRows();scanNumericInputs();dedupeImports()}catch(e){console.warn('v10.5.2 post-process',e)}}
 
 
 function inventoryTabsHtml(){const tab=new URLSearchParams(location.search).get('tab')||window.ops?.tab||'overview',tabs=[['workflow','راهنما و ورک‌فلو'],['overview','موجودی و سفارش'],['valuation','ارزش روز موجودی'],['receipts','دریافت کالا'],['sales','فروش روزانه'],['locations','محل‌ها و نگاشت‌ها'],['transfer','انتقال کالا'],['waste','پرتی و ضایعات'],['stock','شمارش دوره‌ای'],['cost','بهای تمام‌شده و بستن دوره'],['history','مغایرت و گردش'],['varianceReports','گزارش‌ها']];return `<div class="ops-tabs">${tabs.map(([k,l])=>`<button class="btn ${tab===k?'active btn-primary':''}" onclick="opsTab('${k}')">${l}</button>`).join('')}</div>`}
@@ -75,6 +115,6 @@ function setPersonnelScope(v){personnelScope=S(v)||'فعال';try{renderView()}c
 function addSnappLine(){document.getElementById('v102SnappLines')?.insertAdjacentHTML('beforeend',snappRow());postProcess()}
 
 window.RayoV102={saveSnappSales,voidSnapp,addSnappLine,resetModule,setPersonnelScope};
-function install(){const file=(location.pathname.split('/').pop()||'').toLowerCase(),params=new URLSearchParams(location.search),tab=params.get('tab'),view=params.get('view');if(file==='inventory.html'&&tab==='payment'){location.replace('suppliers.html?tab=payment');return}if(file==='inventory.html'&&tab==='invoice'){location.replace('suppliers.html?tab=invoice');return}if(file!=='sales-analysis.html'&&(!window.views||!window.renderView))return setTimeout(install,80);wrapViews();wrapRender();if(!(file==='personnel.html'&&view==='tips'))ensureEmploymentStatus();postProcess();setTimeout(()=>{wrapViews();wrapRender();postProcess()},250);setTimeout(()=>{wrapViews();wrapRender();postProcess()},1000)}
+function install(){const file=(location.pathname.split('/').pop()||'').toLowerCase(),params=new URLSearchParams(location.search),tab=params.get('tab'),view=params.get('view');if(file==='inventory.html'&&tab==='payment'){location.replace('suppliers.html?tab=payment');return}if(file==='inventory.html'&&tab==='invoice'){location.replace('suppliers.html?tab=invoice');return}if(document.body?.classList.contains('staff-panel-body')||/\/personel\//i.test(location.pathname.replace(/\\/g,'/'))||['cash-report.html','staff-login.html','staff-panel.html','login.html'].includes(file))return;/* staff and cashier pages have no admin views; numeric UX above is document-level */if(file!=='sales-analysis.html'&&(!window.views||!window.renderView))return setTimeout(install,80);wrapViews();wrapRender();if(!(file==='personnel.html'&&view==='tips'))ensureEmploymentStatus();postProcess();setTimeout(()=>{wrapViews();wrapRender();postProcess()},250);setTimeout(()=>{wrapViews();wrapRender();postProcess()},1000)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();

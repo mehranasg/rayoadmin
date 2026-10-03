@@ -9,7 +9,7 @@ const SECTIONS=[
   ['pricing','قیمت‌گذاری'],
   ['inventory','انبارداری'],
   ['purchase','خرید، تأمین و نگهداری'],
-  ['finance','بدهی‌ها، مطالبات و چک‌ها'],
+  ['finance','امور مالی'],
   ['assets','اموال و دارایی‌ها']
 ];
 const SECTION_KEYS=SECTIONS.map(x=>x[0]);

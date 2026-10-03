@@ -37,6 +37,8 @@ const group3={id:'TIPG-3',receiveDate:'1405/06/03',type:'کلی',status:'ثبت�
   ok('عدم Save شدن DEFAULT_DATA',base.includes("!tipsOnlyPage()")&&!/tipsOnlyPage\(\)[\s\S]{0,500}StorageAdapter\.save/.test(base)&&!base.slice(base.indexOf("TIP_QUERY_COLLECTION='tipGroups'"),base.indexOf('const views=')).includes('saveModule('));
   ok('عدم Load کامل جانبی در نمای انعام',closeout.includes("if(!(file==='personnel.html'&&view==='tips'))ensureEmploymentStatus()"));
   ok('Load Save سایر personnel بدون تغییر مسیر',base.includes("return window.RAYO_API_GATEWAY.loadOrBootstrap('hr')")&&base.includes("saveModule('hr',data"));
-  ok('Query Mutate انعام فقط در فایل مالک آن است',!fs.readdirSync(path.join(root,'js')).filter(x=>!['00-base.js','config.js','11-rayo-cash-report-module.js'].includes(x)).some(f=>f.endsWith('.js')&&/queryCollection\(|mutateRecord\(/.test(fs.readFileSync(path.join(root,'js',f),'utf8'))));
+  ok('Query Mutate انعام فقط در فایل مالک آن است',!fs.readdirSync(path.join(root,'js')).filter(x=>!['00-base.js','config.js','11-rayo-cash-report-module.js','22-staff-panel.js'].includes(x)).some(f=>f.endsWith('.js')&&/queryCollection\(|mutateRecord\(/.test(fs.readFileSync(path.join(root,'js',f),'utf8'))));
+  // The staff panel may insert its own daily cash report record, but never query/mutate tips.
+  {const staff=fs.readFileSync(path.join(root,'js','22-staff-panel.js'),'utf8'),calls=staff.match(/mutateRecord\(\{[^}]*/g)||[];ok('پنل پرسنل فقط گزارش صندوق را Mutate می‌کند',!/queryCollection\(/.test(staff)&&calls.length>0&&calls.every(c=>c.includes("module:'cashreport'")&&c.includes("collection:'reports'"))&&!/tipGroups/.test(calls.join('')))}
   console.log(`PASS ${checks.length}`);checks.forEach(x=>console.log('  ✓ '+x));
 })().catch(e=>{console.error(e);process.exitCode=1});

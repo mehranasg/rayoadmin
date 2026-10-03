@@ -17,7 +17,7 @@ const sandbox={window:{RAYO_ENV:{API_ORIGIN:'https://test.local',API_PREFIX:'/ap
  ok('دوبار کلیک و Retry پایدار',admin.includes('crQueryState.submitting||crQueryState.readOnly')&&admin.includes('requestId:pending.requestId')&&publicApp.includes('reportSubmitting'));
  ok('لغو درخواست خروج',admin.includes("nav.dataset.view!=='cashReport'")&&admin.includes('controller?.abort()'));
  ok('عدم Auto-save',!admin.slice(admin.indexOf('async function crEnsureReportsLoaded'),admin.indexOf('function crTabs')).includes('saveModule(')&&!publicApp.slice(publicApp.indexOf('async function loadApi'),publicApp.indexOf('async function loadState')).includes('saveModule('));
- ok('بخش‌های جانبی روی Load Save قدیمی',admin.includes("CashStorage.load()")&&admin.includes("CashStorage.save(cashState)"));
+ ok('بخش‌های جانبی روی سند کامل تازه Load و Save می‌شوند',admin.includes("CashStorage.load()")&&admin.includes("CashStorage.save(full)")&&!admin.includes("CashStorage.save(cashState)")&&!/crCommit\([^,)]*\)/.test(admin));
  ok('نمایش و فیلتر reports از Query است',admin.includes('async function crApplyReportFilters')&&admin.includes('crQueryReports({force:true,all:true})')&&admin.includes('cashState.reports=result.items'));
  ok('ویرایش reports رکورد کامل Queryشده را Mutate می‌کند',admin.includes("const old=cashUI.editingId?cashState.reports.find")&&admin.includes("operation:old?'update':'insert'"));
  console.log(`PASS ${checks.length}`);checks.forEach(x=>console.log('  ✓ '+x));

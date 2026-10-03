@@ -546,6 +546,88 @@ window.RayoCashDestinations={snapshots(report,previous,refs){
   const ownerId=sameAccount?(previous.cardToCardOwnerIdSnapshot??account?.ownerRecipientId??''):(account?.ownerRecipientId||'');
   return{cardToCardAccountNameSnapshot:sameAccount?(previous.cardToCardAccountNameSnapshot??account?.name??''):(account?.name||''),cardToCardOwnerIdSnapshot:ownerId,cardToCardOwnerNameSnapshot:sameAccount?(previous.cardToCardOwnerNameSnapshot??(refs.cashRecipients||[]).find(x=>x.id===ownerId)?.name??''):((refs.cashRecipients||[]).find(x=>x.id===ownerId)?.name||''),cashRecipientNameSnapshot:sameRecipient?(previous.cashRecipientNameSnapshot??recipient?.name??''):(recipient?.name||'')};
 }};
+// Card-to-card and cash deliveries can be split into several lines, each with its own destination
+// (cardToCardItems / cashItems). Legacy reports keep one total + one destination; itemsOf() reads
+// them as a single line. cardToCard/cash stay the line totals, so the variance formula is unchanged.
+(function(){
+const A=x=>Array.isArray(x)?x:[],E=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const KEYS={card:'cardToCardItems',cash:'cashItems'};
+function itemsOf(report,kind){
+  const r=report||{};if(Array.isArray(r[KEYS[kind]]))return r[KEYS[kind]];
+  const raw=kind==='card'?r.cardToCard:r.cash,parsed=cashAmount(raw);if(parsed.ok&&parsed.value===0)return[];
+  return kind==='card'?[{id:'legacy',amount:raw,accountId:r.cardToCardAccountId||'',accountNameSnapshot:r.cardToCardAccountNameSnapshot||'',ownerIdSnapshot:r.cardToCardOwnerIdSnapshot,ownerNameSnapshot:r.cardToCardOwnerNameSnapshot||''}]:[{id:'legacy',amount:raw,recipientId:r.cashRecipientId||'',recipientNameSnapshot:r.cashRecipientNameSnapshot||''}];
+}
+// rows: {card:[{id,amount,destId}],cash:[...]}. Snapshots of an unchanged destination are kept from previous.
+function applyItems(previous,refs,rows){
+  const accounts=A(refs?.transferAccounts),people=A(refs?.cashRecipients),prevCard=new Map(itemsOf(previous,'card').map(x=>[x.id,x])),prevCash=new Map(itemsOf(previous,'cash').map(x=>[x.id,x]));
+  const card=A(rows?.card).map(r=>{const p=prevCard.get(r.id),same=!!p&&(p.accountId||'')===(r.destId||''),acc=accounts.find(x=>x.id===r.destId),ownerId=same?(p.ownerIdSnapshot??acc?.ownerRecipientId??''):(acc?.ownerRecipientId||'');return{id:r.id,amount:r.amount,accountId:r.destId||'',accountNameSnapshot:same?(p.accountNameSnapshot??acc?.name??''):(acc?.name||''),ownerIdSnapshot:ownerId,ownerNameSnapshot:same?(p.ownerNameSnapshot??people.find(x=>x.id===ownerId)?.name??''):(people.find(x=>x.id===ownerId)?.name||'')}});
+  const cash=A(rows?.cash).map(r=>{const p=prevCash.get(r.id),same=!!p&&(p.recipientId||'')===(r.destId||''),rec=people.find(x=>x.id===r.destId);return{id:r.id,amount:r.amount,recipientId:r.destId||'',recipientNameSnapshot:same?(p.recipientNameSnapshot??rec?.name??''):(rec?.name||'')}});
+  // Legacy single-destination fields are filled only when every line goes to the same destination.
+  const uniform=(list,key)=>list.length&&list.every(x=>x[key]===list[0][key])?list[0]:null,c=uniform(card,'accountId'),h=uniform(cash,'recipientId');
+  return{cardToCardItems:card,cashItems:cash,cardToCard:card.reduce((a,x)=>a+x.amount,0),cash:cash.reduce((a,x)=>a+x.amount,0),
+    cardToCardAccountId:c?.accountId||'',cardToCardAccountNameSnapshot:c?.accountNameSnapshot||'',cardToCardOwnerIdSnapshot:c?.ownerIdSnapshot||'',cardToCardOwnerNameSnapshot:c?.ownerNameSnapshot||'',
+    cashRecipientId:h?.recipientId||'',cashRecipientNameSnapshot:h?.recipientNameSnapshot||''};
+}
+const LABELS={card:{add:'+ افزودن کارت به کارت',dest:'کارت / حساب مقصد'},cash:{add:'+ افزودن تحویل نقد',dest:'تحویل‌گیرنده'}};
+let editorRefs={};
+const newId=()=>'CI-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const rowsOf=box=>[...box.querySelectorAll('.rci-row')];
+function destOptions(kind,selected){const people=A(editorRefs.cashRecipients),list=A(kind==='card'?editorRefs.transferAccounts:people).filter(x=>(x.status!=='غیرفعال'&&!x.isArchived)||x.id===selected);return '<option value="">انتخاب کنید</option>'+list.map(x=>{const owner=kind==='card'?people.find(p=>p.id===x.ownerRecipientId)?.name:'';return `<option value="${E(x.id)}" ${x.id===selected?'selected':''}>${E(owner?`${x.name} — صاحب: ${owner}`:x.name)}</option>`}).join('')}
+function rowHtml(kind,item={}){const dest=(kind==='card'?item.accountId:item.recipientId)||'',amount=cashAmount(item.amount??0);return `<div class="rci-row" data-id="${E(item.id||newId())}"><input class="rci-amount" data-money type="text" inputmode="decimal" autocomplete="off" aria-label="مبلغ (ریال)" value="${E(amount.ok?amount.value:item.amount)}"><select class="rci-dest" aria-label="${LABELS[kind].dest}">${destOptions(kind,dest)}</select><button type="button" class="btn btn-sm btn-danger rci-del" aria-label="حذف ردیف">حذف</button></div>`}
+function html(kind,items,refs){if(refs)editorRefs=refs;const rows=A(items).length?A(items):[{}];return `<div class="rci" data-kind="${kind}"><div class="rci-head"><span>مبلغ (ریال)</span><span>${LABELS[kind].dest}</span><span></span></div><div class="rci-rows">${rows.map(x=>rowHtml(kind,x)).join('')}</div><div class="rci-foot"><button type="button" class="btn btn-sm rci-add">${LABELS[kind].add}</button><b class="rci-total"></b></div><div class="rci-sub"></div></div>`}
+// Lines with zero amount are ignored; a line with an amount must have a destination.
+function read(box){
+  const errors=[],missing=[],items=[];let total=0;const kind=box?.dataset?.kind;
+  for(const row of rowsOf(box)){const input=row.querySelector('.rci-amount'),dest=row.querySelector('.rci-dest'),parsed=cashAmount(input.value),bad=!parsed.ok||parsed.value<0;input.classList.toggle('input-error',bad);if(bad){errors.push(parsed.ok?'مبلغ منفی مجاز نیست':parsed.error);continue}const lacks=parsed.value>0&&!dest.value;dest.classList.toggle('input-error',lacks);if(lacks&&!missing.length)missing.push(kind==='cash'?'برای هر ردیف وجه نقد، تحویل‌گیرنده را انتخاب کنید':'برای هر ردیف کارت به کارت، کارت/حساب مقصد را انتخاب کنید');if(parsed.value===0)continue;total+=parsed.value;items.push({id:row.dataset.id,amount:parsed.value,destId:dest.value})}
+  return{items,errors,missing,total};
+}
+function refresh(box){
+  if(!box)return;const {items,total}=read(box),groups=new Map(),fa=n=>Math.round(n).toLocaleString('fa-IR'),label=id=>[...box.querySelectorAll('.rci-dest')].find(s=>s.value===id)?.selectedOptions[0]?.textContent||'—';
+  for(const it of items){const key=it.destId||'',g=groups.get(key)||{label:key?label(key):'بدون مقصد',sum:0};g.sum+=it.amount;groups.set(key,g)}
+  box.querySelector('.rci-total').textContent=items.length?`جمع: ${fa(total)} ریال`:'';
+  box.querySelector('.rci-sub').innerHTML=items.length>1?[...groups.values()].map(g=>`<span>${E(g.label)}: <b>${fa(g.sum)}</b></span>`).join(''):'';
+}
+// Re-render destination options (e.g. after a new account is defined) keeping selections; optionally
+// put a newly created destination into the last empty select of that kind.
+function refreshOptions(root,refs,kind='',newId=''){if(refs)editorRefs=refs;root?.querySelectorAll?.('.rci').forEach(box=>{const selects=[...box.querySelectorAll('.rci-dest')],target=box.dataset.kind===kind&&newId?[...selects].reverse().find(x=>!x.value):null;selects.forEach(el=>{const selected=el===target?newId:el.value;el.innerHTML=destOptions(box.dataset.kind,selected);el.value=selected});refresh(box)})}
+const dom=typeof document!=='undefined'&&typeof document.addEventListener==='function'?document:{addEventListener(){}};
+const notify=box=>{refresh(box);box.dispatchEvent(new CustomEvent('rayo-cash-items-change',{bubbles:true}))};
+dom.addEventListener('click',e=>{
+  const box=e.target.closest?.('.rci');if(!box)return;const kind=box.dataset.kind;
+  if(e.target.closest('.rci-add')){box.querySelector('.rci-rows').insertAdjacentHTML('beforeend',rowHtml(kind));const rows=rowsOf(box),last=rows[rows.length-1];window.RayoNumberUX?.scan?.(last);/* enhance before focus so the default zero is cleared */last.querySelector('.rci-amount').focus();notify(box)}
+  else if(e.target.closest('.rci-del')){const row=e.target.closest('.rci-row');if(rowsOf(box).length>1)row.remove();else{row.querySelector('.rci-amount').value='0';row.querySelector('.rci-dest').value=''}notify(box)}
+});
+dom.addEventListener('input',e=>{const box=e.target.closest?.('.rci');if(box)notify(box)});
+dom.addEventListener('change',e=>{const box=e.target.closest?.('.rci');if(box&&e.target.matches('.rci-dest'))notify(box)});
+// Enter in an amount moves to the next line, or adds a new line after the last filled one.
+dom.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||!e.target.matches?.('.rci-amount'))return;e.preventDefault();
+  const box=e.target.closest('.rci'),rows=rowsOf(box),index=rows.indexOf(e.target.closest('.rci-row'));
+  if(index<rows.length-1)rows[index+1].querySelector('.rci-amount').focus();
+  else if(cashAmount(e.target.value).value)box.querySelector('.rci-add').click();
+});
+window.RayoCashDestinations.itemsOf=itemsOf;window.RayoCashDestinations.applyItems=applyItems;
+window.RayoCashItemsUI={html,read,refresh,refreshOptions,setRefs(refs){editorRefs=refs||{}}};
+})();
+// "Other receipts/payments" types for the staff cash form. Same built-in list as CR_TYPES in
+// 11-rayo-cash-report-module.js and the same admin-managed settings keys (overrides + custom).
+window.RayoCashTypes={
+  base:[
+    {value:'previousDepositUsed',label:'مصرف بیعانه قبلی برای فروش امروز',sign:1,follow:false},
+    {value:'futureDepositReceived',label:'بیعانه دریافت‌شده برای روز آینده',sign:-1,follow:false},
+    {value:'customerReceivable',label:'طلب از مشتری / پرداخت‌نشده',sign:1,follow:true},
+    {value:'oldReceivableReceived',label:'دریافت طلب مربوط به روزهای قبل',sign:-1,follow:false},
+    {value:'refundOrCorrection',label:'برگشت وجه یا اصلاح پرداخت',sign:1,follow:false},
+    {value:'otherIncrease',label:'سایر موارد افزاینده مغایرت',sign:1,follow:false},
+    {value:'otherDecrease',label:'سایر موارد کاهنده مغایرت',sign:-1,follow:false}
+  ],
+  effective(settings={},includeInactive=false){
+    const overrides=isObject(settings?.otherTransactionTypeOverrides)?settings.otherTransactionTypeOverrides:{},custom=Array.isArray(settings?.otherTransactionTypesCustom)?settings.otherTransactionTypesCustom:[];
+    const base=this.base.map(t=>{const o=overrides[t.value]||{};return{value:t.value,label:String(o.label||'').trim()||t.label,sign:o.sign===-1||o.sign===1?o.sign:t.sign,follow:typeof o.follow==='boolean'?o.follow:t.follow,status:o.status==='غیرفعال'?'غیرفعال':'فعال',builtin:true}});
+    const all=[...base,...custom.map(t=>({value:t.value,label:String(t.label||'').trim(),sign:Number(t.sign)===-1?-1:1,follow:t.follow===true,status:t.status==='غیرفعال'?'غیرفعال':'فعال',builtin:false}))];
+    return includeInactive?all:all.filter(t=>t.status!=='غیرفعال');
+  }
+};
 
 window.RAYO_API_GATEWAY={
   loadUrl:LOAD_URL,

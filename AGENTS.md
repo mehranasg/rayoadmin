@@ -24,7 +24,7 @@
 - `suppliers.items` is a legacy compatibility mirror and must not become the master catalog.
 - `category` and `itemType` are independent concepts.
 - Keep historical names, codes, prices and recipe data as snapshots or versions.
-- Preserve the current 9-tab inventory structure unless the product owner explicitly requests a change.
+- Preserve the current 7-tab inventory structure (stock, receipt, sales, waste, count & variance, reorder, settings) unless the product owner explicitly requests a change. The issue and periodic-variance tabs were removed at the owner's request (single warehouse).
 
 ## Working rules
 
