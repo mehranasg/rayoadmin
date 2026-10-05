@@ -12,10 +12,13 @@ const PRICING_EMPTY_DATA={
   meta:{schemaVersion:'1.1.0',module:'Rayo Menu Costing & Pricing',restaurant:'کافه‌رستوران رایو',currency:'تومان',updatedAt:null,source:''},
   settings:{priceIncrementToman:1000,defaultFoodTargetPercent:35,defaultBarTargetPercent:25,categoryTargets:{},barCategories:['قهوه','چای و دمنوش','نوشیدنی گرم','نوشیدنی سرد ویژه','ماکتل و نوشیدنی سرد','اسموتی','شیک','نوشیدنی بسته‌بندی','نوشیدنی فصلی','آبمیوه']},
   lists:{menuCategories:[],ingredientCategories:['پروتئین','لبنیات','سبزیجات','میوه','ادویه و چاشنی','خشکبار','نوشیدنی و بار','بسته‌بندی','سایر'],units:['گرم','کیلوگرم','میلی‌لیتر','لیتر','عدد','بسته','قوطی','بطری','پرس'],statuses:['فعال','غیرفعال']},
-  ingredients:[],menuItems:[],recipes:[],recipeVersions:[],priceHistory:[],ingredientPriceHistory:[],changeLog:[]
+  ingredients:[],menuItems:[],recipes:[],recipeVersions:[],priceHistory:[],ingredientPriceHistory:[],preparedItems:[],changeLog:[]
 };
 let pricingState=null,pricingLoaded=false,pricingLoading=false,pricingFileHandle=null;
-const pricingUI={tab:'dashboard',menuSearch:'',menuCategory:'',menuStatus:'فعال',ingredientSearch:'',ingredientCategory:'',ingredientType:'',ingredientPage:1,ingredientPageSize:25,recipeItemId:'',historyItemId:'',recipeVersionItemId:'',priceUpdateSearch:'',priceUpdateCategory:'',priceUpdateType:'',priceUpdatePage:1,priceUpdatePageSize:25,priceUpdateEditingId:null,priceUpdateFocusId:null};
+const pricingUI={tab:'dashboard',menuSearch:'',menuCategory:'',menuStatus:'فعال',ingredientSearch:'',ingredientCategory:'',ingredientType:'',ingredientPage:1,ingredientPageSize:25,recipeItemId:'',historyItemId:'',recipeVersionItemId:'',priceUpdateSearch:'',priceUpdateCategory:'',priceUpdateType:'',priceUpdatePage:1,priceUpdatePageSize:25,priceUpdateEditingId:null,priceUpdateFocusId:null,preparedItemId:''};
+// Composition (ترکیب) uses the shared #modalBackdrop as a two-step dialog (list view <-> add/edit-material form view)
+// instead of a second stacked modal. pcCompState is null whenever that dialog is closed.
+let pcCompState=null;
 window.__RAYO_PRICING_CORE_RECIPE_VERSIONS=true;
 const PC_INGREDIENT_CATEGORY_DEFAULTS=['ایتم تکمیلی','بهداشتی','ظروف','غذایی تند مصرف','غذایی کند مصرف','غیره','میوه تره بار','کافه بار و قلیون','سایر'];
 const PC_ITEM_TYPES={
@@ -61,6 +64,133 @@ function pcStrictNumber(value,blank=null){
   const n=Number(raw);return Number.isFinite(n)?n:null;
 }
 function pcUnitKey(value){const u=pcText(value).toLowerCase().replace(/[\s‌]/g,'');return ({kg:'kg','کیلو':'kg','کیلوگرم':'kg',g:'g','گرم':'g',l:'l','لیتر':'l',ml:'ml','میلیلیتر':'ml','عدد':'each',each:'each','بسته':'pack',pack:'pack'})[u]||u}
+// Counting units: a per-item table of "1 counting unit = X base units", direct-only (no chaining between them).
+// The base unit itself is never stored in the array; it's always derived live from the item's own base-unit field
+// (recipeUnit for ingredients) so a later base-unit change never silently touches this table.
+function pcNormalizeUnitName(v){return pcText(v).replace(/ي/g,'ی').replace(/ك/g,'ک').replace(/[‌\s]+/g,' ').trim().toLowerCase()}
+function pcCountingUnitsBaseLabel(item,baseUnitField){return pcText(item?.[baseUnitField])||'واحد'}
+// The purchase unit is not a second editable factor: when purchaseUnit differs from the base unit, it is offered as
+// a derived, read-only unit whose factor IS packageQuantity (gross base units per purchase unit, before any loss —
+// the same conversion direct receipts already use). Counting units may not reuse its name, so one purchase unit can
+// never carry two contradicting factors.
+function pcPurchaseCountingUnit(item,baseUnitField='recipeUnit'){
+  const name=pcText(item?.purchaseUnit),pack=pcStrictNumber(item?.packageQuantity);
+  if(!name||pcNormalizeUnitName(name)===pcNormalizeUnitName(pcCountingUnitsBaseLabel(item,baseUnitField))||pack===null||pack<=0)return null;
+  return{id:'__purchase__',name,factor:pack,isPurchase:true};
+}
+// snapshotRows (optional): rows saved with an earlier document ({unitId,unitName,factor}). Their recorded factors win
+// over the live table — even for a unit deactivated since — so re-opening a saved entry never silently re-prices it.
+function pcCountingUnits(item,baseUnitField='recipeUnit',snapshotRows=null){
+  const base=pcCountingUnitsBaseLabel(item,baseUnitField),purchase=pcPurchaseCountingUnit(item,baseUnitField),reserved=new Set([pcNormalizeUnitName(base),purchase?pcNormalizeUnitName(purchase.name):'']);
+  const rows=pcArr(item?.countingUnits).filter(u=>u&&u.active!==false).map(u=>({id:pcText(u.id),name:pcText(u.name),factor:pcStrictNumber(u.factor)})).filter(u=>u.id&&u.name&&u.factor!==null&&u.factor>0&&!reserved.has(pcNormalizeUnitName(u.name)));
+  const units=[{id:'__base__',name:base,factor:1,isBase:true},...(purchase?[purchase]:[]),...rows];
+  for(const s of pcArr(snapshotRows)){
+    const id=pcText(s?.unitId),factor=pcStrictNumber(s?.factor);if(!id||id==='__base__'||factor===null||factor<=0)continue;
+    const live=units.find(u=>u.id===id),snap={id,name:pcText(s.unitName)||live?.name||id,factor,fromSnapshot:true,liveFactor:live?live.factor:null};
+    if(live)Object.assign(live,snap,{isPurchase:live.isPurchase});else units.push(snap);
+  }
+  return units;
+}
+// Float noise guard only (e.g. 0.1×3): keeps 9 decimals, far below any unit precision used in the catalog.
+function pcCleanQty(n){return Math.round(n*1e9)/1e9}
+// Single shared calculation used by both the catalog editor (validation) and the multi-unit entry widget:
+// baseQuantity = Σ(row quantity × that unit's factor). No mid-sum rounding; a blank row is "not used", not zero.
+// Pure quantity conversion: wastePercent / yield are never applied here.
+function pcConvertCountingEntry(item,rows,baseUnitField='recipeUnit',snapshotRows=null){
+  const units=pcCountingUnits(item,baseUnitField,snapshotRows),list=pcArr(rows);
+  let total=0,counted=0;const breakdown=[];
+  for(const r of list){
+    const raw=pcText(r?.quantity);
+    if(raw==='')continue;
+    const unit=units.find(u=>u.id===r?.unitId);
+    if(!unit)return{total:null,breakdown:[],reason:'واحد انتخاب‌شده معتبر یا فعال نیست'};
+    const qty=pcStrictNumber(raw);
+    if(qty===null||qty<0)return{total:null,breakdown:[],reason:`مقدار ردیف «${unit.name}» نامعتبر است`};
+    const lineTotal=qty*unit.factor;
+    total+=lineTotal;counted++;
+    breakdown.push({unitId:unit.id,unitName:unit.name,factor:unit.factor,quantity:qty,lineTotal:pcCleanQty(lineTotal)});
+  }
+  if(!counted)return{total:null,breakdown:[],reason:'حداقل یک ردیف را با مقدار معتبر پر کنید'};
+  return{total:pcCleanQty(total),breakdown,reason:'',baseUnit:pcCountingUnitsBaseLabel(item,baseUnitField),itemId:pcText(item?.id)};
+}
+// Read-only one-line description of a saved entry snapshot, e.g. "2 جعبه × 3500 + 125 گرم = 7125 گرم".
+function pcDescribeCountingEntry(detail){
+  const rows=pcArr(detail?.rows);if(!rows.length)return '';
+  const f=n=>Number(n).toLocaleString('fa-IR',{maximumFractionDigits:6});
+  return rows.map(r=>r.unitId==='__base__'?`${f(r.quantity)} ${r.unitName}`:`${f(r.quantity)} ${r.unitName} × ${f(r.factor)}`).join(' + ')+` = ${f(detail.total)} ${pcText(detail.baseUnit)}`;
+}
+// Catalog-editor UI for the counting-units table inside the ingredient edit form.
+function pcCountingUnitRowHtml(u){
+  const id=esc(pcText(u?.id));
+  return `<tr data-cu-row data-cu-id="${id}"><td><input class="cu-name" value="${esc(u?.name||'')}" placeholder="مثلاً جعبه"></td><td><input class="cu-factor" type="text" inputmode="decimal" value="${esc(u?.factor??'')}" placeholder="مثلاً 3500"></td><td><label class="cu-active-label"><input type="checkbox" class="cu-active" ${u&&u.active===false?'':'checked'}></label></td><td>${id?'':'<button type="button" class="btn btn-danger btn-sm" onclick="this.closest(\'tr\').remove()">حذف</button>'}</td></tr>`;
+}
+function pcCountingUnitsSection(prefix,baseUnitLabel,units){
+  return `<div class="card" style="margin-top:16px"><div class="section-head"><div><h3>واحدهای شمارش</h3><p class="muted">هر واحد مستقیماً معادل چند واحد پایه (<b id="${prefix}_cu_base">${esc(baseUnitLabel||'واحد')}</b>) است. واحد پایه همیشه با ضریب ۱ در دسترس است و اینجا تغییر نمی‌کند؛ این فقط برای اطلاع نمایش داده می‌شود.</p></div><button type="button" class="btn btn-sm" onclick="pcAddCountingUnitRow('${prefix}')">+ افزودن واحد</button></div><p class="muted" id="${prefix}_cu_purchase" aria-live="polite"></p><div class="table-wrap"><table class="data-table" data-pagination="native"><thead><tr><th>عنوان واحد</th><th>معادل (واحد پایه)</th><th>فعال</th><th></th></tr></thead><tbody id="${prefix}_cu_rows">${pcArr(units).map(pcCountingUnitRowHtml).join('')}</tbody></table></div><small class="muted">واحدی که ذخیره شده حذف نمی‌شود؛ به‌جای آن غیرفعال کنید. تبدیل ضریب، افت آماده‌سازی را اعمال نمی‌کند.</small></div>`;
+}
+function pcAddCountingUnitRow(prefix){const tbody=$(`${prefix}_cu_rows`);if(tbody)tbody.insertAdjacentHTML('beforeend',pcCountingUnitRowHtml(null))}
+function pcRefreshCountingUnitBase(){
+  const base=$('pc_i_recipe_unit')?.value||'واحد',el=$('pc_i_cu_base'),hint=$('pc_i_cu_purchase');if(el)el.textContent=base;
+  if(hint){const p=pcPurchaseCountingUnit({recipeUnit:base,purchaseUnit:$('pc_i_purchase_unit')?.value,packageQuantity:$('pc_i_pack_qty')?.value});hint.textContent=p?`واحد خرید نیز در ورود چندواحدی در دسترس است: هر ${p.name} = ${pcFmt(p.factor,3)} ${base} (از «مقدار ناخالص هر واحد خرید»؛ فقط همان‌جا ویرایش می‌شود).`:''}
+}
+function pcRefreshPreparedCountingUnitBase(){const el=$('pp_cu_base');if(el)el.textContent=$('pp_unit')?.value||'واحد'}
+function pcReadCountingUnitRows(prefix){
+  const rows=[...document.querySelectorAll(`#${prefix}_cu_rows [data-cu-row]`)],result=[];
+  for(const row of rows){
+    const name=pcText(row.querySelector('.cu-name')?.value),factorRaw=row.querySelector('.cu-factor')?.value,active=!!row.querySelector('.cu-active')?.checked,oldId=pcText(row.dataset.cuId);
+    if(!name&&pcText(factorRaw)==='')continue;
+    if(!name)return{error:'نام واحد شمارش الزامی است'};
+    if(pcText(factorRaw)==='')return{error:`ضریب واحد «${name}» الزامی است`};
+    const factor=pcStrictNumber(factorRaw);
+    if(factor===null||factor<=0||!Number.isFinite(factor))return{error:`ضریب واحد «${name}» باید عدد مثبت و معتبر باشد`};
+    result.push({id:oldId||null,name,factor,active});
+  }
+  return{rows:result};
+}
+function pcCheckCountingUnitNames(baseUnitLabel,rows,purchaseUnitLabel=''){
+  const seen=new Set([pcNormalizeUnitName(baseUnitLabel)]),purchase=pcNormalizeUnitName(purchaseUnitLabel);
+  for(const r of rows){
+    const key=pcNormalizeUnitName(r.name);
+    if(seen.has(key))return `نام واحد «${r.name}» تکراری یا هم‌نام واحد پایه است`;
+    if(purchase&&key===purchase)return `«${r.name}» واحد خرید این قلم است و ضریب آن از «مقدار ناخالص هر واحد خرید» گرفته می‌شود؛ نام دیگری انتخاب کنید`;
+    seen.add(key);
+  }
+  return '';
+}
+// Keeps every stored key of an existing unit (unknown fields, createdAt) and stamps factor changes for audit.
+function pcMergeCountingUnits(previous,rows){
+  const at=new Date().toISOString(),old=new Map(pcArr(previous).filter(u=>u&&u.id).map(u=>[u.id,u]));
+  return pcArr(rows).map(r=>{const o=old.get(r.id);if(!o)return{...r,createdAt:at};const out={...o,name:r.name,factor:r.factor,active:r.active};if(pcStrictNumber(o.factor)!==r.factor||o.active!==r.active||o.name!==r.name)out.updatedAt=at;return out});
+}
+function pcAssignCountingUnitIds(rows){
+  let max=0;pcArr(rows).forEach(r=>{const m=String(r.id||'').match(/(\d+)$/);if(m)max=Math.max(max,+m[1])});
+  return pcArr(rows).map(r=>r.id?r:{...r,id:`CU-${String(++max).padStart(4,'0')}`});
+}
+// Density converts mass<->volume only when explicitly set per ingredient; same-family unit conversion never needs it.
+const PC_MASS_UNITS=new Set(['kg','g']),PC_VOLUME_UNITS=new Set(['l','ml']);
+function pcUnitFamily(u){return PC_MASS_UNITS.has(u)?'mass':PC_VOLUME_UNITS.has(u)?'volume':null}
+function pcToBaseMass(qty,unit){return unit==='kg'?qty:unit==='g'?qty/1000:null}
+function pcFromBaseMass(qty,unit){return unit==='kg'?qty:unit==='g'?qty*1000:null}
+function pcToBaseVolume(qty,unit){return unit==='l'?qty:unit==='ml'?qty/1000:null}
+function pcFromBaseVolume(qty,unit){return unit==='l'?qty:unit==='ml'?qty*1000:null}
+function pcDensityValue(ingredient){const d=pcStrictNumber(ingredient?.densityKgPerLiter);return d!==null&&d>0&&Number.isFinite(d)?d:null}
+function pcConvertQuantity(ingredient,quantity,fromUnit,toUnit){
+  const qty=pcStrictNumber(quantity),from=pcUnitKey(fromUnit),to=pcUnitKey(toUnit);
+  if(qty===null||qty<0)return{value:null,reason:'مقدار نامعتبر است'};
+  if(!from||!to)return{value:null,reason:'واحد نامعتبر است'};
+  if(from===to)return{value:qty,reason:''};
+  const familyFrom=pcUnitFamily(from),familyTo=pcUnitFamily(to);
+  if(!familyFrom||!familyTo)return{value:null,reason:'تبدیل بین این دو واحد پشتیبانی نمی‌شود'};
+  if(familyFrom===familyTo){
+    const base=familyFrom==='mass'?pcToBaseMass(qty,from):pcToBaseVolume(qty,from);
+    const value=familyFrom==='mass'?pcFromBaseMass(base,to):pcFromBaseVolume(base,to);
+    return{value,reason:''};
+  }
+  const density=pcDensityValue(ingredient);
+  if(density===null)return{value:null,reason:'چگالی این ماده تعریف یا معتبر نیست؛ تبدیل حجم و وزن مسدود است'};
+  if(familyFrom==='volume'&&familyTo==='mass'){const liters=pcToBaseVolume(qty,from),kg=liters*density;return{value:pcFromBaseMass(kg,to),reason:''}}
+  if(familyFrom==='mass'&&familyTo==='volume'){const kg=pcToBaseMass(qty,from),liters=kg/density;return{value:pcFromBaseVolume(liters,to),reason:''}}
+  return{value:null,reason:'تبدیل پشتیبانی نمی‌شود'};
+}
 function pcYield(ingredient,line){
   const raw=line&&Object.prototype.hasOwnProperty.call(line,'wastePercent')?line.wastePercent:ingredient?.wastePercent;
   const wastePercent=pcStrictNumber(raw,0);
@@ -102,7 +232,7 @@ function pcIngredientUnitCost(i,p=pricingState){const gross=pcGrossCatalogCost(i
 function pcVerifyCostFields(sent,received){
   if(!received)return;
   const same=(a,b,keys)=>keys.every(k=>!Object.prototype.hasOwnProperty.call(a,k)||JSON.stringify(a[k])===JSON.stringify(b?.[k]));
-  const ingredients=pcArr(sent.ingredients).every(i=>same(i,pcArr(received.ingredients).find(x=>x.id===i.id),['wastePercent','packageQuantity','lastPurchasePriceToman']));
+  const ingredients=pcArr(sent.ingredients).every(i=>same(i,pcArr(received.ingredients).find(x=>x.id===i.id),['wastePercent','packageQuantity','lastPurchasePriceToman','densityKgPerLiter','countingUnits']));
   const versions=pcArr(sent.recipeVersions).every(v=>{const actual=pcArr(received.recipeVersions).find(x=>x.id===v.id);return pcArr(v.lines).every((l,n)=>same(l,pcArr(actual?.lines)[n],['wastePercent','recipeUnit']))});
   if(!ingredients||!versions)throw Error('بازخوانی سرور، مقدار بسته/قیمت/افت یا واحد نسخه رسپی را تأیید نکرد. ابتدا Load مجدد و بررسی DTO سرور انجام شود.');
 }
@@ -123,7 +253,226 @@ function pcStageLossChange(p,before){
   for(const v of versions)p.recipeVersions.push({id:pcUid('RV',p.recipeVersions),...v,effectiveFrom,createdAt:new Date().toISOString(),createdBy:sessionStorage.getItem('rayo_admin_user')||'admin',source:'ingredient-preparation-loss-change'});
 }
 function pcDisplayUnitCost(value){return Number.isFinite(value)&&value>=0?Math.ceil(value/1000)*1000:NaN}
-window.RayoIngredientMath={displayUnitCost:pcDisplayUnitCost,parse:pcStrictNumber,unitKey:pcUnitKey,yieldFactor:pcYield,calculate:pcIngredientMath,grossQuantity:pcGrossRecipeQuantity,recipeAt:pcEffectiveRecipe,grossCost:pcGrossCatalogCost,netCost:pcIngredientUnitCost,verifySaved:pcVerifyCostFields,snapshotLines:pcRecipeSnapshotLines};
+window.RayoIngredientMath={displayUnitCost:pcDisplayUnitCost,parse:pcStrictNumber,unitKey:pcUnitKey,unitFamily:pcUnitFamily,yieldFactor:pcYield,calculate:pcIngredientMath,grossQuantity:pcGrossRecipeQuantity,recipeAt:pcEffectiveRecipe,grossCost:pcGrossCatalogCost,netCost:pcIngredientUnitCost,verifySaved:pcVerifyCostFields,snapshotLines:pcRecipeSnapshotLines,convert:pcConvertQuantity,densityValue:pcDensityValue,preparedItemConversion:pcPreparedItemConversion,countingUnits:pcCountingUnits,convertCountingEntry:pcConvertCountingEntry,normalizeUnitName:pcNormalizeUnitName,checkCountingUnitNames:pcCheckCountingUnitNames,assignCountingUnitIds:pcAssignCountingUnitIds,readCountingUnitRows:pcReadCountingUnitRows,purchaseCountingUnit:pcPurchaseCountingUnit,describeCountingEntry:pcDescribeCountingEntry,mergeCountingUnits:pcMergeCountingUnits};
+// Prepared/semi-finished items: the warehouse worker counts these directly; the system explodes them into raw-ingredient
+// equivalents for stocktaking. Each component's basis is an explicit, required choice — 'gross' takes the entered quantity
+// as already being on the ingredient's own inventory (purchase-weight) basis; 'net' treats it as clean/net quantity and
+// converts through that ingredient's own wastePercent yield. There is no silent default; an unset basis blocks conversion.
+const PC_PREPARED_UNITS=['عدد','گرم','کیلوگرم','میلی‌لیتر','لیتر'];
+function pcPreparedItem(id){return pricingState?.preparedItems?.find(x=>x.id===id)}
+function pcPreparedItems(){return pcArr(pricingState?.preparedItems).slice().sort((a,b)=>pcText(a.name).localeCompare(pcText(b.name),'fa'))}
+function pcPreparedComponentsFor(id){
+  const item=pcPreparedItem(id);if(!item)return;
+  pricingUI.preparedItemId=id;
+  pcCompState={preparedItemId:id,view:'list',componentId:'',dirty:false,changed:false};
+  pcRenderCompositionModal();
+  pcArmCompositionModal();
+  pcCompositionFocusList();
+}
+function pcPreparedItemList(){
+  const rows=pcPreparedItems();
+  return `<div class="card"><div class="section-head"><div><h2>اقلام آماده‌سازی‌شده</h2><p class="muted">قلم‌هایی که انبارگردان به‌جای مواد اولیه می‌شمارد و سیستم آن‌ها را هنگام انبارگردانی به معادل مواد اولیه تبدیل می‌کند؛ مثل پتی خام یا مخلوط گوشت برگر. این‌ها آیتم منوی قابل‌فروش نیستند و رسپی کامل منو را مصرف نمی‌کنند.</p></div><button class="btn btn-primary" onclick="pcEditPreparedItem()">+ افزودن قلم آماده‌سازی</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>نام</th><th>واحد شمارش</th><th>مقدار مبنای فرمول</th><th>تعداد مواد</th><th>وضعیت</th><th></th></tr></thead><tbody>${rows.map(p=>`<tr><td><b>${esc(p.name)}</b>${p.stateNote?`<br><small>${esc(p.stateNote)}</small>`:''}</td><td>${esc(p.countUnit||'—')}</td><td>${pcFmt(p.baseOutputQuantity,3)} ${esc(p.countUnit||'')}</td><td>${pcFmt(pcArr(p.components).length)}</td><td>${badge(p.status||'فعال')}</td><td><div class="pricing-actions"><button class="btn btn-sm" onclick="pcEditPreparedItem('${p.id}')">ویرایش</button><button class="btn btn-sm" data-comp-trigger="${esc(p.id)}" onclick="pcPreparedComponentsFor('${p.id}')">ترکیب (${pcFmt(pcArr(p.components).length)})</button><button class="btn btn-danger btn-sm" onclick="pcDeletePreparedItem('${p.id}')">حذف</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="empty">هنوز قلم آماده‌سازی تعریف نشده است.</td></tr>'}</tbody></table></div></div>`;
+}
+// Shared table/header markup for a prepared item's composition; used by the composition modal's list view
+// and kept as pcPreparedComponentsPane() for backward compatibility (also referenced by qa_prepared_items_conversion.js).
+function pcCompositionBodyHtml(item){
+  const rows=pcArr(item.components);
+  return `<p class="muted">مواد لازم برای ${pcFmt(item.baseOutputQuantity,3)} ${esc(item.countUnit||'')} از این قلم. نسخه فرمول فعلی: ${pcFmt(item.version||1)} — تغییر فرمول، شمارش‌های تأییدشده گذشته را تغییر نمی‌دهد.</p><div class="table-wrap"><table class="data-table"><thead><tr><th>ماده اولیه</th><th>مقدار</th><th>واحد</th><th>مبنا</th><th></th></tr></thead><tbody>${rows.map(c=>{const ing=pcIngredient(c.ingredientId);return `<tr class="${!ing?'pricing-row-incomplete':''}"><td>${esc(ing?.name||'ماده حذف‌شده')}</td><td>${pcFmt(c.quantity,3)}</td><td>${esc(c.unit||'—')}</td><td>${c.basis==='net'?'خالص (با افت ماده تبدیل می‌شود)':c.basis==='gross'?'ناخالص/مبنای موجودی (بدون افت دوباره)':'تعیین‌نشده — تبدیل مسدود است'}</td><td><button class="btn btn-sm" onclick="pcEditPreparedComponent('${item.id}','${c.id}')">ویرایش</button> <button class="btn btn-danger btn-sm" onclick="pcDeletePreparedComponent('${item.id}','${c.id}')">حذف</button></td></tr>`}).join('')||'<tr><td colspan="5" class="empty">ماده‌ای ثبت نشده؛ بدون حداقل یک ماده، تبدیل این قلم در شمارش مسدود می‌ماند.</td></tr>'}</tbody></table></div>`;
+}
+function pcPreparedComponentsPane(){
+  const item=pcPreparedItem(pricingUI.preparedItemId);
+  if(!item){pricingUI.preparedItemId='';return ''}
+  return `<div class="card"><div class="section-head"><div><h2>ترکیب «${esc(item.name)}»</h2></div><button class="btn btn-primary" onclick="pcEditPreparedComponent('${item.id}')" ${pricingState.ingredients.length?'':'disabled'}>+ افزودن ماده</button></div>${pcCompositionBodyHtml(item)}</div>`;
+}
+// ===== Composition modal (reuses #modalBackdrop as a two-view dialog: list view <-> add/edit-material form view) =====
+function pcCompositionItem(){return pcCompState?pcPreparedItem(pcCompState.preparedItemId):null}
+function pcRenderCompositionModal(){
+  const item=pcCompositionItem();
+  if(!item){pcCompositionClose();return}
+  if(pcCompState.view==='form')pcRenderComponentForm(item);else pcRenderCompositionList(item);
+}
+function pcRenderCompositionList(item){
+  $('modalTitle').textContent=`ترکیب «${esc(item.name)}»`;
+  $('modalBody').innerHTML=pcCompositionBodyHtml(item);
+  $('modalFoot').innerHTML=`<button class="btn" onclick="pcCompositionRequestClose()">بستن</button><button class="btn btn-primary" onclick="pcEditPreparedComponent('${item.id}','')" ${pricingState.ingredients.length?'':'disabled'}>+ افزودن ماده</button>`;
+}
+function pcRenderComponentForm(item){
+  const componentId=pcCompState.componentId;
+  const comp=componentId?pcArr(item.components).find(x=>x.id===componentId):null,initial=comp||{ingredientId:'',quantity:'',unit:'',basis:''};
+  const ings=pricingState.ingredients.filter(x=>x.status!=='غیرفعال'||x.id===initial.ingredientId);
+  $('modalTitle').textContent=`${componentId?'ویرایش':'افزودن'} ماده — ترکیب «${esc(item.name)}»`;
+  $('modalBody').innerHTML=`<div class="form-grid">${window.RayoSearchPicker.html('pc_pc_ing','ماده اولیه',ings.map(x=>({value:x.id,label:`${x.code||''} | ${x.name} — واحد موجودی: ${x.recipeUnit||'واحد'}`,search:`${x.code||''} ${x.name} ${x.category||''}`})),initial.ingredientId)}<div class="field"><label for="pc_pc_qty">مقدار برای ${pcFmt(item.baseOutputQuantity,3)} ${esc(item.countUnit||'')}</label><input id="pc_pc_qty" type="text" inputmode="decimal" value="${esc(initial.quantity??'')}"></div><div class="field"><label>واحد این مقدار</label><select id="pc_pc_unit">${PC_PREPARED_UNITS.map(u=>`<option ${u===(initial.unit||'')?'selected':''}>${u}</option>`).join('')}</select></div><div class="field full"><label>مبنای این مقدار</label><select id="pc_pc_basis"><option value="" ${initial.basis?'':'selected'}>انتخاب کنید (الزامی)</option><option value="gross" ${initial.basis==='gross'?'selected':''}>ناخالص / مبنای موجودی همین ماده — بدون افت دوباره</option><option value="net" ${initial.basis==='net'?'selected':''}>خالص/پاک‌شده — با افت استاندارد همین ماده به معادل ناخالص تبدیل شود</option></select><small>اگر مقدار همان‌طور است که این ماده در انبار ثبت می‌شود، «ناخالص» را انتخاب کنید. اگر مقدار خالص/پاک‌شده است، «خالص» را انتخاب کنید تا افت استاندارد همین ماده یک‌بار اعمال شود؛ بدون انتخاب، تأیید شمارشی که از این فرمول استفاده کند مسدود می‌ماند.</small></div></div>`;
+  $('modalFoot').innerHTML=`<button class="btn" onclick="pcCancelComponentForm()">انصراف</button><button class="btn btn-primary" onclick="pcSavePreparedComponent('${item.id}','${componentId||''}')">ذخیره</button>`;
+  setTimeout(()=>{qsa('#modalBody input,#modalBody select').forEach(el=>{const mark=()=>{if(pcCompState)pcCompState.dirty=true};el.addEventListener('input',mark);el.addEventListener('change',mark)})},0);
+}
+function pcArmCompositionModal(){
+  if(!pcCompState)return;
+  const headBtn=document.querySelector('#modalBackdrop .modal-head button');
+  if(headBtn){pcCompState.headBtnOnclick=headBtn.onclick;headBtn.onclick=e=>{e&&e.preventDefault();pcCompositionRequestClose()}}
+  if(pcCompState.bodyOverflow===undefined)pcCompState.bodyOverflow=document.body.style.overflow;
+  document.body.style.overflow='hidden';
+  $('modalBackdrop').classList.add('open');
+}
+function pcReturnToCompositionList(){
+  if(!pcCompState)return;
+  pcCompState.view='list';pcCompState.componentId='';pcCompState.dirty=false;
+  pcRenderCompositionModal();
+  pcCompositionFocusList();
+}
+function pcCancelComponentForm(){pcReturnToCompositionList()}
+function pcCompositionRequestClose(){
+  if(!pcCompState)return;
+  if(pcCompState.view==='form'){
+    if(pcCompState.dirty&&!confirm('تغییرات این فرم ذخیره نشده است. نادیده گرفته شود؟'))return;
+    pcReturnToCompositionList();
+    return;
+  }
+  pcCompositionClose();
+}
+function pcCompositionClose(){
+  if(!pcCompState)return;
+  const {preparedItemId,headBtnOnclick,bodyOverflow,changed}=pcCompState;
+  const headBtn=document.querySelector('#modalBackdrop .modal-head button');
+  if(headBtn)headBtn.onclick=headBtnOnclick||null;
+  document.body.style.overflow=bodyOverflow||'';
+  pcCompState=null;
+  closeModal();
+  if(changed)renderView();
+  document.querySelector(`[data-comp-trigger="${preparedItemId}"]`)?.focus();
+}
+function pcCompositionFocusList(){
+  setTimeout(()=>{(document.querySelector('#modalFoot .btn-primary:not([disabled])')||document.querySelector('#modalBackdrop .modal-head button'))?.focus()},0);
+}
+function pcCompositionFocusForm(){
+  setTimeout(()=>{document.getElementById('pc_pc_ingSearch')?.focus()},0);
+}
+function pcCompositionKeydown(e){
+  if(!pcCompState)return;
+  if(e.key==='Escape'){e.preventDefault();pcCompositionRequestClose();return}
+  if(e.key==='Tab'){
+    const modal=document.querySelector('#modalBackdrop .modal');
+    if(!modal)return;
+    const focusables=[...modal.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null);
+    if(!focusables.length)return;
+    const first=focusables[0],last=focusables[focusables.length-1],active=document.activeElement;
+    if(e.shiftKey&&active===first){e.preventDefault();last.focus()}
+    else if(!e.shiftKey&&active===last){e.preventDefault();first.focus()}
+  }
+}
+async function pcCommitComposition(reason){
+  try{await pcSaveData(false,reason);toast(reason+' با موفقیت ذخیره شد');return true}
+  catch(e){toast(e.message||'ذخیره اطلاعات قیمت‌گذاری انجام نشد',true);return false}
+}
+function pcEditPreparedItem(id){
+  const cur=id?pcPreparedItem(id):null,initial=cur||{name:'',status:'فعال',countUnit:'عدد',baseOutputQuantity:1,standardUnitWeight:'',stateNote:'',notes:''};
+  $('modalTitle').textContent=id?'ویرایش قلم آماده‌سازی':'افزودن قلم آماده‌سازی';
+  $('modalBody').innerHTML=`<div class="form-grid"><div class="field"><label>نام قلم آماده‌سازی</label><input id="pp_name" value="${esc(initial.name||'')}" placeholder="مثلاً پتی خام ۲۰۰ گرمی"></div><div class="field"><label>واحد شمارش</label><select id="pp_unit" onchange="pcRefreshPreparedCountingUnitBase()">${PC_PREPARED_UNITS.map(u=>`<option ${u===initial.countUnit?'selected':''}>${u}</option>`).join('')}</select></div><div class="field"><label for="pp_base_qty">مقدار مبنای فرمول (در همین واحد)</label><input id="pp_base_qty" type="text" inputmode="decimal" value="${esc(initial.baseOutputQuantity??1)}"><small>ترکیب ثبت‌شده برای چند واحد شمارش است؛ مثلاً برای «۱۰ عدد پتی» عدد ۱۰ با واحد عدد، یا برای «یک کیلو سس» عدد ۱ با واحد کیلوگرم.</small></div><div class="field"><label for="pp_state">وضعیت تشخیص/آماده‌سازی</label><input id="pp_state" value="${esc(initial.stateNote||'')}" placeholder="خام، پاک‌شده، پخته…"></div><div class="field"><label for="pp_unit_weight">وزن استاندارد هر عدد (گرم) — اختیاری</label><input id="pp_unit_weight" type="text" inputmode="decimal" value="${esc(initial.standardUnitWeight??'')}"><small>فقط اطلاعاتی برای شناسایی قلم؛ در محاسبه تبدیل استفاده نمی‌شود.</small></div><div class="field"><label>وضعیت</label><select id="pp_status">${pricingState.lists.statuses.map(x=>`<option ${x===initial.status?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field full"><label>توضیحات</label><textarea id="pp_notes">${esc(initial.notes||'')}</textarea></div></div><div class="pricing-note">این قلم آیتم منوی قابل‌فروش نیست؛ فقط برای شمارش و تبدیل به مواد اولیه است. مواد لازم فرمول را پس از ذخیره، از دکمه «ترکیب» در فهرست تنظیم کنید.</div>${pcCountingUnitsSection('pp',initial.countUnit,initial.countingUnits)}`;
+  $('modalFoot').innerHTML=`<button class="btn" onclick="closeModal()">انصراف</button><button class="btn btn-primary" onclick="pcSavePreparedItem('${id||''}')">ذخیره</button>`;
+  $('modalBackdrop').classList.add('open');
+  pcRefreshPreparedCountingUnitBase();
+}
+async function pcSavePreparedItem(id){
+  const name=pcText($('pp_name')?.value),countUnit=$('pp_unit')?.value,baseQty=pcStrictNumber($('pp_base_qty')?.value),weightRaw=pcText($('pp_unit_weight')?.value);
+  if(!name)return toast('نام قلم آماده‌سازی الزامی است',true);
+  if(!PC_PREPARED_UNITS.includes(countUnit))return toast('واحد شمارش معتبر انتخاب کنید',true);
+  if(baseQty===null||baseQty<=0)return toast('مقدار مبنای فرمول باید عدد مثبت باشد',true);
+  let unitWeight=null;if(weightRaw){unitWeight=pcStrictNumber(weightRaw);if(unitWeight===null||unitWeight<=0)return toast('وزن استاندارد هر عدد باید عدد مثبت باشد یا خالی بماند',true)}
+  const cuRead=pcReadCountingUnitRows('pp');if(cuRead.error)return toast(cuRead.error,true);
+  const cuNameError=pcCheckCountingUnitNames(countUnit,cuRead.rows);if(cuNameError)return toast(cuNameError,true);
+  const existing=id?pcPreparedItem(id):null;
+  const countingUnits=pcMergeCountingUnits(existing?.countingUnits,pcAssignCountingUnitIds(cuRead.rows));
+  const formulaChanged=!existing||existing.countUnit!==countUnit||pcStrictNumber(existing.baseOutputQuantity)!==baseQty;
+  const at=new Date().toISOString(),who=sessionStorage.getItem('rayo_admin_user')||'admin';
+  const o={name,status:$('pp_status')?.value||'فعال',countUnit,countingUnits,baseOutputQuantity:baseQty,standardUnitWeight:unitWeight,stateNote:pcText($('pp_state')?.value),notes:$('pp_notes')?.value,updatedAt:at,updatedBy:who};
+  const stateBefore=pcClone(pricingState);
+  pricingState.preparedItems=pcArr(pricingState.preparedItems);
+  if(existing){if(formulaChanged)existing.version=(existing.version||1)+1;Object.assign(existing,o)}
+  else pricingState.preparedItems.push({id:pcUid('PREP',pricingState.preparedItems),version:1,components:[],createdAt:at,createdBy:who,...o});
+  if(!await pcCommit(id?'ویرایش قلم آماده‌سازی':'افزودن قلم آماده‌سازی')){Object.keys(pricingState).forEach(k=>delete pricingState[k]);Object.assign(pricingState,stateBefore)}
+}
+async function pcDeletePreparedItem(id){
+  const item=pcPreparedItem(id);if(!item)return;
+  const invState=window.getInventoryState?.(),used=pcArr(invState?.stocktakes).reduce((n,st)=>n+pcArr(st.preparedLines).filter(l=>l.preparedItemId===id).length,0);
+  if(used)return toast(`این قلم در ${pcFmt(used)} ردیف شمارش استفاده شده است؛ برای حفظ سابقه، آن را «غیرفعال» کنید.`,true);
+  if(!confirm(`قلم آماده‌سازی «${item.name}» حذف شود؟`))return;
+  const stateBefore=pcClone(pricingState);
+  pricingState.preparedItems=pricingState.preparedItems.filter(x=>x.id!==id);
+  if(pricingUI.preparedItemId===id)pricingUI.preparedItemId='';
+  if(!await pcCommit('حذف قلم آماده‌سازی بدون سابقه')){Object.keys(pricingState).forEach(k=>delete pricingState[k]);Object.assign(pricingState,stateBefore)}
+}
+function pcEditPreparedComponent(preparedItemId,componentId){
+  const item=pcPreparedItem(preparedItemId);if(!item)return;
+  const opening=!pcCompState||pcCompState.preparedItemId!==preparedItemId;
+  if(opening){
+    pricingUI.preparedItemId=preparedItemId;
+    pcCompState={preparedItemId,view:'form',componentId:componentId||'',dirty:false,changed:false};
+  }else{
+    pcCompState.view='form';pcCompState.componentId=componentId||'';pcCompState.dirty=false;
+  }
+  pcRenderCompositionModal();
+  if(opening)pcArmCompositionModal();
+  pcCompositionFocusForm();
+}
+function pcPreparedComponentUnitDefault(){const i=pcIngredient($('pc_pc_ing')?.value),unitSel=$('pc_pc_unit');if(i&&unitSel&&PC_PREPARED_UNITS.includes(i.recipeUnit))unitSel.value=i.recipeUnit}
+async function pcSavePreparedComponent(preparedItemId,componentId){
+  const item=pcPreparedItem(preparedItemId);if(!item)return;
+  const ingredientId=$('pc_pc_ing')?.value,quantity=pcStrictNumber($('pc_pc_qty')?.value),unit=$('pc_pc_unit')?.value,basis=$('pc_pc_basis')?.value;
+  if(!ingredientId)return toast('ماده اولیه الزامی است',true);
+  if(quantity===null||quantity<=0)return toast('مقدار باید عدد مثبت باشد',true);
+  if(!PC_PREPARED_UNITS.includes(unit))return toast('واحد معتبر انتخاب کنید',true);
+  if(basis!=='gross'&&basis!=='net')return toast('مبنای مقدار (ناخالص یا خالص) را مشخص کنید',true);
+  const duplicate=pcArr(item.components).find(x=>x.ingredientId===ingredientId&&x.id!==componentId);
+  if(duplicate)return toast('این ماده قبلاً در همین فرمول ثبت شده است؛ ردیف موجود را ویرایش کنید',true);
+  const before=pcClone(item);
+  item.components=pcArr(item.components);
+  const o={ingredientId,quantity,unit,basis};
+  if(componentId)Object.assign(item.components.find(x=>x.id===componentId),o);
+  else item.components.push({id:pcUid('PREPC',item.components),...o});
+  item.version=(item.version||1)+1;
+  const ok=await pcCommitComposition(componentId?'ویرایش ماده فرمول آماده‌سازی':'افزودن ماده به فرمول آماده‌سازی');
+  if(ok){if(pcCompState)pcCompState.changed=true;pcReturnToCompositionList()}else{Object.keys(item).forEach(k=>delete item[k]);Object.assign(item,before)}
+}
+async function pcDeletePreparedComponent(preparedItemId,componentId){
+  const item=pcPreparedItem(preparedItemId);if(!item)return;
+  if(!confirm('این ماده از فرمول حذف شود؟'))return;
+  const before=pcClone(item);
+  item.components=pcArr(item.components).filter(x=>x.id!==componentId);
+  item.version=(item.version||1)+1;
+  const ok=await pcCommitComposition('حذف ماده از فرمول آماده‌سازی');
+  if(!ok){Object.keys(item).forEach(k=>delete item[k]);Object.assign(item,before);return}
+  if(pcCompState){pcCompState.changed=true;pcRenderCompositionModal();pcCompositionFocusList()}
+}
+function pcPreparedItemConversion(item,countedQuantity,countedUnit){
+  const qty=pcStrictNumber(countedQuantity);
+  if(!item)return{complete:false,reason:'قلم آماده‌سازی تعریف نشده است',contributions:[]};
+  if(item.status==='غیرفعال')return{complete:false,reason:`قلم آماده‌سازی «${item.name}» غیرفعال است`,contributions:[]};
+  if(qty===null||qty<0)return{complete:false,reason:`مقدار شمارش «${item.name}» نامعتبر است`,contributions:[]};
+  const baseQty=pcStrictNumber(item.baseOutputQuantity);
+  if(baseQty===null||baseQty<=0)return{complete:false,reason:`مقدار مبنای فرمول «${item.name}» نامعتبر است`,contributions:[]};
+  if(pcUnitKey(countedUnit)!==pcUnitKey(item.countUnit))return{complete:false,reason:`واحد شمارش «${item.name}» با واحد تعریف‌شده فرمول متفاوت است`,contributions:[]};
+  const components=pcArr(item.components);
+  if(!components.length)return{complete:false,reason:`فرمول «${item.name}» ماده‌ای ندارد`,contributions:[]};
+  const scale=qty/baseQty,contributions=[];
+  for(const c of components){
+    const ing=pcIngredient(c.ingredientId);
+    if(!ing)return{complete:false,reason:`ماده‌ای در فرمول «${item.name}» از کاتالوگ حذف شده است`,contributions:[]};
+    if(ing.status==='غیرفعال')return{complete:false,reason:`ماده «${ing.name}» در فرمول «${item.name}» غیرفعال است`,contributions:[]};
+    const compQty=pcStrictNumber(c.quantity);
+    if(compQty===null||compQty<=0)return{complete:false,reason:`مقدار ماده «${ing.name}» در فرمول «${item.name}» نامعتبر است`,contributions:[]};
+    if(c.basis!=='gross'&&c.basis!=='net')return{complete:false,reason:`مبنای مقدار ماده «${ing.name}» در فرمول «${item.name}» تعیین نشده است`,contributions:[]};
+    const scaled=compQty*scale;
+    const converted=pcConvertQuantity(ing,scaled,c.unit,ing.recipeUnit);
+    if(converted.value===null)return{complete:false,reason:`تبدیل واحد ماده «${ing.name}»: ${converted.reason}`,contributions:[]};
+    let grossQty=converted.value,yieldFactorApplied=null;
+    if(c.basis==='net'){
+      const yieldFactor=pcYield(ing);
+      if(yieldFactor===null)return{complete:false,reason:`درصد افت ماده «${ing.name}» معتبر نیست؛ تبدیل مبنای خالص ممکن نیست`,contributions:[]};
+      grossQty=grossQty/yieldFactor;yieldFactorApplied=yieldFactor;
+    }
+    contributions.push({ingredientId:ing.id,ingredientNameSnapshot:ing.name,ingredientCodeSnapshot:ing.code||'',unit:ing.recipeUnit,quantity:grossQty,componentQuantity:compQty,componentUnit:c.unit,basis:c.basis,yieldFactorApplied});
+  }
+  return{complete:true,reason:'',scale,contributions,preparedItemId:item.id,preparedItemNameSnapshot:item.name,preparedItemVersion:item.version||1,baseOutputQuantitySnapshot:baseQty,countUnitSnapshot:item.countUnit};
+}
 function pcRecipeLines(itemId){return pcArr(pricingState?.recipes).filter(x=>x.menuItemId===itemId)}
 function pcCostInfo(item){
   const lines=pcRecipeLines(item.id);
@@ -184,7 +533,50 @@ function pcTabs(){const changes=pricingState.menuItems.filter(x=>pcMetrics(x).ne
 function viewsPricing(){if(!pricingLoaded){setTimeout(()=>pcEnsureLoaded(),0);return pageHead('بهای تمام‌شده و قیمت‌گذاری','')+'<div class="card empty">در حال بارگذاری…</div>'}return pageHead('بهای تمام‌شده و قیمت‌گذاری','',pcPageActions())+pcTabs()+(pricingUI.tab==='dashboard'?pcDashboard():pricingUI.tab==='changes'?pcChanges():pricingUI.tab==='menu'?pcMenuList():pricingUI.tab==='ingredients'?pcIngredientList():pricingUI.tab==='recipes'?pcRecipes():pricingUI.tab==='recipeVersions'?pcRecipeVersions():pricingUI.tab==='history'?pcHistory():pcJsonSettings())}
 function pcDashboard(){const active=pricingState.menuItems.filter(x=>x.status!=='غیرفعال'),needs=active.filter(x=>pcMetrics(x).needs),withRecipe=active.filter(x=>pcRecipeLines(x.id).length).length,complete=active.filter(x=>pcMetrics(x).complete),avg=complete.length?complete.reduce((s,x)=>s+pcMetrics(x).ratio,0)/complete.length:0;return `<div class="grid grid-4"><div class="card kpi pricing-kpi"><div class="label">آیتم فعال منو</div><div class="value">${pcFmt(active.length)}</div></div><div class="card kpi pricing-kpi"><div class="label">کاتالوگ اقلام و مواد</div><div class="value">${pcFmt(pricingState.ingredients.length)}</div></div><div class="card kpi pricing-kpi"><div class="label">آیتم دارای رسپی</div><div class="value">${pcFmt(withRecipe)}</div></div><div class="card kpi pricing-kpi"><div class="label">نیازمند تغییر قیمت</div><div class="value" style="color:${needs.length?'#b42318':'#067647'}">${pcFmt(needs.length)}</div><div class="sub">میانگین نسبت هزینه: ${pcFmt(avg,1)}٪</div></div></div><div style="margin-top:14px">${pcChangeTable(needs.slice(0,20),true)}</div>`}
 function pcMenuList(){const q=pricingUI.menuSearch.toLowerCase(),rows=pricingState.menuItems.filter(x=>{const hay=[x.code,x.name,x.category].join(' ').toLowerCase();return(!q||hay.includes(q))&&(!pricingUI.menuCategory||x.category===pricingUI.menuCategory)&&(!pricingUI.menuStatus||x.status===pricingUI.menuStatus)});return `<div class="card"><div class="section-head"><div><h2>آیتم‌های منو</h2><p class="muted">رسپی بر هزینه دستی اولویت دارد.</p></div><button class="btn btn-primary" onclick="pcEditMenuItem()">+ افزودن آیتم منو</button></div><div class="toolbar"><div class="field"><label>جست‌وجو</label><input value="${esc(pricingUI.menuSearch)}" data-live-filter="pricingUI.menuSearch" oninput="rayoLiveFilter(this,pricingUI,'menuSearch')" placeholder="نام یا کد"></div><div class="field"><label>دسته‌بندی</label><select onchange="pricingUI.menuCategory=this.value;renderView()"><option value="">همه</option>${pcUnique(pricingState.lists.menuCategories).map(x=>`<option ${x===pricingUI.menuCategory?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>وضعیت</label><select onchange="pricingUI.menuStatus=this.value;renderView()"><option value="">همه</option>${pricingState.lists.statuses.map(x=>`<option ${x===pricingUI.menuStatus?'selected':''}>${esc(x)}</option>`).join('')}</select></div></div></div><div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>کد</th><th>نام</th><th>دسته</th><th>قیمت فعلی</th><th>بهای تمام‌شده</th><th>نسبت</th><th>هدف</th><th>قیمت پیشنهادی</th><th>تغییر</th><th>وضعیت</th><th></th></tr></thead><tbody>${rows.map(pcMenuRow).join('')||'<tr><td colspan="11" class="empty">آیتمی پیدا نشد.</td></tr>'}</tbody></table></div></div>`}
-function pcMenuRow(item){const m=pcMetrics(item),rowClass=m.needs?'pricing-row-needs':!m.complete?'pricing-row-incomplete':'';return `<tr class="${rowClass}"><td>${esc(item.code||'—')}</td><td><b>${esc(item.name)}</b></td><td>${esc(item.category||'—')}</td><td>${pcMoney(m.price)}</td><td>${m.complete?pcMoney(m.cost):'—'}<span class="pricing-cost-source">${esc(m.source)}${m.missing?`؛ ${pcFmt(m.missing)} ردیف ناقص`:''}</span></td><td>${pcRatioBadge(m)}</td><td>${pcFmt(m.target,1)}٪</td><td>${m.complete?pcMoney(m.suggested):'—'}</td><td>${m.needs?`<span class="pricing-delta">+${pcMoney(m.delta)}</span>`:'—'}</td><td>${badge(pcStatusText(m))}</td><td><div class="pricing-actions"><button class="btn btn-sm" onclick="pcEditMenuItem('${item.id}')">ویرایش</button><button class="btn btn-sm" onclick="pcOpenRecipe('${item.id}')">رسپی</button>${m.needs?`<button class="btn btn-success btn-sm" onclick="pcApplySuggestedPrice('${item.id}')">اعمال قیمت</button>`:''}<button class="btn btn-danger btn-sm" onclick="pcDeleteMenuItem('${item.id}')">حذف</button></div></td></tr>`}
+// Display-only: the recipe cost with this month's real ingredient waste (inventory ledger); prices and saved costs are unchanged.
+function pcAverageMenuCostSharePercent(){
+  const items=pcArr(pricingState?.menuItems).filter(x=>x.status!=='غیرفعال');
+  if(!items.length)return null;
+  let sum=0,count=0;
+  for(const item of items){const m=pcMetrics(item);if(!m.complete||!(m.price>0)||!Number.isFinite(m.ratio))continue;sum+=m.ratio;count++}
+  return count?sum/count:null;
+}
+let pcLedgerCache=null;
+function pcCurrentPeriodLedgerLines(){
+  if(pcLedgerCache&&Date.now()-pcLedgerCache.at<5000)return pcLedgerCache.lines;
+  const lines=pcCurrentPeriodLedgerLinesNow();pcLedgerCache={at:Date.now(),lines};return lines;
+}
+function pcCurrentPeriodLedgerLinesNow(){
+  const fn=window.RayoInventoryV10?.periodMetrics;if(typeof fn!=='function')return null;
+  const t=window.RayoJalali?.today?.()||'';if(!t)return null;
+  const from=`${t.slice(0,8)}01`;
+  try{const p=fn(from,t);return Array.isArray(p?.lines)?p.lines:null}catch(_){return null}
+}
+function pcIngredientWastePercent(ingredientId,ledgerLines){
+  const l=ledgerLines?.find(x=>x.ingredientId===ingredientId);
+  if(!l||!Number.isFinite(l.wasteQty)||!Number.isFinite(l.stdQty))return null;
+  const denom=l.stdQty+l.wasteQty;
+  return denom>0?l.wasteQty/denom*100:null;
+}
+function pcRecipeWasteAdjustedCost(item){
+  const ci=pcCostInfo(item);
+  if(!ci.complete||ci.source!=='رسپی')return{available:false};
+  const ledgerLines=pcCurrentPeriodLedgerLines();
+  if(!ledgerLines)return{available:false};
+  const lines=pcRecipeLines(item.id);
+  let weightedWasteSum=0,costSum=0;
+  for(const line of lines){
+    const ing=pcIngredient(line.ingredientId),unit=pcIngredientUnitCost(ing),qty=pcNum(line.quantity);
+    if(!ing||!Number.isFinite(unit)||unit<=0||qty<=0)continue;
+    const lineCost=unit*qty,wastePct=pcIngredientWastePercent(line.ingredientId,ledgerLines);
+    if(wastePct===null)continue;
+    weightedWasteSum+=lineCost*wastePct;costSum+=lineCost;
+  }
+  if(costSum<=0)return{available:false};
+  const wastePercent=weightedWasteSum/costSum;
+  return{available:true,wastePercent,rawCost:ci.cost,cost:ci.cost*(1+wastePercent/100)};
+}
+function pcMenuRow(item){const m=pcMetrics(item),rowClass=m.needs?'pricing-row-needs':!m.complete?'pricing-row-incomplete':'',w=pcRecipeWasteAdjustedCost(item);return `<tr class="${rowClass}"><td>${esc(item.code||'—')}</td><td><b>${esc(item.name)}</b></td><td>${esc(item.category||'—')}</td><td>${pcMoney(m.price)}</td><td>${m.complete?pcMoney(m.cost):'—'}<span class="pricing-cost-source">${esc(m.source)}${m.missing?`؛ ${pcFmt(m.missing)} ردیف ناقص`:''}</span>${w.available?`<br><small class="pricing-cost-source">با احتساب پرت واقعی مواد این ماه (${pcFmt(w.wastePercent,1)}٪): ${pcMoney(w.cost)}</small>`:''}</td><td>${pcRatioBadge(m)}</td><td>${pcFmt(m.target,1)}٪</td><td>${m.complete?pcMoney(m.suggested):'—'}</td><td>${m.needs?`<span class="pricing-delta">+${pcMoney(m.delta)}</span>`:'—'}</td><td>${badge(pcStatusText(m))}</td><td><div class="pricing-actions"><button class="btn btn-sm" onclick="pcEditMenuItem('${item.id}')">ویرایش</button><button class="btn btn-sm" onclick="pcOpenRecipe('${item.id}')">رسپی</button>${m.needs?`<button class="btn btn-success btn-sm" onclick="pcApplySuggestedPrice('${item.id}')">اعمال قیمت</button>`:''}<button class="btn btn-danger btn-sm" onclick="pcDeleteMenuItem('${item.id}')">حذف</button></div></td></tr>`}
 function pcIngredientFilter(key,value){pricingUI.ingredientPage=1;if(key==='ingredientSearch'&&typeof rayoLiveFilter==='function'&&document.activeElement)return rayoLiveFilter(document.activeElement,pricingUI,key);pricingUI[key]=value;renderView()}
 function pcIngredientPage(page){pricingUI.ingredientPage=Math.max(1,Number(page)||1);renderView()}
 function pcIngredientPageSize(size){pricingUI.ingredientPageSize=[25,50,100].includes(Number(size))?Number(size):25;pricingUI.ingredientPage=1;renderView()}
@@ -241,10 +633,10 @@ function pcIngredientPreview(){
  const m=pcIngredientMath(ingredient),u=ingredient.recipeUnit||'واحد';
  target.textContent=m.netUsableQuantity===null?'ناقص: مقدار ناخالص، واحدها و درصد افت معتبر وارد کنید.':'از '+pcFmt(m.packageQuantity,3)+' '+u+' خرید، حدود '+pcFmt(m.netUsableQuantity,3)+' '+u+' قابل‌مصرف است. هزینه مؤثر هر '+u+': '+(m.netUsableUnitCost===null?'ناقص؛ قیمت خرید وارد نشده':pcFmt(pcDisplayUnitCost(m.netUsableUnitCost))+' تومان؛ نمایش رو به بالا تا هزار تومان، محاسبه با مبلغ دقیق');
 }
-function pcEditIngredient(id){const cur=id?pcIngredient(id):null,initial=cur?{...cur,lastPurchasePriceToman:Number.isFinite(pcGrossCatalogCost(cur))?pcGrossCatalogCost(cur)*pcStrictNumber(cur.packageQuantity):cur.lastPurchasePriceToman}:{code:'',name:'',category:pricingState.lists.ingredientCategories[0]||'سایر',purchaseUnit:'کیلوگرم',recipeUnit:'گرم',packageQuantity:1000,lastPurchasePriceToman:0,wastePercent:0,lastPurchaseDate:'',status:'فعال',itemType:'MENU_INGREDIENT',consumptionDriver:'GUESTS',standardUsagePerDriver:0,driverBase:100,notes:''};initial.itemType=pcNormalizeItemType(initial.itemType);const reorderValue=Object.prototype.hasOwnProperty.call(initial,'reorderPoint')&&initial.reorderPoint!==null?initial.reorderPoint:'';$('modalTitle').textContent=id?'ویرایش قلم / ماده':'افزودن قلم / ماده';$('modalBody').innerHTML=`<div class="form-grid"><div class="field"><label>کد ماده</label><input id="pc_i_code" value="${esc(initial.code||'')}"></div><div class="field"><label>نام ماده / قلم مصرفی</label><input id="pc_i_name" value="${esc(initial.name||'')}"></div><div class="field"><label>گروه</label><select id="pc_i_category"><option value="">انتخاب کنید</option>${pcIngredientCategories().map(x=>`<option value="${esc(x)}" ${x===initial.category?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>نوع قلم</label><select id="pc_i_item_type" onchange="pcToggleOperationalFields()">${Object.entries(PC_ITEM_TYPES).map(([k,l])=>`<option value="${k}" ${k===initial.itemType?'selected':''}>${l}</option>`).join('')}</select></div><div class="field"><label>واحد خرید</label><select id="pc_i_purchase_unit" onchange="pcIngredientPreview()">${pricingState.lists.units.map(x=>`<option ${x===initial.purchaseUnit?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>واحد مصرف / شمارش</label><select id="pc_i_recipe_unit" onchange="pcRefreshReorderUnit();pcIngredientPreview()">${pricingState.lists.units.map(x=>`<option ${x===initial.recipeUnit?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label for="pc_i_pack_qty">مقدار ناخالص هر واحد خرید، پیش از افت</label><input id="pc_i_pack_qty" type="text" inputmode="decimal" oninput="pcIngredientPreview()" value="${esc(initial.packageQuantity??'')}"><small>مثال: برای یک کیلو گوشت با واحد مصرف گرم، مقدار ۱۰۰۰ وارد شود. درصد افت جداگانه اعمال می‌شود.</small></div><div class="field pc-inventory-field"><label>نقطه سفارش (<span id="pc_i_reorder_unit">${esc(initial.recipeUnit||'واحد')}</span>)</label><input id="pc_i_reorder" inputmode="decimal" value="${esc(reorderValue)}" placeholder="تعیین نشده"><small>وقتی موجودی به این مقدار یا کمتر برسد، قلم در نیازمند سفارش نمایش داده می‌شود.</small></div><div class="field"><label>آخرین قیمت خرید کل بسته (تومان)</label><input id="pc_i_price" type="text" inputmode="decimal" oninput="pcIngredientPreview()" value="${esc(initial.lastPurchasePriceToman??'')}"></div><div class="field"><label for="pc_i_waste">درصد افت استاندارد آماده‌سازی</label><input id="pc_i_waste" type="text" inputmode="decimal" oninput="pcIngredientPreview()" value="${esc(initial.wastePercent??'')}"><small>افت معمول و اجتناب‌ناپذیر مانند خونابه، پوست، چربی یا پاک‌سازی. ضایعات غیرعادی و اتفاقی باید جداگانه ثبت شوند.</small></div><div class="field"><label>تاریخ آخرین قیمت</label><input id="pc_i_date" value="${esc(initial.lastPurchaseDate||'')}" placeholder="1405/05/01"></div><div class="field pc-operational-field"><label>مبنای کنترل مصرف</label><select id="pc_i_driver"><option value="GUESTS" ${initial.consumptionDriver==='GUESTS'?'selected':''}>تعداد مهمان</option><option value="CHECKS" ${initial.consumptionDriver==='CHECKS'?'selected':''}>تعداد فاکتور</option><option value="OPEN_DAYS" ${initial.consumptionDriver==='OPEN_DAYS'?'selected':''}>روز کاری</option><option value="SHIFTS" ${initial.consumptionDriver==='SHIFTS'?'selected':''}>تعداد شیفت</option><option value="WASH_CYCLES" ${initial.consumptionDriver==='WASH_CYCLES'?'selected':''}>دفعات شست‌وشو</option></select></div><div class="field pc-operational-field"><label>مصرف استاندارد</label><input id="pc_i_standard_usage" type="number" min="0" step="0.001" value="${pcNum(initial.standardUsagePerDriver)}"></div><div class="field pc-operational-field"><label>به‌ازای چند واحد مبنا</label><input id="pc_i_driver_base" type="number" min="1" step="1" value="${pcNum(initial.driverBase)||100}"></div><div class="field"><label>وضعیت</label><select id="pc_i_status">${pricingState.lists.statuses.map(x=>`<option ${x===initial.status?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field full"><label>توضیحات</label><textarea id="pc_i_notes">${esc(initial.notes||'')}</textarea></div></div><div id="pc_i_yield_preview" class="pricing-note" role="status" aria-live="polite"></div><div id="pc_i_type_hint" class="pricing-note" style="margin-top:12px"></div>`;$('modalFoot').innerHTML=`<button class="btn" onclick="closeModal()">انصراف</button><button class="btn btn-primary" onclick="pcSaveIngredient('${id||''}')">ذخیره</button>`;$('modalBackdrop').classList.add('open');pcToggleOperationalFields();pcIngredientPreview()}
+function pcEditIngredient(id){const cur=id?pcIngredient(id):null,initial=cur?{...cur,lastPurchasePriceToman:Number.isFinite(pcGrossCatalogCost(cur))?pcGrossCatalogCost(cur)*pcStrictNumber(cur.packageQuantity):cur.lastPurchasePriceToman}:{code:'',name:'',category:pricingState.lists.ingredientCategories[0]||'سایر',purchaseUnit:'کیلوگرم',recipeUnit:'گرم',packageQuantity:1000,lastPurchasePriceToman:0,wastePercent:0,lastPurchaseDate:'',status:'فعال',itemType:'MENU_INGREDIENT',consumptionDriver:'GUESTS',standardUsagePerDriver:0,driverBase:100,densityKgPerLiter:'',densityNote:'',notes:''};initial.itemType=pcNormalizeItemType(initial.itemType);const reorderValue=Object.prototype.hasOwnProperty.call(initial,'reorderPoint')&&initial.reorderPoint!==null?initial.reorderPoint:'';$('modalTitle').textContent=id?'ویرایش قلم / ماده':'افزودن قلم / ماده';$('modalBody').innerHTML=`<div class="form-grid"><div class="field"><label>کد ماده</label><input id="pc_i_code" value="${esc(initial.code||'')}"></div><div class="field"><label>نام ماده / قلم مصرفی</label><input id="pc_i_name" value="${esc(initial.name||'')}"></div><div class="field"><label>گروه</label><select id="pc_i_category"><option value="">انتخاب کنید</option>${pcIngredientCategories().map(x=>`<option value="${esc(x)}" ${x===initial.category?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>نوع قلم</label><select id="pc_i_item_type" onchange="pcToggleOperationalFields()">${Object.entries(PC_ITEM_TYPES).map(([k,l])=>`<option value="${k}" ${k===initial.itemType?'selected':''}>${l}</option>`).join('')}</select></div><div class="field"><label>واحد خرید</label><select id="pc_i_purchase_unit" onchange="pcIngredientPreview();pcRefreshCountingUnitBase()">${pricingState.lists.units.map(x=>`<option ${x===initial.purchaseUnit?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label>واحد مصرف / شمارش</label><select id="pc_i_recipe_unit" onchange="pcRefreshReorderUnit();pcRefreshCountingUnitBase();pcIngredientPreview()">${pricingState.lists.units.map(x=>`<option ${x===initial.recipeUnit?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field"><label for="pc_i_pack_qty">مقدار ناخالص هر واحد خرید، پیش از افت</label><input id="pc_i_pack_qty" type="text" inputmode="decimal" oninput="pcIngredientPreview();pcRefreshCountingUnitBase()" value="${esc(initial.packageQuantity??'')}"><small>مثال: برای یک کیلو گوشت با واحد مصرف گرم، مقدار ۱۰۰۰ وارد شود. درصد افت جداگانه اعمال می‌شود.</small></div><div class="field pc-inventory-field"><label>نقطه سفارش (<span id="pc_i_reorder_unit">${esc(initial.recipeUnit||'واحد')}</span>)</label><input id="pc_i_reorder" inputmode="decimal" value="${esc(reorderValue)}" placeholder="تعیین نشده"><small>وقتی موجودی به این مقدار یا کمتر برسد، قلم در نیازمند سفارش نمایش داده می‌شود.</small></div><div class="field"><label>آخرین قیمت خرید کل بسته (تومان)</label><input id="pc_i_price" type="text" inputmode="decimal" oninput="pcIngredientPreview()" value="${esc(initial.lastPurchasePriceToman??'')}"></div><div class="field"><label for="pc_i_waste">درصد افت استاندارد آماده‌سازی</label><input id="pc_i_waste" type="text" inputmode="decimal" oninput="pcIngredientPreview()" value="${esc(initial.wastePercent??'')}"><small>افت معمول و اجتناب‌ناپذیر مانند خونابه، پوست، چربی یا پاک‌سازی. ضایعات غیرعادی و اتفاقی باید جداگانه ثبت شوند.</small></div><div class="field"><label>تاریخ آخرین قیمت</label><input id="pc_i_date" value="${esc(initial.lastPurchaseDate||'')}" placeholder="1405/05/01"></div><div class="field"><label for="pc_i_density">چگالی (کیلوگرم بر لیتر) — اختیاری</label><input id="pc_i_density" type="text" inputmode="decimal" value="${esc(initial.densityKgPerLiter??'')}"><small>فقط برای تبدیل خودکار حجم↔وزن همین ماده لازم است؛ مثلاً روغن. اگر ماده هرگز هم حجمی هم وزنی شمرده نمی‌شود خالی بگذارید. یک چگالی ثابت برای همه روغن‌ها درست نیست؛ هر ماده مقدار خودش را دارد.</small></div><div class="field"><label for="pc_i_density_note">منبع/شرایط اندازه‌گیری چگالی</label><input id="pc_i_density_note" value="${esc(initial.densityNote||'')}" placeholder="مثلاً دمای اتاق، برگه فنی تأمین‌کننده"></div><div class="field pc-operational-field"><label>مبنای کنترل مصرف</label><select id="pc_i_driver"><option value="GUESTS" ${initial.consumptionDriver==='GUESTS'?'selected':''}>تعداد مهمان</option><option value="CHECKS" ${initial.consumptionDriver==='CHECKS'?'selected':''}>تعداد فاکتور</option><option value="OPEN_DAYS" ${initial.consumptionDriver==='OPEN_DAYS'?'selected':''}>روز کاری</option><option value="SHIFTS" ${initial.consumptionDriver==='SHIFTS'?'selected':''}>تعداد شیفت</option><option value="WASH_CYCLES" ${initial.consumptionDriver==='WASH_CYCLES'?'selected':''}>دفعات شست‌وشو</option></select></div><div class="field pc-operational-field"><label>مصرف استاندارد</label><input id="pc_i_standard_usage" type="number" min="0" step="0.001" value="${pcNum(initial.standardUsagePerDriver)}"></div><div class="field pc-operational-field"><label>به‌ازای چند واحد مبنا</label><input id="pc_i_driver_base" type="number" min="1" step="1" value="${pcNum(initial.driverBase)||100}"></div><div class="field"><label>وضعیت</label><select id="pc_i_status">${pricingState.lists.statuses.map(x=>`<option ${x===initial.status?'selected':''}>${esc(x)}</option>`).join('')}</select></div><div class="field full"><label>توضیحات</label><textarea id="pc_i_notes">${esc(initial.notes||'')}</textarea></div></div><div id="pc_i_yield_preview" class="pricing-note" role="status" aria-live="polite"></div><div id="pc_i_type_hint" class="pricing-note" style="margin-top:12px"></div>${pcCountingUnitsSection('pc_i',initial.recipeUnit,initial.countingUnits)}`;$('modalFoot').innerHTML=`<button class="btn" onclick="closeModal()">انصراف</button><button class="btn btn-primary" onclick="pcSaveIngredient('${id||''}')">ذخیره</button>`;$('modalBackdrop').classList.add('open');pcToggleOperationalFields();pcIngredientPreview();pcRefreshCountingUnitBase()}
 function pcRefreshReorderUnit(){const el=$('pc_i_reorder_unit');if(el)el.textContent=$('pc_i_recipe_unit')?.value||'واحد'}
 function pcToggleOperationalFields(){const type=pcNormalizeItemType($('pc_i_item_type')?.value),show=type==='OPERATIONAL_CONSUMABLE';document.querySelectorAll('.pc-operational-field').forEach(x=>x.style.display=show?'':'none');document.querySelectorAll('.pc-inventory-field').forEach(x=>x.style.display=type==='NON_STOCK'?'none':'');pcRefreshReorderUnit();const hint=$('pc_i_type_hint'),texts={MENU_INGREDIENT:'در رسپی و بهای تمام‌شده، انبار و تأمین کالا قابل استفاده است.',MENU_CONSUMABLE:'ملزومی مثل سینگل پیتزا، جعبه یا نی که به هر آیتم منو نسبت داده می‌شود و مستقیماً وارد بهای تمام‌شده است.',OPERATIONAL_CONSUMABLE:'برای دستمال، شوینده، دستکش و اقلام مشابه؛ مصرف واقعی با مبنای عملیاتی مقایسه می‌شود.',GENERAL_INVENTORY:'در انبار و سفارش کنترل می‌شود اما وارد رسپی آیتم منو نمی‌شود.',NON_STOCK:'خدمت یا هزینه‌ای که فقط در خرید و تأمین استفاده می‌شود و موجودی ندارد.'};if(hint)hint.textContent=texts[type]||''}
-async function pcSaveIngredient(id){const name=pcText($('pc_i_name').value),code=pcText($('pc_i_code').value),category=pcText($('pc_i_category').value),reorder=pcOptionalNonNegative($('pc_i_reorder')?.value);if(!name)return toast('نام قلم الزامی است',true);if(!reorder.ok)return toast('نقطه سفارش باید خالی، صفر یا عدد مثبت معتبر باشد',true);if(code&&pricingState.ingredients.some(x=>x.code===code&&x.id!==id))return toast('کد ماده تکراری است',true);const pack=pcStrictNumber($('pc_i_pack_qty').value),waste=pcStrictNumber($('pc_i_waste').value,0),price=pcStrictNumber($('pc_i_price').value);if(pack===null||pack<=0)return toast('مقدار ناخالص واحد خرید باید بیشتر از صفر باشد',true);if(waste===null||waste<0||waste>=100)return toast('درصد افت باید صفر یا بیشتر و کمتر از ۱۰۰ باشد',true);if(pcText($('pc_i_price').value)&&(price===null||price<=0))return toast('قیمت خرید باید عدد مثبت باشد؛ قیمت نامشخص را خالی بگذارید',true);const itemType=pcNormalizeItemType($('pc_i_item_type')?.value),o={code:code||pcUid('INGCODE',pricingState.ingredients),name,category:category||'سایر',purchaseUnit:$('pc_i_purchase_unit').value,recipeUnit:$('pc_i_recipe_unit').value,packageQuantity:pack,lastPurchasePriceToman:price??0,wastePercent:waste,lastPurchaseDate:pcText($('pc_i_date').value),status:$('pc_i_status').value,itemType,recipeCapable:['MENU_INGREDIENT','MENU_CONSUMABLE'].includes(itemType),inventoryTracked:itemType!=='NON_STOCK',procurementEnabled:true,consumptionDriver:itemType==='OPERATIONAL_CONSUMABLE'?$('pc_i_driver')?.value:'',standardUsagePerDriver:itemType==='OPERATIONAL_CONSUMABLE'?pcNum($('pc_i_standard_usage')?.value):0,driverBase:itemType==='OPERATIONAL_CONSUMABLE'?Math.max(1,pcNum($('pc_i_driver_base')?.value)||100):0,reorderPoint:reorder.value,notes:$('pc_i_notes').value};const stateBefore=pcClone(pricingState);if(!pricingState.lists.ingredientCategories.includes(o.category))pricingState.lists.ingredientCategories.push(o.category);const existing=id?pcIngredient(id):null,before=existing?JSON.parse(JSON.stringify(existing)):null,historyBefore=pcArr(pricingState.ingredientPriceHistory).length,versionsBefore=pcArr(pricingState.recipeVersions).slice(),priceChanged=!existing||pcStrictNumber(existing.lastPurchasePriceToman)!==price||pcStrictNumber(existing.packageQuantity)!==pack||existing.lastPurchaseDate!==o.lastPurchaseDate;if(priceChanged)Object.assign(o,{lastPurchaseSource:'manual',lastPurchaseInvoiceId:''});let saved;if(existing){saved=existing;Object.assign(saved,o)}else{saved={id:pcUid('ING',pricingState.ingredients),...o};pricingState.ingredients.push(saved)}if(priceChanged)pcRecordIngredientPrice(saved.id,o.lastPurchasePriceToman,o.lastPurchaseDate,'manual');let staged=true;try{pcStageLossChange(pricingState,{ingredients:before?[before]:[]})}catch(e){staged=false;toast(e.message,true)}const ok=staged&&await pcCommit(id?'ویرایش قلم کاتالوگ':'افزودن قلم کاتالوگ');if(!ok){pricingState.recipeVersions=versionsBefore;if(existing){Object.keys(existing).forEach(k=>delete existing[k]);Object.assign(existing,before)}else pricingState.ingredients=pricingState.ingredients.filter(x=>x!==saved);if(Array.isArray(pricingState.ingredientPriceHistory))pricingState.ingredientPriceHistory.length=historyBefore;Object.keys(pricingState).forEach(k=>delete pricingState[k]);Object.assign(pricingState,stateBefore)}}
+async function pcSaveIngredient(id){const name=pcText($('pc_i_name').value),code=pcText($('pc_i_code').value),category=pcText($('pc_i_category').value),reorder=pcOptionalNonNegative($('pc_i_reorder')?.value);if(!name)return toast('نام قلم الزامی است',true);if(!reorder.ok)return toast('نقطه سفارش باید خالی، صفر یا عدد مثبت معتبر باشد',true);if(code&&pricingState.ingredients.some(x=>x.code===code&&x.id!==id))return toast('کد ماده تکراری است',true);const pack=pcStrictNumber($('pc_i_pack_qty').value),waste=pcStrictNumber($('pc_i_waste').value,0),price=pcStrictNumber($('pc_i_price').value);if(pack===null||pack<=0)return toast('مقدار ناخالص واحد خرید باید بیشتر از صفر باشد',true);if(waste===null||waste<0||waste>=100)return toast('درصد افت باید صفر یا بیشتر و کمتر از ۱۰۰ باشد',true);if(pcText($('pc_i_price').value)&&(price===null||price<=0))return toast('قیمت خرید باید عدد مثبت باشد؛ قیمت نامشخص را خالی بگذارید',true);const densityRaw=pcText($('pc_i_density')?.value);let density=null;if(densityRaw){density=pcStrictNumber(densityRaw);if(density===null||density<=0||!Number.isFinite(density))return toast('چگالی باید عدد مثبت و متناهی باشد؛ برای بدون‌چگالی خالی بگذارید',true)}const cuRead=pcReadCountingUnitRows('pc_i');if(cuRead.error)return toast(cuRead.error,true);const cuNameError=pcCheckCountingUnitNames($('pc_i_recipe_unit').value,cuRead.rows,$('pc_i_purchase_unit').value);if(cuNameError)return toast(cuNameError,true);const cuPrev=id?pcArr(pcIngredient(id)?.countingUnits):[];if(id&&cuPrev.length&&pcText(pcIngredient(id)?.recipeUnit)!==pcText($('pc_i_recipe_unit').value)&&!confirm('واحد پایه قلمی که واحد شمارش دارد تغییر کرده است. ضرایب واحدهای شمارش خودکار تبدیل نمی‌شوند و تغییر واحد پایه قلم دارای سابقه نیازمند مهاجرت جداگانه است. فقط اگر ضرایب را هم‌اکنون بازبینی کرده‌اید ادامه دهید.'))return;const countingUnits=pcMergeCountingUnits(cuPrev,pcAssignCountingUnitIds(cuRead.rows));const itemType=pcNormalizeItemType($('pc_i_item_type')?.value),o={code:code||pcUid('INGCODE',pricingState.ingredients),name,category:category||'سایر',purchaseUnit:$('pc_i_purchase_unit').value,recipeUnit:$('pc_i_recipe_unit').value,countingUnits,packageQuantity:pack,lastPurchasePriceToman:price??0,wastePercent:waste,lastPurchaseDate:pcText($('pc_i_date').value),status:$('pc_i_status').value,itemType,recipeCapable:['MENU_INGREDIENT','MENU_CONSUMABLE'].includes(itemType),inventoryTracked:itemType!=='NON_STOCK',procurementEnabled:true,consumptionDriver:itemType==='OPERATIONAL_CONSUMABLE'?$('pc_i_driver')?.value:'',standardUsagePerDriver:itemType==='OPERATIONAL_CONSUMABLE'?pcNum($('pc_i_standard_usage')?.value):0,driverBase:itemType==='OPERATIONAL_CONSUMABLE'?Math.max(1,pcNum($('pc_i_driver_base')?.value)||100):0,reorderPoint:reorder.value,densityKgPerLiter:density,densityNote:pcText($('pc_i_density_note')?.value),notes:$('pc_i_notes').value};const stateBefore=pcClone(pricingState);if(!pricingState.lists.ingredientCategories.includes(o.category))pricingState.lists.ingredientCategories.push(o.category);const existing=id?pcIngredient(id):null,before=existing?JSON.parse(JSON.stringify(existing)):null,historyBefore=pcArr(pricingState.ingredientPriceHistory).length,versionsBefore=pcArr(pricingState.recipeVersions).slice(),priceChanged=!existing||pcStrictNumber(existing.lastPurchasePriceToman)!==price||pcStrictNumber(existing.packageQuantity)!==pack||existing.lastPurchaseDate!==o.lastPurchaseDate;if(priceChanged)Object.assign(o,{lastPurchaseSource:'manual',lastPurchaseInvoiceId:''});let saved;if(existing){saved=existing;Object.assign(saved,o)}else{saved={id:pcUid('ING',pricingState.ingredients),...o};pricingState.ingredients.push(saved)}if(priceChanged)pcRecordIngredientPrice(saved.id,o.lastPurchasePriceToman,o.lastPurchaseDate,'manual');let staged=true;try{pcStageLossChange(pricingState,{ingredients:before?[before]:[]})}catch(e){staged=false;toast(e.message,true)}const ok=staged&&await pcCommit(id?'ویرایش قلم کاتالوگ':'افزودن قلم کاتالوگ');if(!ok){pricingState.recipeVersions=versionsBefore;if(existing){Object.keys(existing).forEach(k=>delete existing[k]);Object.assign(existing,before)}else pricingState.ingredients=pricingState.ingredients.filter(x=>x!==saved);if(Array.isArray(pricingState.ingredientPriceHistory))pricingState.ingredientPriceHistory.length=historyBefore;Object.keys(pricingState).forEach(k=>delete pricingState[k]);Object.assign(pricingState,stateBefore)}}
 function pcOpenRecipe(itemId){pricingUI.tab='recipes';pricingUI.recipeItemId=itemId;renderView()}
 function pcRecipeUnitRefresh(){const ing=pcIngredient($('pc_r_ing')?.value),u=ing?.recipeUnit||'واحد';const lab=$('pc_r_qty_label'),hint=$('pc_r_unit_hint');if(lab)lab.textContent=`مقدار خالص مصرف در یک پرس (${u})`;if(hint)hint.textContent=`مبنای ثبت این ماده در رسپی: ${u} — واحد خرید: ${ing?.purchaseUnit||'—'} — مقدار ناخالص هر واحد خرید پیش از افت: ${pcFmt(ing?.packageQuantity||0,3)} ${u}`}
 function pcEditRecipeLine(itemId,lineId){const line=lineId?pricingState.recipes.find(x=>x.id===lineId):null,initial=line||{ingredientId:'',quantity:0,notes:''},ings=pricingState.ingredients.filter(x=>pcRecipeCapable(x)&&(x.status!=='غیرفعال'||x.id===initial.ingredientId));$('modalTitle').textContent=lineId?'ویرایش ماده رسپی':'افزودن ماده به رسپی';$('modalBody').innerHTML=`<div class="form-grid"><div class="field"><label>ماده اولیه</label><select id="pc_r_ing" onchange="pcRecipeUnitRefresh()"><option value="">انتخاب کنید</option>${ings.map(x=>`<option value="${x.id}" ${x.id===initial.ingredientId?'selected':''}>${esc(x.code||'')} | ${esc(x.name)} — واحد رسپی: ${esc(x.recipeUnit||'واحد')}</option>`).join('')}</select></div><div class="field"><label id="pc_r_qty_label">مقدار مصرف در یک پرس</label><input id="pc_r_qty" type="number" min="0" step="0.001" value="${pcNum(initial.quantity)}"><small id="pc_r_unit_hint" class="muted"></small></div><div class="field full"><label>توضیحات</label><textarea id="pc_r_notes">${esc(initial.notes||'')}</textarea></div></div>`;$('modalFoot').innerHTML=`<button class="btn" onclick="closeModal()">انصراف</button><button class="btn btn-primary" onclick="pcSaveRecipeLine('${itemId}','${lineId||''}')">ذخیره</button>`;$('modalBackdrop').classList.add('open');pcRecipeUnitRefresh()}
@@ -281,7 +673,7 @@ function pcExportChangesCsv(){const rows=pricingState.menuItems.filter(x=>pcMetr
 function pcExportJson(){pricingState.meta.updatedAt=new Date().toISOString();const b=new Blob([JSON.stringify(pricingState,null,2)],{type:'application/json;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='pricing-data.json';a.click();URL.revokeObjectURL(a.href)}
 async function pcSaveJsonToDisk(){try{pricingState.meta.updatedAt=new Date().toISOString();if('showSaveFilePicker'in window){if(!pricingFileHandle)pricingFileHandle=await window.showSaveFilePicker({suggestedName:'pricing-data.json',types:[{description:'JSON',accept:{'application/json':['.json']}}]});const w=await pricingFileHandle.createWritable();await w.write(JSON.stringify(pricingState,null,2));await w.close();await PricingStorageAdapter.save(pricingState);toast('فایل pricing-data.json ذخیره شد')}else{pcExportJson();toast('مرورگر نوشتن مستقیم را پشتیبانی نمی‌کند؛ JSON دانلود شد')}}catch(e){if(e?.name!=='AbortError')toast('ذخیره فایل قیمت‌گذاری انجام نشد',true)}}
 function pcImportJson(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async()=>{try{pricingState=pcMigrate(JSON.parse(r.result));pricingLoaded=true;await PricingStorageAdapter.save(pricingState);renderView();toast('JSON قیمت‌گذاری وارد شد')}catch(err){toast('فایل JSON قیمت‌گذاری معتبر نیست',true)}};r.readAsText(f);e.target.value=''}
-function installPricingModule(){if(typeof views==='undefined'||typeof titles==='undefined'||document.querySelector('[data-view="pricing"]'))return;titles.pricing='بهای تمام‌شده و قیمت‌گذاری';views.pricing=viewsPricing;const sidebar=document.querySelector('.sidebar'),groups=[...sidebar.querySelectorAll('.nav-group')],ref=groups.find(x=>x.textContent.includes('گزارش و تنظیمات'));const group=document.createElement('div');group.className='nav-group';group.textContent='منو و قیمت‌گذاری';const btn=document.createElement('button');btn.className='nav-btn';btn.dataset.view='pricing';btn.innerHTML='🧮 <span>بهای تمام‌شده و قیمت‌گذاری</span>';btn.onclick=()=>goView('pricing');sidebar.insertBefore(group,ref||null);sidebar.insertBefore(btn,ref||null);window.getPricingState=()=>pricingState;window.getPricingLoadSource=()=>PRICING_APP_CONFIG.lastLoadSource||'';window.ensurePricingLoaded=pcEnsureLoaded;window.pricingUI=pricingUI;window.pcEnsureLoaded=pcEnsureLoaded;window.pcRefreshData=pcRefreshData;window.pcSaveData=pcSaveData;window.pcSaveJsonToDisk=pcSaveJsonToDisk;window.pcExportJson=pcExportJson;window.pcImportJson=pcImportJson;window.pcEditMenuItem=pcEditMenuItem;window.pcMenuCategoryChanged=pcMenuCategoryChanged;window.pcSaveMenuItem=pcSaveMenuItem;window.pcEditIngredient=pcEditIngredient;window.pcSaveIngredient=pcSaveIngredient;window.pcIngredientFilter=pcIngredientFilter;window.pcIngredientPage=pcIngredientPage;window.pcIngredientPageSize=pcIngredientPageSize;window.pcPriceUpdatePage=pcPriceUpdatePage;window.pcPriceUpdatePageSize=pcPriceUpdatePageSize;window.pcPriceUpdateEdit=pcPriceUpdateEdit;window.pcPriceUpdateCancel=pcPriceUpdateCancel;window.pcPriceUpdateSave=pcPriceUpdateSave;window.pcPriceUpdatePreview=pcPriceUpdatePreview;window.pcToggleOperationalFields=pcToggleOperationalFields;window.pcOpenRecipe=pcOpenRecipe;window.pcEditRecipeLine=pcEditRecipeLine;window.pcRecipeUnitRefresh=pcRecipeUnitRefresh;window.pcSaveRecipeLine=pcSaveRecipeLine;window.pcDeleteRecipeLine=pcDeleteRecipeLine;window.pcApplySuggestedPrice=pcApplySuggestedPrice;window.pcRoundApplyPrice=pcRoundApplyPrice;window.pcConfirmAppliedPrice=pcConfirmAppliedPrice;window.pcDeleteMenuItem=pcDeleteMenuItem;window.pcDeleteIngredient=pcDeleteIngredient;window.pcSaveSettings=pcSaveSettings;window.pcExportChangesCsv=pcExportChangesCsv;window.pcReadIngredientsExcel=pcReadIngredientsExcel;window.pcAddCategoryRow=pcAddCategoryRow;window.pcRemoveCategoryRow=pcRemoveCategoryRow;window.pcAddIngredientCategoryRow=pcAddIngredientCategoryRow;window.pcRemoveIngredientCategoryRow=pcRemoveIngredientCategoryRow}
-Object.assign(window,{pcIngredientPreview,pcIngredientList,pcDashboard,pcChanges,pcHistory,pcMenuList,pcRecipes,pcRecipeVersions,pcPriceUpdateList});
+function installPricingModule(){if(typeof views==='undefined'||typeof titles==='undefined'||document.querySelector('[data-view="pricing"]'))return;titles.pricing='بهای تمام‌شده و قیمت‌گذاری';views.pricing=viewsPricing;const sidebar=document.querySelector('.sidebar'),groups=[...sidebar.querySelectorAll('.nav-group')],ref=groups.find(x=>x.textContent.includes('گزارش و تنظیمات'));const group=document.createElement('div');group.className='nav-group';group.textContent='منو و قیمت‌گذاری';const btn=document.createElement('button');btn.className='nav-btn';btn.dataset.view='pricing';btn.innerHTML='🧮 <span>بهای تمام‌شده و قیمت‌گذاری</span>';btn.onclick=()=>goView('pricing');sidebar.insertBefore(group,ref||null);sidebar.insertBefore(btn,ref||null);window.getPricingState=()=>pricingState;window.getPricingLoadSource=()=>PRICING_APP_CONFIG.lastLoadSource||'';window.pcAverageMenuCostSharePercent=pcAverageMenuCostSharePercent;window.ensurePricingLoaded=pcEnsureLoaded;window.pricingUI=pricingUI;window.pcEnsureLoaded=pcEnsureLoaded;window.pcRefreshData=pcRefreshData;window.pcSaveData=pcSaveData;window.pcSaveJsonToDisk=pcSaveJsonToDisk;window.pcExportJson=pcExportJson;window.pcImportJson=pcImportJson;window.pcEditMenuItem=pcEditMenuItem;window.pcMenuCategoryChanged=pcMenuCategoryChanged;window.pcSaveMenuItem=pcSaveMenuItem;window.pcEditIngredient=pcEditIngredient;window.pcSaveIngredient=pcSaveIngredient;window.pcAddCountingUnitRow=pcAddCountingUnitRow;window.pcRefreshCountingUnitBase=pcRefreshCountingUnitBase;window.pcRefreshPreparedCountingUnitBase=pcRefreshPreparedCountingUnitBase;window.pcIngredientFilter=pcIngredientFilter;window.pcIngredientPage=pcIngredientPage;window.pcIngredientPageSize=pcIngredientPageSize;window.pcPriceUpdatePage=pcPriceUpdatePage;window.pcPriceUpdatePageSize=pcPriceUpdatePageSize;window.pcPriceUpdateEdit=pcPriceUpdateEdit;window.pcPriceUpdateCancel=pcPriceUpdateCancel;window.pcPriceUpdateSave=pcPriceUpdateSave;window.pcPriceUpdatePreview=pcPriceUpdatePreview;window.pcToggleOperationalFields=pcToggleOperationalFields;window.pcOpenRecipe=pcOpenRecipe;window.pcEditRecipeLine=pcEditRecipeLine;window.pcRecipeUnitRefresh=pcRecipeUnitRefresh;window.pcSaveRecipeLine=pcSaveRecipeLine;window.pcDeleteRecipeLine=pcDeleteRecipeLine;window.pcApplySuggestedPrice=pcApplySuggestedPrice;window.pcRoundApplyPrice=pcRoundApplyPrice;window.pcConfirmAppliedPrice=pcConfirmAppliedPrice;window.pcDeleteMenuItem=pcDeleteMenuItem;window.pcDeleteIngredient=pcDeleteIngredient;window.pcSaveSettings=pcSaveSettings;window.pcExportChangesCsv=pcExportChangesCsv;window.pcReadIngredientsExcel=pcReadIngredientsExcel;window.pcAddCategoryRow=pcAddCategoryRow;window.pcRemoveCategoryRow=pcRemoveCategoryRow;window.pcAddIngredientCategoryRow=pcAddIngredientCategoryRow;window.pcRemoveIngredientCategoryRow=pcRemoveIngredientCategoryRow;if(!window.__pcPreparedPickerBound){window.__pcPreparedPickerBound=true;document.addEventListener('rayo-picker-change',e=>{if(e.detail?.id==='pc_pc_ing')pcPreparedComponentUnitDefault()})}if(!window.__pcCompositionKeyBound){window.__pcCompositionKeyBound=true;document.addEventListener('keydown',pcCompositionKeydown)}window.pcEditPreparedItem=pcEditPreparedItem;window.pcSavePreparedItem=pcSavePreparedItem;window.pcDeletePreparedItem=pcDeletePreparedItem;window.pcPreparedComponentsFor=pcPreparedComponentsFor;window.pcEditPreparedComponent=pcEditPreparedComponent;window.pcPreparedComponentUnitDefault=pcPreparedComponentUnitDefault;window.pcSavePreparedComponent=pcSavePreparedComponent;window.pcDeletePreparedComponent=pcDeletePreparedComponent;window.pcCompositionRequestClose=pcCompositionRequestClose;window.pcCancelComponentForm=pcCancelComponentForm}
+Object.assign(window,{pcIngredientPreview,pcIngredientList,pcDashboard,pcChanges,pcHistory,pcMenuList,pcRecipes,pcRecipeVersions,pcPriceUpdateList});Object.assign(window,{pcPreparedItemList});
 (function waitPricingModule(){if(typeof views!=='undefined'&&typeof titles!=='undefined'&&document.querySelector('.sidebar'))installPricingModule();else setTimeout(waitPricingModule,60)})();
 })();

@@ -55,7 +55,8 @@ function editPersonnelV64(id){
     statusField.insertAdjacentHTML('afterend',`<div class="field" id="pv_employment_end_wrap"><label>تاریخ اتمام همکاری</label><input id="pv_employment_end" data-jalali="1" value="${esc(p.employmentEndDate||'')}" placeholder="1405/06/20"></div>`);
     refreshPersonnelEmploymentEndV64();window.RayoJalali?.mark?.();
   }
-  $('modalFoot').innerHTML=`<button class="btn" onclick="closeModal()">انصراف</button><button class="btn btn-primary" onclick="savePersonnelV64('${id||''}')">ذخیره</button>`;
+  if(!id&&typeof window.personnelOnboardingStepperV93==='function')$('modalBody').insertAdjacentHTML('afterbegin',window.personnelOnboardingStepperV93('info'));
+  $('modalFoot').innerHTML=`<button class="btn" onclick="closeModal()">انصراف</button><button class="btn btn-primary" onclick="savePersonnelV64('${id||''}')">${!id&&typeof window.startPersonnelOnboardingV93==='function'?'ذخیره و ادامه':'ذخیره'}</button>`;
   openPersonnelModalAtTopV64();
   refreshPersonnelTaxonomyV63(p.section,p.mainPosition,p.backupPosition,p.subSection);
   setTimeout(enhanceNumericUIV6,0);
@@ -76,6 +77,7 @@ async function savePersonnelV64(id){
   delete p.tipGroup;
   p.salaryProfile={position:main,grade:p.gradeId||'D',experienceMonths:p.experienceMonths||0,schedule:{weekdayMorning:0,weekdayEvening:0,thursdayMorning:0,thursdayEvening:0,fridayMorning:0,fridayEvening:0,fullWeekday:0,fullThursday:0,fullFriday:0},returnAid:0,incentive:0,contractMonthly:0,calculationMonth:parseJDate(todayJ()).m,updatedAt:new Date().toISOString(),...(p.salaryProfile||{}),position:main};
   closeModal();await commit(id?'ویرایش پرسنل':'افزودن پرسنل');
+  if(!id&&typeof window.startPersonnelOnboardingV93==='function')window.startPersonnelOnboardingV93(p.id);
 }
 function install(){
   if(installed||typeof state==='undefined'||!state||typeof window.__RAYO_V63__==='undefined'){setTimeout(install,60);return}

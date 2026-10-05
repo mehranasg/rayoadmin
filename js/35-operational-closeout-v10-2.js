@@ -70,20 +70,22 @@ function enhanceNumericInput(inp){
  if(S(inp.getAttribute('type')).toLowerCase()==='number'){inp.dataset.faType='number';inp.type='text'}
  if(!inp.hasAttribute('inputmode'))inp.setAttribute('inputmode',kind==='amount'?'decimal':'numeric');
  inp.__faNum=kind;inp.dataset.faNum=kind;
- Object.defineProperty(inp,'value',{configurable:true,enumerable:true,get(){return rawNum(NATIVE_VALUE.get.call(this),this.__faNum)},set(v){NATIVE_VALUE.set.call(this,showNum(v,this.__faNum))}});
+ Object.defineProperty(inp,'value',{configurable:true,enumerable:true,get(){const v=NATIVE_VALUE.get.call(this);return rawNum(v===''&&this.__faHold!=null?this.__faHold:v,this.__faNum)},set(v){this.__faHold=null;NATIVE_VALUE.set.call(this,showNum(v,this.__faNum))}});
  inp.value=raw;
 }
 function scanNumericInputs(root=document){if(!NATIVE_VALUE||window.RAYO_FA_DIGITS_DISABLED)return;if(root instanceof HTMLInputElement)return enhanceNumericInput(root);root.querySelectorAll?.('input').forEach(enhanceNumericInput)}
 function numCaret(el,sig){const val=NATIVE_VALUE.get.call(el);let pos=0,count=0;if(sig>0){pos=val.length;for(let i=0;i<val.length;i++){if(NUM_SIG.test(val[i])&&++count===sig){pos=i+1;break}}}try{el.setSelectionRange(pos,pos)}catch(_){}}
 // Reformat while typing without the caret jumping: count significant characters before the
 // caret, reformat, then restore the caret after the same number of significant characters.
-document.addEventListener('input',e=>{const el=e.target;if(!el?.__faNum||e.isComposing)return;const before=NATIVE_VALUE.get.call(el),next=showNum(before,el.__faNum);if(next===before)return;const pos=el.selectionStart,sig=pos==null?null:[...before.slice(0,pos)].filter(c=>NUM_SIG.test(c)).length;NATIVE_VALUE.set.call(el,next);if(sig!=null&&document.activeElement===el)numCaret(el,sig)},true);
-// Clicking a numeric field selects its value so typing replaces it (no Backspace needed). A zero
-// default is cleared on focus and restored on blur when nothing was typed, so no value is lost.
+document.addEventListener('input',e=>{const el=e.target;if(!el?.__faNum)return;el.__faHold=null;if(e.isComposing)return;const before=NATIVE_VALUE.get.call(el),next=showNum(before,el.__faNum);if(next===before)return;const pos=el.selectionStart,sig=pos==null?null:[...before.slice(0,pos)].filter(c=>NUM_SIG.test(c)).length;NATIVE_VALUE.set.call(el,next);if(sig!=null&&document.activeElement===el)numCaret(el,sig)},true);
+// Clicking an amount field empties it so typing starts fresh (no Backspace, no selection). The old
+// value is held until the user types: `value` still returns it, and leaving the field without typing
+// puts it back, so nothing is lost. Typing and then deleting everything leaves the field empty on purpose.
+// Digit-only fields (dates, codes, phone numbers) keep their text and only get it selected.
 let numSelectOnce=null;
-document.addEventListener('focusin',e=>{const el=e.target;if(!el?.__faNum||el.readOnly||el.disabled)return;const raw=el.value;if(el.__faNum==='amount'&&raw!==''&&/^-?0*\.?0*$/.test(raw)){el.__faZero=raw;NATIVE_VALUE.set.call(el,'');return}if(raw==='')return;numSelectOnce=el;setTimeout(()=>{if(document.activeElement===el)try{el.setSelectionRange(0,NATIVE_VALUE.get.call(el).length)}catch(_){try{el.select()}catch(__){}}},0);setTimeout(()=>{if(numSelectOnce===el)numSelectOnce=null},600)});
+document.addEventListener('focusin',e=>{const el=e.target;if(!el?.__faNum||el.readOnly||el.disabled)return;const shown=NATIVE_VALUE.get.call(el);if(shown==='')return;if(el.__faNum==='amount'){el.__faHold=shown;NATIVE_VALUE.set.call(el,'');return}numSelectOnce=el;setTimeout(()=>{if(document.activeElement===el)try{el.setSelectionRange(0,NATIVE_VALUE.get.call(el).length)}catch(_){try{el.select()}catch(__){}}},0);setTimeout(()=>{if(numSelectOnce===el)numSelectOnce=null},600)});
 document.addEventListener('mouseup',e=>{if(numSelectOnce&&e.target===numSelectOnce){numSelectOnce=null;e.preventDefault()}},true);
-document.addEventListener('focusout',e=>{const el=e.target;if(!el?.__faNum||el.__faZero==null)return;if(NATIVE_VALUE.get.call(el)==='')NATIVE_VALUE.set.call(el,showNum(el.__faZero,el.__faNum));el.__faZero=null});
+document.addEventListener('focusout',e=>{const el=e.target;if(!el?.__faNum||el.__faHold==null)return;if(NATIVE_VALUE.get.call(el)==='')NATIVE_VALUE.set.call(el,el.__faHold);el.__faHold=null});
 document.addEventListener('reset',e=>setTimeout(()=>e.target?.querySelectorAll?.('input').forEach(i=>{if(i.__faNum)i.value=NATIVE_VALUE.get.call(i)}),0));
 // Rendered text shows Persian digits. Tokens with Latin letters (IDs, codes, versions, URLs),
 // LTR/code blocks, editable text and options whose value is taken from their text are kept.

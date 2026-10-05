@@ -40,3 +40,13 @@
 .v1012-bev-legend{display:flex;gap:14px;font-size:12px;color:var(--muted,#667085);margin:6px 0}.v1012-bev-legend i{display:inline-block;width:14px;height:0;border-top:2px solid var(--primary,#134e4a);margin-inline-end:5px;vertical-align:middle}.v1012-bev-legend .missing{width:0;height:10px;border-top:0;border-inline-start:2px solid #98a2b3}
 .v1012-bev-report .v1012-report-grid{margin:10px 0}.modal:has(.v1012-bev-table){width:min(1400px,96vw)!important;max-width:96vw!important}
 .v1012-quick-control .section-head{flex-wrap:wrap;gap:10px}
+
+/* Multi-unit counting entry: compact trigger next to an existing base-unit input; no extra table columns. */
+.cu-qty-cell{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cu-qty-cell input{flex:1 1 90px;min-width:0}
+.cu-trigger{white-space:nowrap;flex:0 0 auto}
+#cuEntryRows .cue-unit{min-width:120px}
+#cuEntryRows .cue-qty{width:100%;max-width:140px;direction:ltr;text-align:right}
+#cuEntryRows .cue-line-total{white-space:nowrap;color:var(--muted,#667085)}
+.cu-entry-table{width:100%}
+@media(max-width:520px){.cu-qty-cell{flex-direction:column;align-items:stretch}.cu-trigger{width:100%}.cu-entry-table{min-width:0!important}.cu-entry-table thead{display:none}.cu-entry-table tr{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:6px;align-items:center;padding:6px 0}.cu-entry-table td{display:block;padding:0!important;border:0!important}.cu-entry-table td.cue-line-total{grid-column:1/-1;grid-row:2;font-size:12px}.cu-entry-table td:last-child{grid-column:3;grid-row:1}#cuEntryRows .cue-unit{min-width:0;width:100%}#cuEntryRows .cue-qty{max-width:none}}

@@ -38,6 +38,8 @@
 | انبار | ورود مستقیم و قیمت واحد/کل | 46؛ qa_inventory_receipt_ui | stockReceipts + movement | Implemented | زیاد | catalogue price تغییر نمی‌کند | حفظ قرارداد |
 | انبار | انتقال متوازن | 32، 46؛ qa_inventory_entry_issue | inventoryMovements | Implemented | زیاد | transaction Server ندارد | concurrency Stage |
 | انبار | شمارش گروهی/اولیه/دوره‌ای | 32، 35، 46؛ qa_inventory_bulk_count | stocktakes | Implemented | زیاد | قیمت فرم‌ها واحد متفاوت دارد | کنترل labels |
+| کاتالوگ/انبار | اقلام آماده‌سازی‌شده، ترکیب مواد، چگالی و تبدیل در شمارش گروهی | 08، 46، 47؛ qa_prepared_items_conversion | pricing.preparedItems + stocktakes.preparedLines | Implemented (Frontend) | زیاد | در حالت کنترل کل رایو، فرم شمارش کل هنوز ردیف اقلام آماده ندارد | افزودن به شمارش کل |
+| انبار | واحدهای شمارش هر قلم و ورود چندواحدی (شمارش کل/دوره‌ای/گروهی، ورود مستقیم، پرتی/مصرف) | 08، 32، 46؛ qa_counting_units | ingredients.countingUnits + unitEntryDetail | Implemented (Frontend) | زیاد | پنل پرسنل (22) هنوز فقط واحد پایه؛ ماندگاری روی Backend زنده آزموده نشده | آزمون Save/Load روی سرور |
 | انبار | ابطال/آرشیو رسید | 46؛ qa_inventory_receipt_ui | receipt/movement | Implemented | زیاد | نشست مدیر Client | server authorization |
 | انبار | فروش/اسنپ و مصرف رسپی | 14، 32، 36 | salesPeriods/recipeVersions | Implemented | متوسط | کامل‌بودن ورودی کانال‌ها نامعلوم | تطبیق واردسازی |
 | انبار | کنترل روزانه نوشیدنی (فرم A5، مغایرت شیفت/روز/شب‌تا‌صبح، کارت گزارش لیست/نمودار خطی با بازه و انتخاب نوشیدنی، ثبت سریع در داشبورد، فرم پرسنل personel/beverage-control.html) | 46، 22، 25؛ qa_beverage_serving_control | inventory.beverageDailyControls | Implemented | متوسط | فروش شیفت دستی وارد می‌شود؛ به Ledger موجودی وصل نیست | UAT فرم کاغذی و مرورگر |

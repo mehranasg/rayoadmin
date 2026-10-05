@@ -62,7 +62,7 @@ function saveListsV62(){
 }
 function viewsPersonnelV62(){
   let out=V62_ORIGINAL_PERSONNEL();
-  return out.replace(/(<button class="btn btn-sm" onclick="editPersonnel\('([^']+)'\)">ویرایش<\/button>)/g,(m,button,id)=>`${button} <button class="btn btn-sm" onclick="openPersonnelSalaryForecastV62('${id}')">پیش‌بینی حقوق</button>`);
+  return out.replace(/(<button class="btn btn-sm" onclick="editPersonnel\('([^']+)'\)">ویرایش<\/button>)/g,(m,button,id)=>out.includes(`('${id}')">پیش‌بینی حقوق</button>`)?m:`${button} <button class="btn btn-sm" onclick="openPersonnelSalaryForecastV62('${id}')">پیش‌بینی حقوق</button>`);
 }
 function personnelForecastStartMonthV62(year){
   const now=parseJDate(todayJ());

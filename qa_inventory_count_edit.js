@@ -15,7 +15,7 @@ const context={
  ingredient:id=>pricing.ingredients.find(x=>x.id===id),ingredientUnit:i=>i?.recipeUnit||'واحد',positionBeforeDate:()=>({quantity:10,baseDate:'1405/06/01',baseQuantity:10,salesConsumption:0,movementNet:0}),costAtDate:()=>20,uid:p=>`${p}-${++seq}`,actor:()=> 'manager',now:()=> '2026-09-20T12:00:00Z',wholeScope:st=>st?.inventoryScope==='RAYO',inRange:(d,from,to)=>!!d&&(!from||String(d).localeCompare(String(from))>=0)&&(!to||String(d).localeCompare(String(to))<=0),closeModal:()=>{},
  savePricing:async()=>{pricingSaves++},saveInv:async()=>{inventorySaves++},renderView:()=>{renders++},toastX:m=>messages.push(m)
 };
-context.window=context;vm.createContext(context);vm.runInContext([fn('countSelectionRecords'),fn('loadCountSelection'),fn('submitCount'),fn('reopenCount')].join('\n'),context);
+context.window=context;vm.createContext(context);vm.runInContext([fn('unitEntryFor'),fn('setUnitEntry'),fn('countSelectionRecords'),fn('loadCountSelection'),fn('submitCount'),fn('reopenCount')].join('\n'),context);
 
 (async()=>{
  context.loadCountSelection();

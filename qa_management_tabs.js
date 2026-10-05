@@ -39,8 +39,8 @@ for(const view of ['dataManagement','settings','violationSettings','changelog','
   h.c.location.search='?view='+view;h.c.views[view]=()=>'';h.handlers.popstate();assert.equal(h.c.currentView,view);
 }
 {
-  const h=navigation('settings.html');assert.equal(h.c.currentView,'dataManagement');h.c.goView('annualCalendar');assert.equal(h.c.location.href,'personnel.html?view=annualCalendar');assert.equal(h.historyEntries.length,0);
+  const h=navigation('settings.html');assert.equal(h.c.currentView,'softwareSettings');h.c.goView('annualCalendar');assert.equal(h.c.location.href,'personnel.html?view=annualCalendar');assert.equal(h.historyEntries.length,0);
   const p=navigation('personnel.html');p.c.goView('violationSettings');assert.equal(p.c.location.href,'settings.html?view=violationSettings');assert.equal(p.historyEntries.length,0);
-  assert.equal(navigation('settings.html','?view=personnel').c.currentView,'dataManagement');
+  assert.equal(navigation('settings.html','?view=personnel').c.currentView,'softwareSettings');
 }
 console.log(`PASS: ${checked} routes, five flat menu entries, active tabs, repeat rendering and cross-page settings navigation`);

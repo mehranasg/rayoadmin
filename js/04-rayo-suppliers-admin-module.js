@@ -227,7 +227,7 @@ function installSupplierAdminModule(){
   const group=document.createElement('div');group.className='nav-group';group.textContent='خرید و تأمین';
   const btn=document.createElement('button');btn.className='nav-btn';btn.dataset.view='suppliers';btn.innerHTML='🚚 <span>تأمین‌کنندگان</span>';btn.onclick=()=>goView('suppliers');
   sidebar.insertBefore(group,ref||null);sidebar.insertBefore(btn,ref||null);
-  window.getSupplierState=()=>supplierState;window.supplierUI=supplierUI;window.supEnsureLoaded=supEnsureLoaded;window.supRefreshData=supRefreshData;window.supSaveData=supSaveData;window.supSaveJsonToDisk=supSaveJsonToDisk;window.supExportJson=supExportJson;window.supImportJson=supImportJson;
+  window.getSupplierState=()=>supplierState;window.supplierUI=supplierUI;window.supEnsureLoaded=supEnsureLoaded;window.supRefreshData=supRefreshData;window.supSaveData=supSaveData;window.supSaveJsonToDisk=supSaveJsonToDisk;window.supExportJson=supExportJson;window.supImportJson=supImportJson;window.supplierJsonSettings=supplierJsonSettings;
   window.editSupplierAdmin=editSupplierAdmin;window.editSupplierItem=editSupplierItem;window.editSupplierRelation=editSupplierRelation;
   window.deleteSupplierAdmin=deleteSupplierAdmin;window.deleteSupplierItem=deleteSupplierItem;window.deleteSupplierRelation=deleteSupplierRelation;
 }

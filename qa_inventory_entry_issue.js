@@ -1,10 +1,10 @@
 const fs=require('fs'),path=require('path'),assert=require('assert'),vm=require('vm');
-const root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8'),code=read('js/46-inventory-operations-v10-12.js');
+const root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8').replace(/\r\n/g,'\n'),code=read('js/46-inventory-operations-v10-12.js');
 new vm.Script(code,{filename:'46-inventory-operations-v10-12.js'});
 const checks={
  singleton:code.includes('__RAYO_INVENTORY_OPERATIONS_V1012_INSTALLED'),
  receiptLock:code.includes('async function saveReceiptBatch(){\n if(ui.receiptSaving)return;')&&code.includes('ui.receiptSaving=true;receiptButtons(true)'),
- issueLock:code.includes('async function saveIssue(){if(ui.issueSaving)return;ui.issueSaving=true;issueButtons(true)'),
+ issueLock:/async function saveIssue\(\)\{if\(ui\.issueSaving\)return;(?:if\(RayoInventoryV10\.unifiedMode\?\.\(\)\)return toast\([^;]*;)?ui\.issueSaving=true;issueButtons\(true\)/.test(code),
  stableReceiptId:code.includes('REC-DIRECT-${actionId}-${k+1}')&&code.includes('requestId:actionId'),
  stableIssueId:code.includes('MOV-ISSUE-${actionId}')&&code.includes("movementType:'TRANSFER'"),
  oneReceiptAppend:code.includes('if(!v.stockReceipts.some(r=>r.id===id))v.stockReceipts.push'),

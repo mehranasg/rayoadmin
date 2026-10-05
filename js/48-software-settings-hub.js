@@ -5,11 +5,12 @@ const E=x=>S(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&
 
 const SECTIONS=[
   ['general','عمومی و نمایش پنل'],
+  ['personnel','پرسنل، سکشن‌ها و فهرست‌ها'],
   ['payroll','حقوق و دستمزد'],
   ['pricing','قیمت‌گذاری'],
   ['inventory','انبارداری'],
   ['purchase','خرید، تأمین و نگهداری'],
-  ['finance','امور مالی'],
+  ['finance','بدهی‌ها، مطالبات و چک‌ها'],
   ['assets','اموال و دارایی‌ها']
 ];
 const SECTION_KEYS=SECTIONS.map(x=>x[0]);
@@ -58,16 +59,54 @@ function nav(){
   return `<div class="card sw-settings-nav"><div class="field" style="margin:0"><label for="swSectionSelect">بخش تنظیمات</label><select id="swSectionSelect" onchange="SoftwareSettingsHub.goSection(this.value)">${SECTIONS.map(([k,l])=>`<option value="${k}" ${k===s?'selected':''}>${E(l)}</option>`).join('')}</select></div></div>`;
 }
 
+// `views` is a top-level binding of 00-base.js, not a window property.
+function viewFn(name){return typeof views!=='undefined'&&typeof views[name]==='function'?views[name]:null}
+
+// Cards of «تنظیمات پنل و امکانات» (views.settings) picked by their <h2> title, with their
+// original markup and save handlers. saveSettings()/saveLists() read every [id^=set_]/[id^=list_]
+// in the document, so each id group must appear in exactly one hub section.
+// The payment-locations block inside the lists card is shown in the purchase section instead.
+function panelCards(titles){
+  const settings=viewFn('settings');
+  if(!settings)return '<div class="card empty">فرم تنظیمات پنل در دسترس نیست.</div>';
+  // views.settings embeds the payment-locations block, whose first call loads the inventory
+  // module and re-renders; wait for that once so typed values are not wiped by a late re-render.
+  if(!ensureOnce('panelPayment',currentSection(),()=>window.p2ReloadPaymentLocations?.()))return loadingCard('تنظیمات پنل');
+  const tpl=document.createElement('template');tpl.innerHTML=settings();
+  const cards=[...tpl.content.querySelectorAll('.card')].filter(c=>!c.parentElement?.closest?.('.card'));
+  tpl.content.querySelectorAll('#payment-locations').forEach(x=>x.remove());
+  return titles.map(t=>cards.find(c=>S(c.querySelector('h2')?.textContent)===t)?.outerHTML||'').join('');
+}
+
 // ---- عمومی و نمایش پنل ----
 function generalSection(){
-  return window.RayoPhase1?.featureSettingsCard?.()||'<div class="card empty">این بخش در دسترس نیست.</div>';
+  const features=window.RayoPhase1?.featureSettingsCard?.()||'<div class="card empty">تنظیمات نمایش امکانات پنل در دسترس نیست.</div>';
+  return panelCards(['نام رستوران / برند'])+features+(window.RayoV104?.staffVisibilityCard?.()||'');
+}
+
+// ---- پرسنل، سکشن‌ها و فهرست‌ها ----
+function personnelSection(){
+  return panelCards(['فهرست‌های قابل انتخاب','نقشه سکشن‌ها']);
 }
 
 // ---- حقوق و دستمزد ----
 function payrollSection(){
-  const salary=window.views?.salarySettings?window.views.salarySettings():'<div class="card empty">فرم تنظیمات پایه مدل حقوق در دسترس نیست.</div>';
-  const note=`<div class="card"><div class="section-head"><h2>پارامترهای محاسباتی حقوق و فهرست‌های عمومی</h2></div><p class="muted">نرخ ساعتی پایه، ضریب اضافه‌کار/تعطیل، کسر تأخیر، فهرست سمت‌ها و سکشن‌ها و تقویم تعطیلات هنوز در یک فرم واحد و به‌هم‌پیوسته با «تنظیمات پنل و امکانات» قرار دارند و بدون جدا کردن اعتبارسنجی آن فرم قابل انتقال امن به اینجا نبودند.</p><a class="btn" href="settings.html?view=settings">باز کردن پارامترهای محاسباتی حقوق</a></div>`;
-  return salary+note;
+  const salarySettings=viewFn('salarySettings');
+  const salary=salarySettings?salarySettings():'<div class="card empty">فرم تنظیمات پایه مدل حقوق در دسترس نیست.</div>';
+  return panelCards(['پارامترهای محاسباتی'])+salary+panelCards(['تنظیمات مرخصی','تقویم تعطیلات رسمی'])+payrollPaymentAccounts();
+}
+// The «حساب / محل پرداخت» list of the salary-payment form reads two sources; both are managed
+// here with their existing editors (also shown in the purchase and finance sections).
+function payrollPaymentAccounts(){
+  const head='<div class="card"><div class="section-head"><div><h2>حساب‌ها و محل‌های پرداخت حقوق</h2><p class="muted">فهرست «حساب / محل پرداخت» در فرم ثبت پرداخت حقوق از دو منبع زیر ساخته می‌شود: «کارت‌ها و حساب‌های کارت‌به‌کارت» و «محل‌های پرداخت». موارد غیرفعال در فرم نمایش داده نمی‌شوند و سوابق قبلی حفظ می‌شوند.</p></div></div></div>';
+  const locations=window.paymentOptionsSettingsSection?`<div class="card">${window.paymentOptionsSettingsSection()}</div>`:'<div class="card empty">تنظیمات محل‌های پرداخت در دسترس نیست.</div>';
+  let accounts;
+  if(!ensureOnce('cashreport','payroll',()=>window.crSelectTab?.('destinations')))accounts=loadingCard('کارت‌ها و حساب‌ها');
+  else{
+    const st=RAYO_API_GATEWAY.getModuleStatus('cashreport');
+    accounts=st.state==='error'?errorCard('کارت‌ها و حساب‌ها',st.lastError,'cashreport',()=>{resetEnsure('cashreport');renderView()}):(window.crDestinations?.()||'<div class="card empty">مدیریت کارت‌ها و حساب‌ها در دسترس نیست.</div>');
+  }
+  return head+accounts+locations;
 }
 
 // ---- قیمت‌گذاری ----
@@ -89,7 +128,7 @@ function inventorySection(){
 
 // ---- خرید، تأمین و نگهداری ----
 function purchaseSection(){
-  const payment=window.paymentOptionsSettingsSection?.()||'<div class="card empty">این بخش در دسترس نیست.</div>';
+  const payment=window.paymentOptionsSettingsSection?`<div class="card">${window.paymentOptionsSettingsSection()}</div>`:'<div class="card empty">تنظیمات محل‌های وجه در دسترس نیست.</div>';
   let refLists;
   if(!ensureOnce('suppliers','purchase',()=>window.supEnsureLoaded?.(false,true)))refLists=loadingCard('فهرست‌های تأمین‌کنندگان');
   else{
@@ -126,7 +165,7 @@ function assetsSection(){
   return window.amSettingsView?.()||'<div class="card empty">این بخش در دسترس نیست.</div>';
 }
 
-const SECTION_RENDER={general:generalSection,payroll:payrollSection,pricing:pricingSection,inventory:inventorySection,purchase:purchaseSection,finance:financeSection,assets:assetsSection};
+const SECTION_RENDER={general:generalSection,personnel:personnelSection,payroll:payrollSection,pricing:pricingSection,inventory:inventorySection,purchase:purchaseSection,finance:financeSection,assets:assetsSection};
 
 function renderSoftwareSettings(){
   const s=currentSection();

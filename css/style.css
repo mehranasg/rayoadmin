@@ -300,3 +300,27 @@ html.rayo-starting #appShell{visibility:hidden}
 .dash-quick-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.dash-quick-link{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px;border:1px solid var(--border,#dfe5ec);border-radius:14px;background:var(--surface,#fff);color:inherit;text-decoration:none;font:inherit;text-align:right;cursor:pointer;transition:.15s ease}.dash-quick-link:hover{border-color:var(--primary2);transform:translateY(-2px)}.dash-quick-icon{font-size:24px}.dash-quick-link b{font-size:14px}.dash-quick-link small{color:var(--muted);font-size:12px}
 @media(max-width:900px){.dash-quick-grid{grid-template-columns:1fr 1fr}}
 .dash-price-change{grid-column:1/-1;text-decoration:none;color:inherit;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;min-height:64px}.dash-price-change .value{font-size:22px}.dash-price-change:hover{border-color:var(--primary)}
+
+/* Software settings hub: a dropdown instead of a wide scrolling tab row, safe at any width. */
+.sw-settings-nav{margin-bottom:14px}
+.sw-settings-nav select{width:100%;max-width:420px}
+
+/* Mobile: every tab strip stays on ONE line and scrolls horizontally instead of wrapping into tall multi-line pills. */
+@media(max-width:680px){
+.cash-tabs,.ops-tabs,.pricing-tabs,.inventory-tabs,.assets-tabs,.tabs-inline,.salary-tabs,.supplier-module-tabs,.supplier-document-tabs,.report-page-tabs,.v10101-page-tabs,.v1010-tabs,.v1011-tabs,.v1012-tabs,.v103-tabs,.v1092-order-tabs,#v10101SalesTabs{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto!important;overflow-y:hidden;gap:6px;padding-bottom:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain;max-width:100%}
+.cash-tabs::-webkit-scrollbar,.ops-tabs::-webkit-scrollbar,.pricing-tabs::-webkit-scrollbar,.inventory-tabs::-webkit-scrollbar,.assets-tabs::-webkit-scrollbar,.tabs-inline::-webkit-scrollbar,.salary-tabs::-webkit-scrollbar,.supplier-module-tabs::-webkit-scrollbar,.supplier-document-tabs::-webkit-scrollbar,.report-page-tabs::-webkit-scrollbar,.v10101-page-tabs::-webkit-scrollbar,.v1010-tabs::-webkit-scrollbar,.v1011-tabs::-webkit-scrollbar,.v1012-tabs::-webkit-scrollbar,.v103-tabs::-webkit-scrollbar,.v1092-order-tabs::-webkit-scrollbar,#v10101SalesTabs::-webkit-scrollbar{display:none}
+.cash-tabs>*,.ops-tabs>*,.pricing-tabs>*,.inventory-tabs>*,.assets-tabs>*,.tabs-inline>*,.salary-tabs>*,.supplier-module-tabs>*,.supplier-document-tabs>*,.report-page-tabs>*,.v10101-page-tabs>*,.v1010-tabs>*,.v1011-tabs>*,.v1012-tabs>*,.v103-tabs>*,.v1092-order-tabs>*,#v10101SalesTabs>*{flex:0 0 auto!important;width:auto!important;white-space:nowrap!important;min-height:0;line-height:1.4;padding:7px 13px}
+}
+
+/* Payroll month list: per-person actions */
+.payroll-row-actions{display:flex;gap:4px;flex-wrap:nowrap}
+.payroll-row-actions .btn{white-space:nowrap}
+
+/* New-personnel wizard steps */
+.onboarding-steps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.onboarding-steps span{padding:6px 10px;border-radius:999px;border:1px solid var(--border);color:var(--muted);font-size:12px;background:#fff}
+.onboarding-steps span.current{border-color:var(--primary);color:var(--primary);font-weight:800}
+.onboarding-steps span.done{background:#ecfdf3;border-color:#abefc6;color:#067647}
+/* Action buttons: link buttons share the button box, and a button that directly follows a form block in normal flow keeps a consistent gap instead of touching it. */
+a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;vertical-align:middle}
+:is(.form-grid,.cash-form-grid,.table-wrap,.rayo-list-pagination-v10101,textarea)+.btn{margin-top:12px}

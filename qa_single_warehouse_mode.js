@@ -47,17 +47,13 @@ async function run(){
   const t=await setup();await convert(t);
   const c=await loadNineTabUI(t);
   const html=c.RayoInventoryV1012 && (c.location.search='?tab=receipt',c.views.inventory());
+  // The daily entry form is the multi-row batch form (saveReceiptBatch); it has no location field at all and
+  // always posts into settings.mainLocationId. Batch saving itself is covered by qa_inventory_receipt_ui.js.
   assert(!/<select id="v1012RecLoc">/.test(html),'the location field must not be an open dropdown in unified mode');
-  assert(html.includes('<input type="hidden" id="v1012RecLoc" value="main">'),'location must still be carried as a hidden field with the real main-warehouse id');
   assert(!html.includes('محل ورود'),'no visible warehouse label/field of any kind (not even disabled) belongs in the daily entry form');
   assert(!html.includes('<th>محل</th>'),'the receipt history table must not show a warehouse column either');
-  t.el('v1012RecDate').value='1405/06/02';t.el('v1012RecIng').value='flour';t.el('v1012RecQty').value='5';t.el('v1012RecTotal').value='';
-  await c.RayoInventoryV1012.saveReceipt(false);
-  const saved=t.server.inventory.stockReceipts.find(r=>r.ingredientId==='flour'&&r.quantity===5);
-  assert(saved,'receipt must be saved');
-  assert.equal(saved.locationId,'main','a new receipt must be attached to the main warehouse in unified mode');
-  assert.equal(t.api.currentTotalPosition('flour').quantity,90,'85 + 5 receipt, resolved through a real (non-blank) location id');
-  assert.deepEqual(t.server.inventory.unknownRoot,{preserve:['nested',1]},'unknown fields survive a save made through the simplified form');
+  const code=require('fs').readFileSync(require('path').join(__dirname,'js/46-inventory-operations-v10-12.js'),'utf8');
+  assert(code.includes("const l=loc(v.settings?.mainLocationId)||locs()[0];"),'batch receipts are attached to the main warehouse');
  });
 
  await test('waste/consumption events are force-attached to the main warehouse in unified mode, with no warehouse field or column shown',async()=>{

@@ -344,6 +344,7 @@ async function crEditDestination(kind,id='',presetOwnerId=''){
 Object.assign(window,{crTabs,crRefreshCustody,crCustodyFilter,crExportCustody,crOpenCustodyEntry,crSaveCustodyEntry,crVoidCustodyEntry,RayoCashCustody:{ledger:crCustodyLedger,normalizeDate:crLedgerDate,active:crActiveRecord}});
 
 window.crEditDestination=crEditDestination;
+window.crDestinations=crDestinations;
 document.addEventListener('submit',e=>{if(e.target?.id!=='crAdminForm')return;const errors=crValidateMoneyInputs();if(errors.length){e.preventDefault();e.stopImmediatePropagation();toast(errors[0],true)}},true);
   (function wait(){if(!crInstall())setTimeout(wait,80)})();
 })();

@@ -16,7 +16,7 @@ function harness(path,search='',hasState=true){
   return {c,timers,writes,classes,run:code=>vm.runInContext(code,c),fireReady(){document.readyState='interactive';for(const fn of events.get('DOMContentLoaded')||[])fn()},drain(){let budget=50;while(timers.length){assert(budget-->0,'bounded startup timers');timers.shift().fn()}}};
 }
 const routes={'index.html':'dashboard','personnel.html':'personnel','suppliers.html':'suppliers','pricing.html':'pricing','menu-management.html':'pricing','base-data.html':'pricing','inventory.html':'inventory','reports.html':'reports','cash-report-admin.html':'cashReport','assets.html':'assets','finance.html':'finance','survey.html':'survey','sepids-audit.html':'sepidsAudit'};
-routes['settings.html']='dataManagement';
+routes['settings.html']='softwareSettings';
 for(const [file,view] of Object.entries(routes)){
   const h=harness(file);assert.equal(h.run('currentView'),view);
   h.c.views[view]=()=>'<h1>OLD</h1>';
