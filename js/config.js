@@ -538,7 +538,15 @@ function cashVariance(report={}){
   const stored=Number(report.finalVariance),hasStored=Number.isFinite(stored)&&report.finalVariance!==''&&report.finalVariance!=null;
   return{valid:true,formulaVersion:'cash-variance-v2',currency:'ریال',posTotal,cardToCard:values.cardToCard,cash:values.cash,actualReceived,netReceivable:values.netReceivable,tipsTotal,tipsInThisCashbox,expectedCashbox,initialVariance,adjustmentsTotal,finalVariance,status:initialVariance>0?'اضافه صندوق':initialVariance<0?'کسری صندوق':'تراز',finalStatus:finalVariance>0?'اضافه صندوق':finalVariance<0?'کسری صندوق':'تراز',storedVariance:hasStored?stored:null,historicalDifference:hasStored&&stored!==finalVariance?finalVariance-stored:0};
 }
-window.RayoCashVariance={parseAmount:cashAmount,calculate:cashVariance,formula:'(جمع کارتخوان‌ها + کارت‌به‌کارت + نقدی) − (خالص دریافتی + انعام داخل همین صندوق)',currency:'ریال'};
+// Sepidz «خالص دریافتی» = فروش خالص + کرایه + مالیات − بدهکار (مشترکین که بعداً تسویه می‌شوند).
+// Pre-tax sales are derived back from it; tax/debtor default to 0 so older reports keep their totals.
+function cashSales(report={}){
+  const n=f=>{const parsed=cashAmount(report[f]);return parsed.ok?parsed.value:0};
+  const net=n('netReceivable'),taxAmount=n('taxAmount'),debtorAmount=n('debtorAmount'),fee=n('deliveryFeeAmount'),hall=n('hallAmount'),subscriber=n('subscriberAmount'),snapp=n('snappAmount');
+  const salesNet=net-taxAmount+debtorAmount-fee,statAmountTotal=hall+subscriber;
+  return{salesFormulaVersion:'sepidz-net-v2',taxAmount,debtorAmount,salesNet,totalSales:salesNet+snapp,statAmountTotal,statAmountDiff:salesNet-statAmountTotal};
+}
+window.RayoCashVariance={parseAmount:cashAmount,calculate:cashVariance,sales:cashSales,formula:'(جمع کارتخوان‌ها + کارت‌به‌کارت + نقدی) − (خالص دریافتی + انعام داخل همین صندوق)',salesFormula:'فروش بدون مالیات = خالص دریافتی − مالیات + بدهکار − کرایه؛ کل فروش = آن + اسنپ',currency:'ریال'};
 // Shared by the admin, cashier and staff forms. Editing an amount must not rename
 // historical destinations or reassign the owner of an unchanged account.
 window.RayoCashDestinations={snapshots(report,previous,refs){

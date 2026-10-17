@@ -57,10 +57,12 @@
           <label>جمع فروش سالن (ریال)<input id="hallAmount" type="text" inputmode="decimal" value="0"></label>
           <label>تعداد فیش مشترکین<input id="subscriberReceiptCount" type="number" min="0" value="0"></label>
           <label>جمع فروش مشترکین (ریال)<input id="subscriberAmount" type="text" inputmode="decimal" value="0"></label>
+          <label>مالیات سپیدز (ریال)<input id="taxAmount" type="text" inputmode="decimal" value="0"></label>
+          <label>بدهکار سپیدز (ریال)<input id="debtorAmount" type="text" inputmode="decimal" value="0"></label>
           <label>مبلغ اسنپ (ریال)<input id="snappAmount" type="text" inputmode="decimal" value="0"></label>
           <label>تعداد فیش اسنپ<input id="snappReceiptCount" type="number" min="0" value="0"></label>
           <label>جمع کرایه‌های دریافتی (ریال)<input id="deliveryFeeAmount" type="text" inputmode="decimal" value="0"></label>
-          <p class="full form-note">فیلدهای سالن/مشترکین آماری‌اند و فقط هشدار می‌دهند. «کرایه‌های دریافتی» قبلاً داخل یکی از کارتخوان‌ها دریافت شده و فقط برای گزارش جدا ثبت و از کل فروش کسر می‌شود.</p>
+          <p class="full form-note">«خالص دریافتی»، «مالیات» و «بدهکار» را عیناً از گزارش صندوق سپیدز وارد کنید؛ فروش سالن/مشترکین بدون مالیات است. بدهکار (مشترکین) بعداً تسویه می‌شود و در مغایرت صندوق اثری ندارد. «کرایه‌های دریافتی» داخل خالص دریافتی است و فقط از کل فروش کسر می‌شود. انعام فقط وقتی وارد شود که داخل کارتخوان، کارت‌به‌کارت یا نقد همین صندوق آمده باشد؛ انعام نقدی که مستقیم به پرسنل داده شده وارد نشود.</p>
           <label class="full">توضیحات روز<textarea id="notes"></textarea></label>
         </div>
 
@@ -76,7 +78,7 @@
     </section>
   </main>
   <script src="./js/app-config.js?v=10.10.0"></script>
-  <script src="./js/config.js?v=10.10.0&amp;cash_custody=1&amp;num_ux=1&amp;cash_items=1&amp;bev_v2=1&amp;bev_roles=1"></script>
-  <script src="./cash-report/js/app.js?v=10.10.0&amp;cash_custody=1&amp;cash_items=1"></script>
+  <script src="./js/config.js?v=10.10.0&amp;cash_custody=1&amp;num_ux=1&amp;cash_items=1&amp;bev_v2=1&amp;bev_roles=1&amp;sepidz_sales=1"></script>
+  <script src="./cash-report/js/app.js?v=10.10.0&amp;cash_custody=1&amp;cash_items=1&amp;sepidz_sales=1"></script>
 <script src="./js/13-jalali-picker.js?v=10.10.0&amp;ui_lists=1"></script><script src="./js/31-error-log-client-v9-8-0.js?v=10.10.0"></script><script src="./js/35-operational-closeout-v10-2.js?v=10.10.0&amp;num_ux=1&amp;cash_items=1&amp;merge_1405_07=1"></script><script src="./js/37-requested-fixes-v10-4.js?v=10.10.0&amp;settings_split=1&amp;merge_1405_07=1"></script></body>
 </html>
