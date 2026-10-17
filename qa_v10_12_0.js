@@ -1,7 +1,17 @@
-const fs=require('fs'),path=require('path'),root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8');let pass=0,fail=0;function ok(name,test){if(test){pass++;console.log('PASS',name)}else{fail++;console.error('FAIL',name)}}
+const fs=require('fs'),path=require('path'),root=__dirname,read=p=>fs.readFileSync(path.join(root,p),'utf8');let pass=0,fail=0;// Checks below describe behaviour the product owner removed or changed; they are skipped with the reason printed.
+const SUPERSEDED={
+ "inventory tab خروج از انبار": "تب‌های «خروج از انبار» و «مغایرت دوره‌ای» به تصمیم مالک حذف شدند (2026-09-30)",
+ "inventory tab مغایرت دوره‌ای": "تب‌های «خروج از انبار» و «مغایرت دوره‌ای» به تصمیم مالک حذف شدند (2026-09-30)",
+ "receipt updates stock ledger": "ورود چندسطری حرکت را مستقیم می‌سازد (qa_inventory_receipt_ui.js، qa_inventory_entry_issue.js)",
+ "receipt keeps unit and total price snapshots": "ورود به انبار چندسطری و بدون قیمت است (qa_inventory_receipt_ui.js)",
+ "waste and variance separated": "گزارش مغایرت دوره‌ای حذف شد؛ مغایرت ثبت‌شده در تب انبارگردانی (qa_unified_inventory.js)",
+ "supplier operational order tabs removed": "میز سفارش و سفارش‌ها در نوار تب تأمین موجودند (SUPPLIER_WORKFLOWS)"
+};
+const skipped=[];
+function ok(name,test){if(SUPERSEDED[name]){skipped.push(name);console.log('SKIP',name,'—',SUPERSEDED[name]);return}if(test){pass++;console.log('PASS',name)}else{fail++;console.error('FAIL',name)}}
 const m=read('js/46-inventory-operations-v10-12.js'),core=read('js/14-ops-integration.js'),loader=read('js/45-menu-management-v10-11.js'),css=read('css/10-inventory-operations-v10-12.css');
 ok('phase3 loader',loader.includes('46-inventory-operations-v10-12.js?v='));
 for(const label of ['موجودی','ورود به انبار','خروج از انبار','ثبت فروش','ثبت پرتی و ضایعات','انبارگردانی','مغایرت دوره‌ای','نیازمند سفارش','تنظیمات انبار'])ok(`inventory tab ${label}`,m.includes(label));
 ok('direct receipt source marker',m.includes("sourceType:'DIRECT_ENTRY'"));ok('receipt updates stock ledger',m.includes('RayoInventoryV10.resyncLedger()'));ok('receipt keeps unit and total price snapshots',m.includes('totalPriceToman:total,unitCostToman:unitCost')&&!m.includes('i.lastPurchasePriceToman=total'));ok('A4 stock print',m.includes('v1012-print-area')&&css.includes('@media print'));ok('stock search',m.includes('stockSearch'));ok('stock detail by location',m.includes('itemDetail')&&m.includes('positionAtLocation'));ok('opening count guidance',m.includes('شمارش اولیه / مبنا'));ok('period metric report',m.includes('periodMetrics(from,to)'));ok('waste and variance separated',m.includes('پرتی و شکستگی')&&m.includes('مغایرت نامشخص'));ok('reorder list',m.includes('RayoReorder?.assess')&&m.includes('targetStock'));ok('supplier operational order tabs removed',!m.includes("['orderDesk'")&&!m.includes("['orders'"));ok('supplier purchase history read only',m.includes('این صفحه موجودی را ایجاد یا اصلاح نمی‌کند'));ok('legacy sales pane retained',core.includes('RayoOpsInventoryCorePane=corePane')&&m.includes("RayoOpsInventoryCorePane?.('sales')"));ok('no automatic seed write',!m.includes('loadOrBootstrap')&&!m.includes('BOOTSTRAP'));
 for(const f of ['js/46-inventory-operations-v10-12.js','css/10-inventory-operations-v10-12.css'])ok(`file ${f}`,fs.existsSync(path.join(root,f)));
-console.log(`RESULT ${pass}/${pass+fail} PASS`);process.exitCode=fail?1:0;
+console.log(`RESULT ${pass}/${pass+fail} PASS${skipped.length?`, ${skipped.length} superseded`:''}`);process.exitCode=fail?1:0;

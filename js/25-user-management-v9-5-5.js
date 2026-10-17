@@ -53,7 +53,6 @@ function openEditor(id){
       <label class="um-permission-option"><input type="checkbox" data-um-perm="surveys" ${pm.surveys?'checked':''}><span>ثبت نظرسنجی مشتری</span></label><label class="um-permission-option"><input type="checkbox" data-um-perm="suppliersView" ${pm.suppliersView?'checked':''}><span>مشاهده اطلاعات تأمین‌کنندگان</span></label>
       <label class="um-permission-option"><input type="checkbox" data-um-perm="inventoryWaste" ${pm.inventoryWaste?'checked':''}><span>ثبت ضایعات/پرتی مواد</span></label>
       <label class="um-permission-option"><input type="checkbox" data-um-perm="inventoryConsumption" ${pm.inventoryConsumption?'checked':''}><span>ثبت مصرف مجاز/پرسنلی</span></label>
-      <label class="um-permission-option"><input type="checkbox" data-um-perm="inventoryTransfers" ${pm.inventoryTransfers?'checked':''}><span>ثبت انتقال موجودی</span></label>
       <label class="um-permission-option"><input type="checkbox" data-um-perm="inventoryCounts" ${pm.inventoryCounts?'checked':''}><span>ثبت شمارش موجودی</span></label><label class="um-permission-option"><input type="checkbox" data-um-perm="beverageControl" ${pm.beverageControl?'checked':''}><span>ثبت فرم روزانه نوشیدنی</span></label>
       <label class="um-permission-option"><input type="checkbox" data-um-perm="reservations" ${pm.reservations?'checked':''}><span>ثبت رزرو و بیعانه (صندوقدار)</span></label>
     </div></div>

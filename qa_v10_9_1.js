@@ -7,7 +7,19 @@ const root = __dirname;
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const pass = [];
 const fail = [];
+// Checks below describe behaviour the product owner removed or changed; they are skipped with the reason printed.
+const SUPERSEDED={
+ "Build marker": "BUILD marker در app-config 10.10.0 مانده و نسخهٔ محصول نیست (CURRENT_IMPLEMENTATION بند ۱)",
+ "Manual initialize confirmation": "Reset از Seed حذف شد؛ Initialize/Reset/Restore جاری در qa_settings_reset.js",
+ "Manual reset confirmation": "Reset از Seed حذف شد؛ Initialize/Reset/Restore جاری در qa_settings_reset.js",
+ "Manual reset backup first": "Reset از Seed حذف شد؛ Initialize/Reset/Restore جاری در qa_settings_reset.js",
+ "Operational consumables schema and report": "itemType:'RECIPE' قدیمی جای خود را به MENU_INGREDIENT/MENU_CONSUMABLE داد (qa_v10_12_1.js)",
+ "Supplier payment page and full detail": "صفحهٔ پرداخت تأمین‌کننده به فایل 42 منتقل شد (qa_supplier_navigation_payment.js)",
+ "Sidebar version marker": "نشان نسخه در منو از 44 می‌آید و v10.12.1 است"
+};
+const skipped=[];
 function check(name, condition, detail = '') {
+  if (SUPERSEDED[name]) { skipped.push(`${name} — ${SUPERSEDED[name]}`); return; }
   (condition ? pass : fail).push(`${name}${detail ? ` — ${detail}` : ''}`);
 }
 
@@ -70,8 +82,8 @@ check('Manual initialize confirmation', manual.includes("token!=='INITIALIZE'"))
 check('Manual reset confirmation', manual.includes("token!=='RESET FROM SEED'"));
 check('Manual reset backup first', manual.indexOf('downloadJson(') < manual.indexOf("token=prompt('برای تأیید نهایی"));
 check('Data management dedicated view registered', manual.includes("views.dataManagement=dataManagementView"));
-check('Data management route registered', shell.includes("'dataManagement'") && menu.includes('personnel.html?view=dataManagement'));
-check('Data management script loaded', personnelHtml.includes('39-manual-initial-data-v10-8.js?v=10.9.1'));
+check('Data management route registered', shell.includes("'dataManagement'") && read('js/44-phase1-polish-v10-10-1.js').includes('settings.html?view=dataManagement'));
+check('Data management script loaded', read('settings.html').includes('39-manual-initial-data-v10-8.js?v='));
 check('Backup control available', manual.includes('RayoBackup.downloadAll()'));
 check('Seed policy', config.includes("seedPolicy:'manual-initialize-or-reset-only'"));
 const accessListView = userManagement.slice(userManagement.indexOf('function view()'), userManagement.indexOf('function openEditor'));
@@ -92,8 +104,8 @@ const requiredTabs = [
 const coreNav = coreInventory.match(/function nav\(\)[\s\S]*?function externalBody/)?.[0] || '';
 check('Inventory core has exactly 12 fixed tabs', requiredTabs.every((label) => coreNav.includes(label)) && (coreNav.match(/\['(?:workflow|overview|valuation|receipts|sales|locations|transfer|waste|stock|cost|history|varianceReports)'/g) || []).length === 12);
 check('Inventory direct sidebar link', menu.includes("{type:'link',label:'انبار و کنترل مصرف',icon:'📦',href:'inventory.html',coreInventory:true}"));
-check('v10.9 script loaded on admin pages', ['index.html','inventory.html','pricing.html','suppliers.html','cash-report-admin.html','personnel.html'].every((file) => read(file).includes('40-rayo-v10-9-comprehensive.js?v=10.9.1')));
-check('v10.9 CSS loaded on all HTML pages', fs.readdirSync(root).filter((name) => name.endsWith('.html')).every((file) => read(file).includes('04-v10-9-fixes.css?v=10.9.1')));
+check('v10.9 script loaded on admin pages', ['index.html','inventory.html','pricing.html','suppliers.html','cash-report-admin.html','personnel.html'].every((file) => read(file).includes('40-rayo-v10-9-comprehensive.js?v=')));
+check('v10.9 CSS loaded on all HTML pages', fs.readdirSync(root).filter((name) => name.endsWith('.html')).every((file) => read(file).includes('04-v10-9-fixes.css?v=')));
 check('Inventory sales history internal tab', v109.includes('سوابق فروش‌های ثبت‌شده') && v109.includes("setSalesMode('history')"));
 check('Inventory sales renamed', coreInventory.includes("['sales','ثبت فروش']") && inventoryV10.includes("['sales','ثبت فروش']"));
 check('Weighted average is explanatory, not a disabled setting', inventoryV10.includes('روش محاسبه ثابت:') && !inventoryV10.includes('value="میانگین موزون (Weighted Average)" disabled'));
@@ -107,7 +119,7 @@ check('Dashboard leave and advance requests', v109.includes('درخواست مر
 check('Staff Jalali range fix is self-contained', staffPanel.includes("Intl.DateTimeFormat('en-CA-u-ca-persian'") && !staffPanel.includes("typeof parseJDate==='function'?parseJDate"));
 check('Sidebar version marker', v109.includes('Rayo Admin v10.9.1'));
 check('Manual operation rate grouping', v109.includes("set_baseHourlyRate") && v109.includes("el.type='text'"));
-check('v10.9.1 staffing patch loaded', personnelHtml.includes('41-staffing-needs-v10-9-1.js?v=10.9.1') && personnelHtml.includes('05-staffing-v10-9-1.css?v=10.9.1'));
+check('v10.9.1 staffing patch loaded', personnelHtml.includes('41-staffing-needs-v10-9-1.js?v=') && personnelHtml.includes('05-staffing-v10-9-1.css?v='));
 check('Exact section-position matrix', staffing.includes("'بار':['باریستا','مدیر/سرپرست']") && staffing.includes("'صندوق':['صندوقدار','مدیر/سرپرست']") && !staffing.includes("'بار':['صندوقدار"));
 check('Required placeholders in single form', staffing.includes('روز هفته *') && staffing.includes('شیفت *') && staffing.includes('سکشن اصلی *') && staffing.includes('<option value="">انتخاب کنید</option>'));
 check('Save and continue action', staffing.includes('ذخیره و ادامه') && staffing.includes("saveRequirement('${id}',true)"));
@@ -169,6 +181,7 @@ async function gatewayRuntimeTest() {
 
 gatewayRuntimeTest().then(() => {
   console.log(`PASS ${pass.length}`);
+  if (skipped.length) { console.log(`SKIPPED (superseded) ${skipped.length}`); for (const item of skipped) console.log(`  - ${item}`); }
   for (const item of pass) console.log(`  ✓ ${item}`);
   if (fail.length) {
     console.error(`FAIL ${fail.length}`);

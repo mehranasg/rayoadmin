@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مستندات Rayo Admin</title>
+<style>
+@font-face{font-family:IRANSansX;src:url('../css/fonts/woff/IRANSansX-Regular.woff') format('woff');font-weight:400;font-display:swap}
+@font-face{font-family:IRANSansX;src:url('../css/fonts/woff/IRANSansX-Bold.woff') format('woff');font-weight:700;font-display:swap}
+:root{--bg:#f4f6f8;--surface:#fff;--surface2:#f8fafc;--text:#172033;--muted:#667085;--border:#dfe5ec;--primary:#134e4a;--primary2:#0f766e;--code:#eef2f6;--hit:#fff3c4;--radius:14px}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1720;--surface:#16212c;--surface2:#1c2936;--text:#e6edf3;--muted:#9aa7b4;--border:#2b3a48;--primary:#5eead4;--primary2:#2dd4bf;--code:#1f2d3a;--hit:#4a3f12}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.9 IRANSansX,Vazirmatn,Tahoma,sans-serif}
+a{color:var(--primary2)}
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:100vh}
+aside{background:var(--surface);border-left:1px solid var(--border);padding:16px;position:sticky;top:0;height:100vh;overflow:auto}
+aside h1{font-size:17px;margin:0 0 4px;color:var(--primary)}
+aside .sub{color:var(--muted);font-size:12px;margin-bottom:12px}
+.search{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--text);font:inherit}
+.group{margin-top:14px}
+.group b{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.group a{display:block;padding:6px 10px;border-radius:9px;text-decoration:none;color:var(--text);font-size:14px;line-height:1.6}
+.group a small{display:block;color:var(--muted);font-size:11px}
+.group a:hover{background:var(--surface2)}
+.group a.active{background:var(--primary);color:#fff}
+.group a.active small{color:#d7f3ef}
+main{padding:24px clamp(16px,4vw,48px);min-width:0}
+.doc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px clamp(16px,3vw,36px);max-width:1100px}
+.doc h1{font-size:24px;margin-top:0;color:var(--primary)}
+.doc h2{font-size:19px;border-bottom:1px solid var(--border);padding-bottom:6px;margin-top:30px}
+.doc h3{font-size:16px;margin-top:22px}
+.doc code{background:var(--code);padding:1px 6px;border-radius:6px;font-family:Consolas,monospace;font-size:13px;direction:ltr;unicode-bidi:embed}
+.doc pre{background:var(--code);padding:12px 14px;border-radius:10px;overflow:auto;text-align:start}
+.doc pre code{background:none;padding:0}
+.doc blockquote{margin:12px 0;padding:8px 14px;border-right:4px solid var(--primary2);background:var(--surface2);border-radius:8px;color:var(--muted)}
+.doc .table{overflow:auto;margin:12px 0;border:1px solid var(--border);border-radius:10px}
+.doc table{border-collapse:collapse;width:100%;font-size:13.5px}
+.doc th,.doc td{border-bottom:1px solid var(--border);padding:7px 10px;text-align:right;vertical-align:top}
+.doc th{background:var(--surface2);position:sticky;top:0}
+.doc tr:last-child td{border-bottom:0}
+.doc hr{border:0;border-top:1px solid var(--border);margin:20px 0}
+.toc{max-width:1100px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px}
+.toc a{font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface);text-decoration:none}
+.meta{max-width:1100px;color:var(--muted);font-size:12px;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.notice{max-width:1100px;padding:14px;border-radius:12px;background:var(--surface);border:1px solid var(--border)}
+.results .item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;max-width:1100px}
+.results .item a{font-weight:700;text-decoration:none}
+.results .snip{color:var(--muted);font-size:13px;margin-top:4px}
+mark{background:var(--hit);color:inherit;border-radius:3px}
+.menu-btn{display:none}
+@media (max-width:860px){.layout{grid-template-columns:1fr}aside{position:fixed;inset:0 0 0 auto;width:min(320px,88vw);z-index:5;transform:translateX(100%);transition:transform .2s;box-shadow:0 0 30px rgba(0,0,0,.2)}aside.open{transform:none}.menu-btn{display:inline-block;margin-bottom:12px;padding:8px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font:inherit}main{padding:16px}}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside id="side">
+  <h1>مستندات Rayo Admin</h1>
+  <div class="sub">محتوا مستقیم از فایل‌های <code>.md</code> مخزن خوانده می‌شود.</div>
+  <input id="q" class="search" type="search" placeholder="جست‌وجو در همهٔ اسناد…" autocomplete="off">
+  <nav id="nav"></nav>
+</aside>
+<main>
+  <button class="menu-btn" onclick="document.getElementById('side').classList.toggle('open')">☰ فهرست اسناد</button>
+  <div id="meta" class="meta"></div>
+  <div id="toc" class="toc"></div>
+  <div id="out"></div>
+</main>
+</div>
+<script>
+'use strict';
+// Document list (paths relative to the repository root). When a reference document is added or removed, update this list
+// and the table in docs/DOCUMENTATION_POLICY.md. Links inside any document to other .md files also open here.
+const DOCS=[
+ ['شروع',[['README.md','معرفی پروژه'],['AGENTS.md','قواعد الزامی AI'],['docs/AI_START_HERE.md','شروع کار AI و انتخاب سند']]],
+ ['مراجع اصلی',[['docs/PROJECT_MASTER_SPEC.md','مشخصات محصول و جریان‌ها'],['docs/CURRENT_IMPLEMENTATION.md','پیاده‌سازی، ترتیب script و QA'],['docs/DATA_AND_API_REFERENCE.md','داده و API'],['docs/FEATURE_STATUS_MATRIX.md','وضعیت قابلیت‌ها'],['docs/REBUILD_AND_MIGRATION_GUIDE.md','دفتر تصمیم‌ها، backlog و مهاجرت']]],
+ ['ضمیمه‌های حوزه‌ای',[['docs/UNIFIED_INVENTORY_CONTROL.md','کنترل موجودی تک‌انبار'],['docs/INVENTORY_RECEIPT_UI.md','ورود به انبار، ابطال و ویرایش'],['docs/OPERATIONAL_CONSUMPTION_FORECAST.md','برآورد مصرف اقلام عملیاتی'],['docs/STANDARD_PREPARATION_LOSS.md','افت آماده‌سازی'],['docs/SUPPLIER_WORKFLOWS.md','تأمین، فاکتور و پرداخت'],['docs/SETTINGS_SEPARATION_AND_TABLE_RESET.md','صفحهٔ تنظیمات و Reset'],['docs/CASH_CUSTODY_AND_DESTINATIONS.md','حساب‌ها و گردش وجوه'],['docs/EXCEL_IMPORT_FORMATS.md','قالب Excel/CSV']]],
+ ['نگهداری',[['docs/DOCUMENTATION_POLICY.md','سیاست مستندات'],['docs/RAYO_ADMIN_MASTER_HANDOFF_v10_12_1.md','اشاره‌گر سازگاری AGENTS']]]
+];
+const ROOT='../';const cache=new Map();
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const titleOf=p=>{for(const [,items] of DOCS)for(const [f,t] of items)if(f===p)return t;return p.split('/').pop()};
+async function load(p){if(cache.has(p))return cache.get(p);const r=await fetch(ROOT+p,{cache:'no-cache'});if(!r.ok)throw Error(`${r.status} ${p}`);const t=(await r.text()).replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');cache.set(p,t);return t}
+// ---- minimal Markdown renderer (headings, lists, tables, code, quotes, links, emphasis) ----
+function resolve(base,href){if(/^(https?:|mailto:)/.test(href))return{ext:true,url:href};const [p,hash]=href.split('#');if(!p)return{hash};const parts=base.split('/');parts.pop();for(const seg of p.split('/')){if(seg==='..')parts.pop();else if(seg!=='.'&&seg!=='')parts.push(seg)}const full=parts.join('/');return /\.md$/i.test(full)?{doc:full,hash}:{file:ROOT+full}}
+function inline(s,base){const codes=[];s=s.replace(/`([^`]+)`/g,(m,c)=>{codes.push(c);return `\u0000${codes.length-1}\u0000`});s=esc(s);
+ s=s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,(m,label,href)=>{const r=resolve(base,href.replace(/&amp;/g,'&'));if(r.doc)return `<a href="#${encodeURI(r.doc)}${r.hash?'@'+encodeURIComponent(r.hash):''}">${label}</a>`;if(r.hash)return `<a href="#${encodeURI(base)}@${encodeURIComponent(r.hash)}">${label}</a>`;return `<a href="${esc(r.ext?r.url:r.file)}" target="_blank" rel="noopener">${label}</a>`});
+ s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/(^|[\s(])\*([^*\s][^*]*)\*/g,'$1<em>$2</em>');
+ return s.replace(/\u0000(\d+)\u0000/g,(m,i)=>`<code>${esc(codes[+i])}</code>`)}
+function slug(t){return t.replace(/`/g,'').trim().replace(/\s+/g,'-')}
+function render(md,base){const L=md.split('\n'),out=[],toc=[];let i=0;
+ const isTable=k=>/^\s*\|.*\|\s*$/.test(L[k]||'')&&/^\s*\|[\s:|-]+\|\s*$/.test(L[k+1]||'');
+ while(i<L.length){const l=L[i];
+  if(/^```/.test(l)){const buf=[];i++;while(i<L.length&&!/^```/.test(L[i]))buf.push(L[i++]);i++;out.push(`<pre dir="auto"><code>${esc(buf.join('\n'))}</code></pre>`);continue}
+  const h=l.match(/^(#{1,4})\s+(.*)$/);if(h){const lv=h[1].length,id=slug(h[2]);if(lv>=2&&lv<=3)toc.push([lv,h[2],id]);out.push(`<h${lv} id="${esc(id)}">${inline(h[2],base)}</h${lv}>`);i++;continue}
+  if(/^\s*(---|\*\*\*)\s*$/.test(l)){out.push('<hr>');i++;continue}
+  if(isTable(i)){const row=s=>s.trim().replace(/^\||\|$/g,'').split(/(?<!\\)\|/).map(c=>c.trim());const head=row(L[i]);i+=2;const rows=[];while(i<L.length&&/^\s*\|.*\|\s*$/.test(L[i]))rows.push(row(L[i++]));out.push(`<div class="table"><table><thead><tr>${head.map(c=>`<th>${inline(c,base)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${inline(c,base)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);continue}
+  if(/^>\s?/.test(l)){const buf=[];while(i<L.length&&/^>\s?/.test(L[i]))buf.push(L[i++].replace(/^>\s?/,''));out.push(`<blockquote>${render(buf.join('\n'),base).html}</blockquote>`);continue}
+  if(/^\s*([-*]|\d+\.)\s+/.test(l)){const items=[];let ordered=/^\s*\d+\./.test(l);while(i<L.length&&(/^\s*([-*]|\d+\.)\s+/.test(L[i])||(/^\s{2,}\S/.test(L[i])&&items.length))){const m=L[i].match(/^(\s*)([-*]|\d+\.)\s+(.*)$/);if(m)items.push({ind:m[1].length,text:m[3]});else items[items.length-1].text+=' '+L[i].trim();i++}
+   let html='',depth=-1;const stack=[];for(const it of items){const lvl=it.ind>=2?1:0;while(depth<lvl){html+=ordered&&depth<0?'<ol>':'<ul>';stack.push(ordered&&depth<0?'ol':'ul');depth++}while(depth>lvl){html+=`</li></${stack.pop()}>`;depth--}if(html.endsWith('</li>')||/<li>[^]*$/.test(html)&&!html.endsWith('<ul>')&&!html.endsWith('<ol>'))html+='</li>';html+=`<li>${inline(it.text,base)}`}while(stack.length){html+=`</li></${stack.pop()}>`}out.push(html.replace(/<\/li><\/li>/g,'</li>'));continue}
+  if(!l.trim()){i++;continue}
+  const buf=[];while(i<L.length&&L[i].trim()&&!/^(#{1,4}\s|```|>|\s*([-*]|\d+\.)\s+)/.test(L[i])&&!isTable(i))buf.push(L[i++]);out.push(`<p>${inline(buf.join(' '),base)}</p>`)}
+ return{html:out.join('\n'),toc}}
+// ---- navigation ----
+function nav(active){$('nav').innerHTML=DOCS.map(([g,items])=>`<div class="group"><b>${esc(g)}</b>${items.map(([f,t])=>`<a href="#${encodeURI(f)}" class="${f===active?'active':''}">${esc(t)}<small>${esc(f.split('/').pop())}</small></a>`).join('')}</div>`).join('')}
+async function show(p,hash){nav(p);$('side').classList.remove('open');$('out').innerHTML='<div class="notice">در حال خواندن…</div>';$('toc').innerHTML='';$('meta').innerHTML='';
+ try{const md=await load(p),r=render(md,p);$('meta').innerHTML=`<span>${esc(p)}</span><a href="${esc(ROOT+p)}" target="_blank" rel="noopener">متن خام</a>`;$('toc').innerHTML=r.toc.length>2?r.toc.map(([lv,t,id])=>`<a href="#${encodeURI(p)}@${encodeURIComponent(id)}">${lv===3?'— ':''}${inline(t,p)}</a>`).join(''):'';$('out').innerHTML=`<article class="doc">${r.html}</article>`;document.title=`${titleOf(p)} — مستندات Rayo Admin`;
+  if(hash){const el=document.getElementById(hash)||document.getElementById(slug(hash));if(el)el.scrollIntoView();else window.scrollTo(0,0)}else window.scrollTo(0,0)}
+ catch(e){$('out').innerHTML=`<div class="notice"><b>خواندن سند ممکن نشد.</b><br>${esc(e.message)}<br><small>این صفحه باید از طریق HTTP باز شود (مثلاً <code>http://127.0.0.1:8080/docs/index.html</code>)، نه با باز کردن مستقیم فایل.</small></div>`}}
+function route(){const h=decodeURI(location.hash.slice(1));if(!h){location.replace('#docs/AI_START_HERE.md');return}const [p,anchor]=h.split('@');show(p,anchor?decodeURIComponent(anchor):'')}
+// ---- full-text search across all listed documents ----
+let searchTimer=0;
+async function search(q){q=q.trim();if(!q){route();return}const all=DOCS.flatMap(([,items])=>items.map(([f])=>f));$('toc').innerHTML='';$('meta').innerHTML=`<span>جست‌وجو: «${esc(q)}»</span>`;
+ const res=[];for(const f of all){let t='';try{t=await load(f)}catch(_){continue}const low=t.toLowerCase(),k=q.toLowerCase();let at=low.indexOf(k),n=0;const snips=[];while(at>=0&&n<50){if(snips.length<3){const s=Math.max(0,at-70),e=Math.min(t.length,at+k.length+70);snips.push(esc(t.slice(s,e).replace(/\n/g,' ')).replace(new RegExp(esc(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`))}n++;at=low.indexOf(k,at+k.length)}if(n)res.push({f,n,snips})}
+ res.sort((a,b)=>b.n-a.n);$('out').innerHTML=res.length?`<div class="results">${res.map(r=>`<div class="item"><a href="#${encodeURI(r.f)}">${esc(titleOf(r.f))}</a> <small>(${r.n} مورد) — ${esc(r.f)}</small>${r.snips.map(s=>`<div class="snip">…${s}…</div>`).join('')}</div>`).join('')}</div>`:'<div class="notice">موردی پیدا نشد.</div>'}
+$('q').addEventListener('input',e=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>search(e.target.value),250)});
+window.addEventListener('hashchange',()=>{$('q').value='';route()});
+route();
+</script>
+</body>
+</html>

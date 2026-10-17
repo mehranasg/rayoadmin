@@ -6,6 +6,7 @@
 - Read `docs/RAYO_ADMIN_MASTER_HANDOFF_v10_12_1.md` before architectural changes.
 - The current application is a multi-page HTML/CSS/JavaScript application.
 - The project is operational and uses real data.
+- The `main` branch of this repository is the only development baseline. Every deployed copy (for example `rayocafe.ir/panel`, `rayocafe.ir/panel4`) uses the same live API and data from `js/app-config.js`; deploy only from `main`.
 
 ## Data safety
 
@@ -23,6 +24,7 @@
 - `pricing.ingredients` is the current master catalog.
 - `suppliers.items` is a legacy compatibility mirror and must not become the master catalog.
 - `category` and `itemType` are independent concepts.
+- Inventory is single-warehouse: `RayoInventoryV10.unifiedMode()` always returns true and internal transfers are not recorded. Each item continues from its own latest whole count unless its control level is «دقیق» (PRECISE).
 - Keep historical names, codes, prices and recipe data as snapshots or versions.
 - Preserve the current 7-tab inventory structure (stock, receipt, sales, waste, count & variance, reorder, settings) unless the product owner explicitly requests a change. The issue and periodic-variance tabs were removed at the owner's request (single warehouse).
 
@@ -61,3 +63,4 @@ After JavaScript changes:
 - The master handoff path above is a compatibility pointer to the current references. Do not load every versioned document, archive, seed source workbook or backup by default.
 - For implementation facts, use current source/tests, then the latest explicit user request, current reference docs, and history only as context. User requests define intended changes; they do not prove a feature exists.
 - Historical documents are not current requirements. Record discrepancies and preserve all data-safety rules above.
+- Docs describe the current state only. Update the owning document in the same commit as the code change (see `docs/DOCUMENTATION_POLICY.md`); record owner decisions with their reason in the decision log of `docs/REBUILD_AND_MIGRATION_GUIDE.md`. Do not add work reports, delivery notes or versioned copies to `docs/`.

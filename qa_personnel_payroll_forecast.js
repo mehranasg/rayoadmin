@@ -150,12 +150,18 @@ let tests=0;const pending=[];function test(name,run){const r=run();if(r&&typeof 
   r=mk({transportMonthly:0,noTransport:true});near(r.transport,0);assert.equal(r.transportSource,'none');near(r.gross,10000000);
  });
  const tipGroup=(o={})=>({id:'G1',receiveDate:'1405/06/10',totalAmount:1823260,status:'ثبت‌شده',participants:[{personnelId:'P1',weight:1}],...o});
- test('tip shares round down to 5,000 for groups saved with a step (1,823,260 -> 1,820,000); older groups stay exact',()=>{
+ // Owner decision 1405/07: shares stay exact; only a person's monthly tip total is rounded down to 5,000.
+ test('tip shares are exact; the monthly payroll total rounds down to 5,000 (1,456,300 -> 1,455,000); settled rounded shares keep their entitlement',()=>{
   const ctx=setup();setState(ctx,baseState({tipGroups:[tipGroup({shareRoundingStep:5000}),tipGroup({id:'G2',totalAmount:1000003})]}));
-  near(vm.runInContext("tipShares(state.tipGroups[0])[0].amount",ctx),1820000);near(vm.runInContext("tipRoundingRemainder(state.tipGroups[0])",ctx),3260);
-  near(vm.runInContext("tipShares(state.tipGroups[1])[0].amount",ctx),1000003,'no step => unchanged');
-  const two=setup();setState(two,baseState({tipGroups:[tipGroup({shareRoundingStep:5000,totalAmount:1000000,participants:[{personnelId:'P1',weight:1},{personnelId:'P2',weight:2}]})]}));
-  const s=vm.runInContext("tipShares(state.tipGroups[0]).map(x=>x.amount)",two);near(s[0],330000);near(s[1],665000);
+  near(vm.runInContext("tipShares(state.tipGroups[0])[0].amount",ctx),1823260,'per-group share exact even with a stored step');near(vm.runInContext("tipRoundingRemainder(state.tipGroups[0])",ctx),0);
+  near(vm.runInContext("tipShares(state.tipGroups[1])[0].amount",ctx),1000003);
+  const two=setup();setState(two,baseState({tipGroups:[tipGroup({totalAmount:1000000,participants:[{personnelId:'P1',weight:1},{personnelId:'P2',weight:2}]})]}));
+  const s=vm.runInContext("tipShares(state.tipGroups[0]).map(x=>x.amount)",two);near(s[0],1000000/3);near(s[1],2000000/3);
+  near(vm.runInContext("tipRoundMonthly(1456300)",two),1455000);near(vm.runInContext("tipRoundMonthly(4999)",two),0);near(vm.runInContext("tipRoundMonthly(5000)",two),5000);
+  const month=setup();setState(month,baseState({monthlyAdjustments:[adj({hoursOverride:'0'})],tipGroups:[tipGroup({totalAmount:1000000}),tipGroup({id:'G2',receiveDate:'1405/06/20',totalAmount:456300})]}));
+  let r=calc(month,'P1',1405,6);near(r.tips,1455000,'sum of exact shares, rounded once per month');near(r.unpaid,1455000);
+  const settled=setup();setState(settled,baseState({monthlyAdjustments:[adj({hoursOverride:'0'})],tipGroups:[tipGroup({shareRoundingStep:5000})],payments:[{id:'TP1',personnelId:'P1',tipSettlement:true,status:'پرداخت‌شده',amount:1820000,tipAllocations:[{tipGroupId:'G1',tipShareId:'G1:P1',entitlementToman:1820000,paidAmount:1820000,roundingAdjustment:0}]}]}));
+  near(vm.runInContext("tipShares(state.tipGroups[0])[0].amount",settled),1820000,'settled share keeps its recorded entitlement');r=calc(settled,'P1',1405,6);near(r.unpaid,0);
  });
  test('tips paid through «تسویه انعام» count as paid in payroll (linked allocations and legacy settled groups)',()=>{
   const ctx=setup();setState(ctx,baseState({monthlyAdjustments:[adj({hoursOverride:'0'})],tipGroups:[tipGroup({totalAmount:1000000})],payments:[{id:'TP1',personnelId:'P1',tipSettlement:true,status:'پرداخت‌شده',amount:995000,tipAllocations:[{tipGroupId:'G1',tipShareId:'G1:P1',paidAmount:995000,roundingAdjustment:5000}]}]}));

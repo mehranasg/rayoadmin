@@ -50,3 +50,22 @@
 #cuEntryRows .cue-line-total{white-space:nowrap;color:var(--muted,#667085)}
 .cu-entry-table{width:100%}
 @media(max-width:520px){.cu-qty-cell{flex-direction:column;align-items:stretch}.cu-trigger{width:100%}.cu-entry-table{min-width:0!important}.cu-entry-table thead{display:none}.cu-entry-table tr{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:6px;align-items:center;padding:6px 0}.cu-entry-table td{display:block;padding:0!important;border:0!important}.cu-entry-table td.cue-line-total{grid-column:1/-1;grid-row:2;font-size:12px}.cu-entry-table td:last-child{grid-column:3;grid-row:1}#cuEntryRows .cue-unit{min-width:0;width:100%}#cuEntryRows .cue-qty{max-width:none}}
+.rayo-help-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:28px;height:28px;padding:0;border:1px solid var(--border,#d0d5dd);border-radius:50%;background:var(--card,#fff);color:var(--primary,#0f766e);font:inherit;font-weight:700;line-height:1;cursor:pointer}.rayo-help-icon:hover,.rayo-help-icon:focus-visible{background:#f2f4f7}
+.rayo-card-title{display:flex;align-items:center;gap:8px;margin-bottom:10px}.rayo-card-title h2{margin:0}.section-head>.rayo-help-icon{margin-inline:8px auto}
+.rayo-whole-fields{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 12px;min-width:0;margin:0;padding:0;border:0}.rayo-whole-fields>*{flex:1 1 100%}
+.rayo-whole-summary{margin:0}.rayo-whole-toolbar{display:flex;flex:1 1 auto;flex-wrap:wrap;align-items:flex-end;gap:8px 12px}.rayo-whole-toolbar .field{flex:0 1 auto;margin:0}.rayo-whole-toolbar .field input,.rayo-whole-toolbar .field select{width:100%}
+.rayo-w-date{width:120px}.rayo-w-kind{width:160px}.rayo-w-note{width:190px}.rayo-w-search{width:180px}.rayo-whole-fields>.rayo-list-meta-v10101{flex:0 1 auto;margin:0}
+.rayo-whole-cell input[data-whole-count]{flex:0 1 120px;width:120px}.rayo-whole-addbox{display:inline-flex;align-items:center;gap:4px}.rayo-whole-addbox input{width:110px}
+@media(max-width:700px){.rayo-whole-toolbar .field{width:100%}.rayo-whole-fields>.rayo-list-meta-v10101{flex-basis:100%}.rayo-whole-cell input[data-whole-count]{flex:1 1 90px;width:auto}}
+.badge[data-whole-saved][hidden]{display:none}
+/* Beverage control: reasons on their own row under each beverage; day (solid) and night (dashed) variance lines. */
+.v1012-bev-reason-row td{padding-top:0;border-top:0}
+.v1012-bev-reasons{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted,#667085)}
+.v1012-bev-reasons label{display:flex;align-items:center;gap:6px;flex:1 1 260px;min-width:0}
+.v1012-bev-reasons .v1012-bev-in{flex:1;width:auto;text-align:right}
+.v1012-bev-chart .line{stroke:#0d9488}
+.v1012-bev-chart .dot{fill:#0d9488}
+.v1012-bev-chart .line.night{stroke:#c2410c;stroke-dasharray:6 4}
+.v1012-bev-chart .dot.night{fill:#c2410c}
+.v1012-bev-legend i.line{border-top-color:#0d9488}
+.v1012-bev-legend i.line.night{border-top:2px dashed #c2410c}

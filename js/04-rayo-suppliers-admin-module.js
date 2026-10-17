@@ -113,8 +113,10 @@ function viewsSuppliers(){
   return pageHead('مدیریت تأمین‌کنندگان','تعریف، جست‌وجو و مدیریت اطلاعات تأمین‌کنندگان',actions)+
     (supplierUI.tab==='suppliers'?'':`<div class="grid grid-4"><div class="card kpi supplier-kpi"><div class="label">کل تأمین‌کنندگان</div><div class="value">${supplierState.suppliers.length}</div></div><div class="card kpi supplier-kpi"><div class="label">تأمین‌کننده فعال</div><div class="value">${active}</div></div><div class="card kpi supplier-kpi"><div class="label">اقلام ثبت‌شده</div><div class="value">${supplierState.items.length}</div></div><div class="card kpi supplier-kpi"><div class="label">ارتباط‌ها</div><div class="value">${supplierState.supplierItems.length}</div></div></div>`)+
     supTabs()+
-    (supplierUI.tab==='suppliers'?suppliersAdminList():supplierUI.tab==='relations'?supplierRelationsList():supplierJsonSettings());
+    (supplierUI.tab==='suppliers'?suppliersAdminList():supplierUI.tab==='relations'?supplierRelationsList():supplierSettingsRedirect());
 }
+// Supplier settings live in the software settings hub (section purchase); the hub reuses supplierJsonSettings().
+function supplierSettingsRedirect(){location.replace('settings.html?view=softwareSettings&section=purchase');return '<div class="card empty">در حال انتقال به تنظیمات نرم‌افزار…</div>'}
 function suppliersAdminList(){
   const q=supplierUI.search.toLowerCase(),rows=supplierState.suppliers.filter(s=>{
     const hay=[s.code,s.company,s.contactName,s.phone,s.mobile,s.mainGroup,s.purchaseItemsSummary].join(' ').toLowerCase();

@@ -324,3 +324,8 @@ html.rayo-starting #appShell{visibility:hidden}
 /* Action buttons: link buttons share the button box, and a button that directly follows a form block in normal flow keeps a consistent gap instead of touching it. */
 a.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;vertical-align:middle}
 :is(.form-grid,.cash-form-grid,.table-wrap,.rayo-list-pagination-v10101,textarea)+.btn{margin-top:12px}
+/* Searchable personnel picker in modal forms (penalty, violation): search box above a short list. */
+.person-picker{display:grid;gap:6px;min-width:0}
+.person-picker input,.person-picker select{width:100%;min-width:0;box-sizing:border-box}
+.person-picker select{min-height:132px;padding:4px}
+.person-picker option{padding:5px 6px}
