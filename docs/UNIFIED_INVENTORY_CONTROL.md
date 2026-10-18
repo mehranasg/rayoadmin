@@ -1,6 +1,6 @@
 # کنترل موجودی تک‌انبار
 
-> ضمیمهٔ تخصصی انبار. مالک کد: `js/32-inventory-cost-control-v10.js` (محاسبه، مبنا، شمارش، Ledger، تنظیمات کنترل) و `js/46-inventory-operations-v10-12.js` (۷ تب، فرم‌ها، جدول موجودی). قرارداد فیلدها در [مرجع داده](DATA_AND_API_REFERENCE.md).
+> ضمیمهٔ تخصصی انبار. مالک کد: `js/32-inventory-cost-control-v10.js` (محاسبه، مبنا، شمارش، Ledger، تنظیمات کنترل) و `js/46-inventory-operations-v10-12.js` (۸ تب، فرم‌ها، جدول موجودی). قرارداد فیلدها در [مرجع داده](DATA_AND_API_REFERENCE.md).
 
 ## ۱. حالت تک‌انبار
 

@@ -5,7 +5,7 @@ const S=x=>String(x??'').trim();
 const E=s=>typeof esc==='function'?esc(s):String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DEFAULT_PERMISSIONS={cashReport:false,purchaseRequests:false,purchaseInvoices:false,tips:false,surveys:false,suppliersView:false,inventoryWaste:false,inventoryTransfers:false,inventoryCounts:false,inventoryConsumption:false,reservations:false,beverageControl:false};
 const LABELS={cashReport:'گزارش صندوق',purchaseRequests:'سفارش خرید',purchaseInvoices:'فاکتور خرید',tips:'انعام',surveys:'نظرسنجی',suppliersView:'مشاهده تأمین‌کنندگان',inventoryWaste:'ثبت ضایعات/پرتی',inventoryTransfers:'انتقال موجودی',inventoryCounts:'شمارش موجودی',inventoryConsumption:'ثبت مصرف مجاز',reservations:'ثبت رزرو و بیعانه',beverageControl:'فرم روزانه نوشیدنی'};
-const ui={search:'',employmentStatus:'',accessStatus:''};
+const ui={search:'',employmentStatus:'فعال',accessStatus:''};
 function people(){return A(state?.personnel)}
 function activePersonnel(p){return S(p?.status)==='فعال'}
 function perms(p){return {...DEFAULT_PERMISSIONS,...(p?.userAccess?.permissions||{})}}

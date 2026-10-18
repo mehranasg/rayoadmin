@@ -69,3 +69,10 @@
 .v1012-bev-chart .dot.night{fill:#c2410c}
 .v1012-bev-legend i.line{border-top-color:#0d9488}
 .v1012-bev-legend i.line.night{border-top:2px dashed #c2410c}
+
+/* Sales tabs: the calculated total and the save button sit on one line. */
+.toolbar:has(#opSalesCalculatedTotal),.toolbar:has(#opSnappCalculatedTotal),.toolbar:has(#v105SnappTotal){align-items:center}.toolbar:has(#opSalesCalculatedTotal) .hint,.toolbar:has(#opSnappCalculatedTotal) .hint,.toolbar:has(#v105SnappTotal) .hint{margin:0}
+/* Waste form: item search + category above a list box; estimated value; optional fine box. */
+.waste-item-filters{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px;margin-bottom:6px}#v10EvItem{width:100%;min-height:170px}.waste-value{min-height:38px;display:flex;align-items:center;font-weight:700}.waste-fine-box{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px;padding:12px;border:1px solid #fedf89;background:#fffaeb;border-radius:10px}.waste-fine-box[hidden]{display:none}
+/* Beverage control: date and the three role pickers on one desktop row; optional reasons as small buttons + dialog. */
+@media(min-width:900px){.v1012-bev-head{grid-template-columns:repeat(4,minmax(0,1fr))}}.v1012-bev-reason-cell{white-space:nowrap}.v1012-bev-reason-btn{display:block;width:100%;margin:2px 0;font-size:11px}.v1012-bev-reason-btn.filled{border-color:#abefc6;background:#ecfdf3;color:#067647}.v1012-bev-reason-btn.needed{border-color:#fda29b;background:#fef3f2;color:#b42318}.v1012-bev-dialog{border:0;border-radius:14px;padding:16px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)}.v1012-bev-dialog::backdrop{background:rgba(15,23,42,.45)}.v1012-bev-dialog h3{margin:0 0 10px;font-size:15px}.v1012-bev-dialog textarea{width:100%}

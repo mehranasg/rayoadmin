@@ -118,7 +118,7 @@ node qa_v10_12_1.js
 | حوزه | QA مرتبط |
 |---|---|
 | افت/منو/قیمت | `qa_standard_preparation_loss.js`, `qa_prepared_items_conversion.js`, `qa_counting_units.js`, `qa_v10_12_1.js` |
-| انبار | `qa_unified_inventory.js`, `qa_single_warehouse_mode.js`, `qa_inventory_control_levels.js`, `qa_inventory_stock_sort_filter.js`, `qa_inventory_entry_issue.js`, `qa_inventory_bulk_count.js`, `qa_inventory_count_edit.js`, `qa_inventory_receipt_ui.js`, `qa_reorder_point.js`, `qa_operational_forecast.js`, `qa_beverage_serving_control.js` |
+| انبار | `qa_unified_inventory.js`, `qa_single_warehouse_mode.js`, `qa_inventory_control_levels.js`, `qa_inventory_stock_sort_filter.js`, `qa_inventory_entry_issue.js`, `qa_inventory_waste_form.js`, `qa_inventory_bulk_count.js`, `qa_inventory_count_edit.js`, `qa_inventory_receipt_ui.js`, `qa_reorder_point.js`, `qa_operational_forecast.js`, `qa_beverage_serving_control.js` |
 | صندوق | `qa_cash_variance.js`, `qa_cash_destinations.js`, `qa_cash_reports_query.js`, `qa_cash_custody.js` |
 | پرسنل/انعام/آموزش | `qa_personnel_counts.js`, `qa_personnel_payroll_forecast.js`, `qa_personnel_salary_account.js`, `qa_tips_query.js`, `qa_tip_form_filters.js`, `qa_tip_monthly_settlement.js`, `qa_checklist_csv_import.js` |
 | تأمین/مالی | `qa_supplier_workflows.js`, `qa_supplier_quick_invoice.js`, `qa_supplier_navigation_payment.js`, `qa_supplier_relation_search.js`, `qa_supplier_modal_order_method.js`, `qa_supplier_parties_debts.js`, `qa_finance_obligations.js`, `qa_finance_accrual_tax.js`, `qa_opening_settlement.js` |

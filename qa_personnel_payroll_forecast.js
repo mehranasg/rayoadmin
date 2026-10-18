@@ -198,8 +198,8 @@ let tests=0;const pending=[];function test(name,run){const r=run();if(r&&typeof 
  test('payslip tab: employment-status filter defaults to active and only lists matching people',()=>{
   const ctx=setup(),st=baseState({lists:{months:['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند']}});st.personnel.push({id:'P9',name:'رفته',status:'اتمام همکاری',hourlyRate:1,salaryContract:{type:'hourly'}});setState(ctx,st);
   vm.runInContext("ui.payslip={year:1405,month:6,personnelId:'P9'}",ctx);let h=vm.runInContext('viewsPayslip()',ctx);
-  assert.ok(h.includes('وضعیت پرسنل'));assert.ok(!h.includes('P9 | رفته'),'inactive hidden by default');assert.equal(vm.runInContext('ui.payslip.personnelId',ctx),'P1','selection moves to the first active person');
-  vm.runInContext("ui.payslip.employmentStatus='همه'",ctx);h=vm.runInContext('viewsPayslip()',ctx);assert.ok(h.includes('P9 | رفته'));
+  assert.ok(h.includes('وضعیت پرسنل'));assert.ok(!h.includes('>رفته<'),'inactive hidden by default');assert.equal(vm.runInContext('ui.payslip.personnelId',ctx),'','no personnel is preselected');assert.ok(h.includes('<option value="">انتخاب کنید</option>'),'first option asks for a selection');assert.ok(!h.includes('P1 |'),'names are shown without the personnel code');
+  vm.runInContext("ui.payslip.employmentStatus='همه'",ctx);h=vm.runInContext('viewsPayslip()',ctx);assert.ok(h.includes('>رفته<'));
  });
  const shiftFixed=(st)=>{st.personnel[1].salaryContract={type:'fixedMonthly',shiftBased:true,monthlySalary:45000000,weeklyShifts:10,hoursPerShift:8};return st};
  test('fixed per shifts: 45,000,000 for 10 shifts/week; Mehr (30 days) = 42.857 shifts => 1,050,000 per shift, 131,250 per hour',()=>{

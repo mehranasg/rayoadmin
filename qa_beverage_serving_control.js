@@ -172,8 +172,8 @@ async function assetsHarness(doc,loadFails=false){
   assert.equal(d.net,2);assert.equal(d.shortage,2);assert.equal(d.incomplete,1);assert.equal(d.overnightKnown,false,'07/06 has no record');
   const d2=t.api.bevDayMetrics(t.local.beverageDailyControls[1]);assert.equal(d2.overnight,-1);assert.equal(d2.incomplete,1);
   const html=t.api.bevDashboardCard();
-  assert(html.includes('کنترل روزانه نوشیدنی و اقلام سرو')&&html.includes('inventory.html?tab=count&sub=beverage'));
-  const base=read('js/00-base.js');assert(base.includes("'ثبت اطلاعات کنترل مغایرت نوشابه'")&&!base.includes("'ثبت فرم نوشیدنی'"),'dashboard quick tile renamed');assert(!base.includes("'inventory.html?tab=count&sub=beverage','🥤'"),'the separate beverage-control link is not a dashboard tile');
+  assert(html.includes('کنترل روزانه نوشیدنی و اقلام سرو')&&html.includes('inventory.html?tab=beverage'),'beverage control is its own inventory tab');
+  const base=read('js/00-base.js');assert(base.includes("'ثبت اطلاعات کنترل مغایرت نوشابه'")&&!base.includes("'ثبت فرم نوشیدنی'"),'dashboard quick tile renamed');assert(!base.includes("'inventory.html?tab=beverage','🥤'"),'the separate beverage-control link is not a dashboard tile');
   assert(base.includes('assets.html?panel=count')&&base.includes('assets.html?panel=events')&&base.includes('RayoInventoryV1012.bevOpenModal()'));
   assert(html.includes('گزارش مغایرت نوشیدنی')&&html.includes('لیست روزانه')&&html.includes('نمودار مغایرت روز و شب')&&html.includes('خلاصه ماهانه'));
   assert(html.includes('مغایرت روز')&&html.includes('مغایرت شب')&&html.includes('جمع مغایرت'),'day and night variance shown separately and together');

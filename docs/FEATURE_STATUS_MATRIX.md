@@ -37,7 +37,7 @@
 | تأمین | فاکتور سریع بدون اقلام + پرداخت در یک Save؛ دکمهٔ داشبورد | 42، 00؛ qa_supplier_quick_invoice | purchaseInvoices.hasLineDetails + supplierPayments | Implemented | زیاد | ویرایش پرداخت بعد از ثبت از تب پرداخت‌ها | — |
 | تأمین | میز سفارش‌گذاری و سفارش‌های ثبت‌شده در نوار تب | 42، 46::supplierTabs | purchaseRequests | Implemented | زیاد | `qa_v10_12_0` هنوز حذف این تب‌ها را انتظار دارد | — |
 | تأمین | بدهی و مانده اولیه | 42؛ qa_supplier_parties_debts | invoices/payments/directDebts | Implemented | زیاد | دفتر رسمی حسابداری نیست | reconcile نمونه |
-| انبار | تک‌انبار اجباری، ۷ تب، موجودی کل و چاپ؛ ورود چندسطری؛ مغایرت ثبت‌شده | inventory.html، 32، 46؛ qa_single_warehouse_mode، qa_unified_inventory | ledger/counts/pricing | Implemented | زیاد | تب موجودی ~۴۵ ثانیه (CUR-15) | — |
+| انبار | تک‌انبار اجباری، ۸ تب (کنترل روزانه نوشیدنی تب جدا)، فرم پرتی با سکشن/اموال/جریمه (qa_inventory_waste_form)، موجودی کل و چاپ؛ ورود چندسطری؛ مغایرت ثبت‌شده | inventory.html، 32، 46؛ qa_single_warehouse_mode، qa_unified_inventory | ledger/counts/pricing | Implemented | زیاد | تب موجودی ~۴۵ ثانیه (CUR-15) | — |
 | انبار | جدول موجودی: مرتب‌سازی سه‌حالته، فیلتر گروه و وضعیت موجودی، «گردش» | 46؛ qa_inventory_stock_sort_filter | محاسبه در حافظه | Implemented | زیاد | — | — |
 | انبار | سطح کنترل (سبک/دقیق/کنارگذاشته)، شمارش هفتگی مصرفی‌ها، صفرگذاری با بازگردانی، بازنشانی شمارش‌ها با Backup | 32، 46؛ qa_inventory_control_levels | settings.itemControlLevels، spotCounts، stocktakes | Implemented | متوسط | صفرگذاری/بازنشانی/شمارش هفتگی QA اختصاصی ندارند | QA این سه |
 | انبار | Ledger زمانی قلم با مانده جاری و اقدام سریع | 32::unifiedLedgerRows/drill | ledger + sales | Implemented | زیاد | — | — |
@@ -54,15 +54,15 @@
 | انبار | waste/consumption و review | 32، 34، 22 | waste/consumption/declarations | Implemented | متوسط | مدرک فایل/approval چندمرحله‌ای ندارد | UAT پایان شیفت |
 | انبار | cost/variance/closure | 32، 46 | ledger + periodClosures | Implemented | زیاد | coverage شمارش شرط اعتبار | نمایش completeness |
 | انبار | forecast زمانی/فروش‌محور | 46؛ qa_operational_forecast | operationalConsumptionProfiles | Partial | زیاد | invoice count/۳ دوره ندارد؛ missing→unknown | دادهٔ پوشش معتبر |
-| انبار | ۱۲ تب تاریخی | هسته 32 در برابر UI 46 | Legacy | Deprecated | زیاد | الگوی تاریخی تست‌ها | ۷ تب جاری حفظ شود |
-| HR | پرونده/فیلتر/پروفایل/گزارش | 00، 23، 44؛ qa_personnel_counts | personnel و سوابق | Implemented | زیاد | برخی فیلدها Legacy | نمونهٔ پذیرش |
+| انبار | ۱۲ تب تاریخی | هسته 32 در برابر UI 46 | Legacy | Deprecated | زیاد | الگوی تاریخی تست‌ها | ۸ تب جاری حفظ شود |
+| HR | پرونده/فیلتر/پروفایل/گزارش (کارت «تعداد پرسنل فعال»، ۵۰ ردیف در صفحه؛ پروفایل و گزارش پرسنلی تا انتخاب پرسنل داده‌ای نشان نمی‌دهند؛ پروفایل دو تب «ماه جاری / انتخابی» و «خلاصه بازه‌ای» بدون ثبت تخلف؛ ثبت/ویرایش تخلف فقط با تاریخ ماه جاری؛ گزارش شیفت فیلتر وضعیت پرسنل با پیش‌فرض «فعال»؛ نام پرسنل بدون کد (`personDisplayName`؛ کد فقط برای هم‌نام‌ها)؛ فیلد «وضعیت همکاری» قبل از انتخاب پرسنل در کارت فیلتر پروفایل، گزارش، انعام (پیش‌فرض همه)، جریمه، تأخیر، پرداخت، مصرف و مرخصی (44::personnelScopeField؛ کنترل قدیمی 35 روی صفحه نصب نمی‌شود)؛ مدیریت دسترسی‌ها پیش‌فرض «فعال») | 00، 17، 23، 25، 34، 44؛ qa_personnel_counts | personnel و سوابق | Implemented | زیاد | برخی فیلدها Legacy | نمونهٔ پذیرش |
 | HR | بانک/قرارداد ثابت و ساعتی | 05–07، 23؛ qa_personnel_salary_account | personnel | Implemented | زیاد | صحت حقوق قانونی ادعا نمی‌شود | golden payroll |
 | HR | وسایل تحویلی (بدون پاک‌شدن در ذخیرهٔ پرونده؛ برگشت در خطا) | 06، 44::saveIssuedEquipment | personnel.accommodation.equipment | Implemented | متوسط | QA اختصاصی ندارد | — |
 | HR | ویزارد ثبت پرسنل جدید، پیش‌بینی هزینهٔ حقوق از قرارداد (`hrForecastMonth`) | 05، 01، 00، 17؛ qa_personnel_payroll_forecast | personnel.salaryContract | Implemented | متوسط | — | — |
 | شیفت | هفته/ماه/تقویم/نیاز/ظرفیت | 00–03، 41، 44؛ qa_shift_menu | plans/records/requirements | Implemented | زیاد | پوشش همه محاسبات در QA محدود | سناریوی شیفت کامل |
 | HR | مرخصی/مساعده/پیام/رزرو | 19، 22، 34، 37 | HR extensions | Implemented | متوسط | تراکنش چندرکوردی سروری ندارد | E2E تأیید |
-| حقوق | کارکرد/فیش/بستن دوره | 00–03 | payrollClosures/salaryModel | Implemented | متوسط | نیاز تطبیق نمونهٔ عملیاتی مجاز | golden fixtures |
-| انعام | Query/ثبت/فیلتر | 00؛ qa_tips_query/qa_tip_form_filters | tipGroups | Implemented | زیاد | Query به سند کامل تبدیل نشود | guard completeness |
+| حقوق | کارکرد/فیش/بستن دوره (ورود گروهی فقط پرسنل فعال با راهنمای تاشو؛ فیش بدون انتخاب پیش‌فرض و کمک‌هزینه برگشت = تعداد شیفت شب × مبلغ هر شیفت) | 00–03 | payrollClosures/salaryModel | Implemented | متوسط | نیاز تطبیق نمونهٔ عملیاتی مجاز | golden fixtures |
+| انعام | Query/ثبت/فیلتر (فرم ثبت: پرسنل فعال در ستون‌های هر گروه، گزینهٔ «همه پرسنل»، شرکت‌کنندگان فعلی همیشه حفظ؛ وضعیت فهرست از دفتر تسویه `tipLiveStatus` و با فیلتر پرسنل وضعیت سهم همان نفر) | 00؛ qa_tips_query/qa_tip_form_filters | tipGroups | Implemented | زیاد | Query به سند کامل تبدیل نشود | guard completeness |
 | انعام | تسویه ماهانه و گردکردن جمع ماهانهٔ هر نفر به پایینِ ۵۰۰۰ (سهم گروه دقیق) | 00، 34، 22؛ qa_tip_monthly_settlement، qa_personnel_payroll_forecast | payments.tipAllocations | Implemented | زیاد | پرداخت legacy بی‌لینک تخصیص نمی‌یابد | حفظ روابط |
 | آموزش | پروتکل/چک‌لیست/گزارش؛ ورود گروهی CSV/JSON چک‌لیست بر اساس پوزیشن | 29 و 22؛ qa_checklist_csv_import | HR arrays | Implemented | متوسط | ورود گروهی پروتکل وجود ندارد (`qa_protocol_bulk_import` شکست) | — |
 | صندوق | ثبت/گزارش/مغایرت | 11، config؛ qa_cash_variance/query | cashreport.reports | Implemented | زیاد | ریال ورودی، تومان گزارش | تطبیق channelها |
