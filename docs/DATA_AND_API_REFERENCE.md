@@ -48,6 +48,7 @@
 | HR: personnel[].accommodation.equipment | 44 | وسایل تحویلی با type/quantity/deliveredAt/notes در پرونده |
 | inventory.supplierDirectDebts | 42 | بدهی مستقیم/مانده اولیه، مستقل از stock receipt |
 | inventory.spotCounts | 32 | شمارش هفتگی اقلام مصرفی عملیاتی؛ مبنای موجودی نیست |
+| inventory.settings.consumptionAlerts | 32، 46 | آستانه‌های تب «مدیریت مصرف» و `overrides[]` کالا/گروه؛ نبود = پیش‌فرض؛ ذخیره با Load تازه و رویداد `CONSUMPTION_ALERTS_CHANGED`؛ [ضمیمه](CONSUMPTION_MANAGEMENT.md) |
 | inventory.settings.itemControlLevels, lightMaxGapDays, spotAlertPercent | 32 | سطح کنترل اقلام و آستانه‌ها؛ [کنترل تک‌انبار](UNIFIED_INVENTORY_CONTROL.md) |
 | finance.costForecast | 20 | پیش‌بینی و هزینهٔ واقعی ماه (پایین‌تر) |
 | finance.parties, obligations, settlements, checks | 20::ensure | فهرست‌های واقعی جاری با وجود نبود در MODULE_FIELDS |

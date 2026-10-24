@@ -14,7 +14,7 @@
 | تصمیم مالک/معماری با دلیل، backlog و برنامهٔ مهاجرت | [REBUILD_AND_MIGRATION_GUIDE](REBUILD_AND_MIGRATION_GUIDE.md) (دفتر تصمیم‌ها) |
 | قواعد نگهداری | همین سند |
 
-ضمیمه‌های تخصصی (قواعد دقیق یک حوزه): [کنترل تک‌انبار](UNIFIED_INVENTORY_CONTROL.md)، [ورود به انبار](INVENTORY_RECEIPT_UI.md)، [برآورد مصرف](OPERATIONAL_CONSUMPTION_FORECAST.md)، [افت آماده‌سازی](STANDARD_PREPARATION_LOSS.md)، [گردش تأمین](SUPPLIER_WORKFLOWS.md)، [صفحهٔ تنظیمات و Reset](SETTINGS_SEPARATION_AND_TABLE_RESET.md)، [گردش وجوه](CASH_CUSTODY_AND_DESTINATIONS.md)، [قالب Excel/CSV](EXCEL_IMPORT_FORMATS.md). [RAYO_ADMIN_MASTER_HANDOFF_v10_12_1](RAYO_ADMIN_MASTER_HANDOFF_v10_12_1.md) فقط اشاره‌گر سازگاری `AGENTS.md` است. محتوا را در چند سند کپی نکنید؛ مرجع اصلی خلاصه و لینک دهد.
+ضمیمه‌های تخصصی (قواعد دقیق یک حوزه): [کنترل تک‌انبار](UNIFIED_INVENTORY_CONTROL.md)، [ورود به انبار](INVENTORY_RECEIPT_UI.md)، [برآورد مصرف](OPERATIONAL_CONSUMPTION_FORECAST.md)، [مدیریت مصرف](CONSUMPTION_MANAGEMENT.md)، [افت آماده‌سازی](STANDARD_PREPARATION_LOSS.md)، [گردش تأمین](SUPPLIER_WORKFLOWS.md)، [صفحهٔ تنظیمات و Reset](SETTINGS_SEPARATION_AND_TABLE_RESET.md)، [گردش وجوه](CASH_CUSTODY_AND_DESTINATIONS.md)، [قالب Excel/CSV](EXCEL_IMPORT_FORMATS.md). [RAYO_ADMIN_MASTER_HANDOFF_v10_12_1](RAYO_ADMIN_MASTER_HANDOFF_v10_12_1.md) فقط اشاره‌گر سازگاری `AGENTS.md` است. محتوا را در چند سند کپی نکنید؛ مرجع اصلی خلاصه و لینک دهد.
 
 منابع ورودی (نه مرجع رفتار): `rayo-ux-product-review-1404.pdf` (بررسی UX)، `Rayo_Soda_Daily_Control.xlsx` (فرم کاغذی نوشیدنی)، `samples/` (fixture ساختگی). `RAYO_DATA_MODEL_v10_8_0.json` در ریشه fixture تست است.
 

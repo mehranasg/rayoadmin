@@ -380,23 +380,26 @@ async function snapshotRecipe(menuId,effectiveFrom=today(),source='manual-change
 function receiptUnitCost(r){const stock=N(r?.quantity),purchase=N(r?.purchaseQuantity),price=N(r?.unitPrice);return stock>0&&purchase>0&&price>0?purchase*price/stock:N(r?.unitCostToman)}
 function receiptIsPosted(r){return !r?.status||r.status==='received'||r.status==='posted'}
 function countPriceAt(ingredientId,date,exclusive=false){return A(inv?.stocktakes).filter(st=>st.status==='approved'&&S(st.id).startsWith('ST-BULK-')&&(exclusive?strictBefore(st.date,date):beforeOrEq(st.date,date))).flatMap(st=>A(st.lines).filter(l=>l.ingredientId===ingredientId&&l.unitCost!==null&&l.unitCost!==undefined&&Number.isFinite(Number(l.unitCost))).map(l=>({date:D(st.date),unitCost:N(l.unitCost),at:st.approvedAt||st.createdAt||''}))).sort((a,b)=>cmp(b.date,a.date)||S(b.at).localeCompare(S(a.at)))[0]}
-function costAtDate(ingredientId,date,exclusive=false){
+function costAtDate(ingredientId,date,exclusive=false){return costInfoAtDate(ingredientId,date,exclusive).value}
+// Same price selection as costAtDate, plus where the price came from (consumption report shows the valuation basis).
+function costInfoAtDate(ingredientId,date,exclusive=false){
  const i=ingredient(ingredientId),math=RayoIngredientMath,eligible=d=>exclusive?strictBefore(d,date):beforeOrEq(d,date),rows=[];
  const validInvoice=id=>{if(!id)return true;const x=A(inv?.purchaseInvoices).find(x=>x.id===id);return !!x&&!['void','draft','pending','rejected','پیش‌نویس','لغوشده'].includes(S(x.status))};
  for(const r of A(inv?.stockReceipts))if(receiptIsPosted(r)&&r.ingredientId===ingredientId&&D(r.date)&&eligible(r.date)&&validInvoice(r.invoiceId)){
    const unit=math.unitKey(r.unitSnapshot||r.recipeUnit||r.unit||i?.recipeUnit),value=unit===math.unitKey(i?.recipeUnit)?receiptUnitCost(r):NaN;
    // A receipt without a price (direct entry) is not a price source; an incompatible unit still invalidates the price.
-   if(value>0||unit!==math.unitKey(i?.recipeUnit))rows.push({date:D(r.date),at:r.createdAt||'',priority:2,value:value>0?value:NaN});
+   if(value>0||unit!==math.unitKey(i?.recipeUnit))rows.push({date:D(r.date),at:r.createdAt||'',priority:2,value:value>0?value:NaN,source:'receipt'});
  }
  for(const h of A(pricing?.ingredientPriceHistory))if(h.isVoided!==true&&h.ingredientId===ingredientId&&eligible(D(h.date)||'0000/00/00')&&validInvoice(h.invoiceId)){
    const basis={...i,...h},compatible=!h.recipeUnit||math.unitKey(h.recipeUnit)===math.unitKey(i?.recipeUnit);
-   rows.push({date:D(h.date)||'0000/00/00',at:h.createdAt||'',priority:h.source==='stocktake-entry'?3:1,value:compatible?(math.calculate(basis,h.priceToman).grossUnitCost??NaN):NaN});
+   rows.push({date:D(h.date)||'0000/00/00',at:h.createdAt||'',priority:h.source==='stocktake-entry'?3:1,value:compatible?(math.calculate(basis,h.priceToman).grossUnitCost??NaN):NaN,source:h.source==='stocktake-entry'?'count':D(h.date)?'history':'history-undated'});
  }
- const count=countPriceAt(ingredientId,date,exclusive);if(count)rows.push({...count,priority:4,value:count.unitCost});
+ const count=countPriceAt(ingredientId,date,exclusive);if(count)rows.push({...count,priority:4,value:count.unitCost,source:'count'});
  rows.sort((a,b)=>cmp(b.date,a.date)||b.priority-a.priority||S(b.at).localeCompare(S(a.at)));
- if(rows.length)return rows[0].value;
- if(i?.lastPurchaseDate&&!eligible(D(i.lastPurchaseDate)))return NaN;
- return math.grossCost(i,pricing);
+ if(rows.length)return {value:rows[0].value,source:rows[0].source,date:rows[0].date};
+ if(i?.lastPurchaseDate&&!eligible(D(i.lastPurchaseDate)))return {value:NaN,source:'none',date:''};
+ // Catalog price: dated (not after the target) = last purchase before it; undated = latest known price only (estimate).
+ return {value:math.grossCost(i,pricing),source:D(i?.lastPurchaseDate)?'catalog':'catalog-undated',date:D(i?.lastPurchaseDate)||''};
 }
 function costBeforeDate(ingredientId,date){return costAtDate(ingredientId,date,true)}
 function grossReceiptCost(r){
@@ -474,9 +477,10 @@ function unifiedSales(ingredientId,from,to,{includeFrom=true,before=false,collec
  // Cash reports are independent of item sales; item sales may be entered daily, weekly or in one batch later.
  return {quantity:issues.length?null:quantity,itemSales,lineCount,issues:[...new Set(issues)]};
 }
-function unifiedMovements(ingredientId,from,to,{includeFrom=true,before=false}={}){
+// `movements` (optional) is a pre-grouped subset of inventoryMovements for this item; the item filter still applies.
+function unifiedMovements(ingredientId,from,to,{includeFrom=true,before=false,movements=null}={}){
  let net=0,purchaseQty=0,purchaseValue=0,wasteQty=0,missingQty=0,authQty=0,otherNet=0,quantityKnown=true;const issues=[],valueIssues=[],seen=new Map(),rows=[],invalid=message=>{quantityKnown=false;issues.push(message)};
- for(const m of A(inv?.inventoryMovements)){
+ for(const m of movements||A(inv?.inventoryMovements)){
   if(m.ingredientId!==ingredientId||!movementActive(m))continue;
   // The stocktake itself replaces its baseline. Its audit adjustment is never a second stock movement.
   if(m.referenceType==='stocktake'||m.reasonCode==='COUNT_RECONCILIATION'||['TRANSFER','RETURN_TO_WAREHOUSE'].includes(m.movementType))continue;
@@ -512,6 +516,249 @@ function unifiedPeriodMetrics(from,to){
  }
  const sum=f=>lines.every(l=>Number.isFinite(f(l)))?lines.reduce((s,l)=>s+f(l),0):null,sale=unifiedSales('',from,to),cashSales=cashSalesToman(from,to),sales=cashSales.available?cashSales.value:sale.itemSales,openingValue=sum(l=>l.openingValue),purchases=sum(l=>l.purchaseValue),standard=sum(l=>l.stdQty===null?null:l.stdQty*l.unitCost),waste=sum(l=>l.wasteQty*l.unitCost),missing=sum(l=>l.missingQty*l.unitCost),auth=sum(l=>l.authQty*l.unitCost),closingValue=sum(l=>l.closingValue),actualCogs=sum(l=>l.actual),unexplained=sum(l=>l.unexplained),pct=x=>x===null?null:sales?x/sales*100:0;
  return {from,to,scope:'RAYO',controlMode:'unified',lines,issues:[...new Set(issues)],openingValue,purchases,available:openingValue===null||purchases===null?null:openingValue+purchases,standard,waste,missing,auth,closingValue,actualCogs,unexplained,priceEffect:0,sales,itemSales:sale.itemSales,salesAvailable:cashSales.available||sale.lineCount>0,salesSource:cashSales.available?'گزارش صندوق؛ مصرف فقط از ریز آیتم‌ها':'ریز فروش آیتم‌ها',standardPct:pct(standard),actualPct:pct(actualCogs),grossProfit:actualCogs===null?null:sales-actualCogs,wastePct:pct(waste),variancePct:pct(unexplained),wastePctStandard:standard?waste/standard*100:null,wasteShareOfMaterialOut:standard+waste+auth?waste/(standard+waste+auth)*100:null,coverage:items.length?covered/items.length*100:0,wasteQuantities:wasteQuantitySummary(lines),wasteEventCount:A(inv.wasteRecords).filter(r=>recordMovementStatus(r)==='posted'&&inRange(r.date,from,to)).length};
+}
+/* ===== Consumption management report (inventory tab «مدیریت مصرف», UI in 46). Read-only.
+   Physical stock at a period boundary (whole/opening or spot count) is kept apart from the system position.
+   Recorded waste is never counted again inside the variance. Yield is applied once, by RayoIngredientMath.grossQuantity
+   (recipe net → gross); counts, receipts and waste records are already gross. All values are toman. */
+const CONSUMPTION_DEFAULTS=Object.freeze({wasteWarn:3,wasteCritical:5,varianceWarn:2,varianceCritical:5,targetMaterialCostPercent:35,lossSalesAuto:true,lossSalesWarn:1.75,lossSalesCritical:3.5,nonRecipeWarn:15,nonRecipeCritical:25,minValidPeriods:4,historyPeriods:8,minDays:7,minInvoices:200});
+const CONSUMPTION_LIMITS={wasteWarn:[0,100],wasteCritical:[0,100],varianceWarn:[0,100],varianceCritical:[0,100],targetMaterialCostPercent:[1,100],lossSalesWarn:[0,100],lossSalesCritical:[0,100],nonRecipeWarn:[0,1000],nonRecipeCritical:[0,1000],minValidPeriods:[2,24],historyPeriods:[2,24],minDays:[1,365],minInvoices:[0,1000000]};
+const CONSUMPTION_LABELS={wasteWarn:'هشدار پرتی هر ماده',wasteCritical:'وضعیت بحرانی پرتی',varianceWarn:'هشدار مغایرت هر ماده',varianceCritical:'وضعیت بحرانی مغایرت',targetMaterialCostPercent:'درصد هدف بهای مواد از فروش',lossSalesWarn:'هشدار مجموع اتلاف از فروش',lossSalesCritical:'وضعیت بحرانی مجموع اتلاف از فروش',nonRecipeWarn:'هشدار افزایش مصرف اقلام بدون رسپی',nonRecipeCritical:'وضعیت بحرانی افزایش مصرف اقلام بدون رسپی',minValidPeriods:'حداقل بازه‌های معتبر مبنا',historyPeriods:'تعداد بازه‌های مبنا',minDays:'حداقل روز دوره برای هشدار',minInvoices:'حداقل فاکتور دوره برای هشدار'};
+const CONSUMPTION_INTEGER=new Set(['minValidPeriods','historyPeriods','minDays','minInvoices']);
+const CONSUMPTION_OVERRIDE_KEYS=['wasteWarn','wasteCritical','varianceWarn','varianceCritical','nonRecipeWarn','nonRecipeCritical'];
+const CONSUMPTION_PAIRS=[['wasteWarn','wasteCritical'],['varianceWarn','varianceCritical'],['lossSalesWarn','lossSalesCritical'],['nonRecipeWarn','nonRecipeCritical']];
+const CONSUMPTION_KINDS={recipe:'ماده اولیه رسپی‌دار',ingredient:'ماده اولیه بدون مصرف رسپی',direct:'ملزومات مستقیم',indirect:'ملزومات غیرمستقیم و مصرفی'};
+const CONSUMPTION_RANK={na:0,ok:1,warning:2,critical:3};
+const CONSUMPTION_PRICE_LABELS={receipt:'قیمت خرید ثبت‌شده در ورود',movement:'قیمت ثبت‌شده روی گردش',history:'تاریخچهٔ قیمت خرید','history-undated':'قیمت بدون تاریخ در تاریخچه (آخرین قیمت موجود — تخمینی)',count:'قیمت ثبت‌شده در شمارش',catalog:'آخرین قیمت خرید کاتالوگ (تاریخ‌دار، پیش از رویداد)','catalog-undated':'آخرین قیمت موجود کاتالوگ (بدون تاریخ — تخمینی)',none:'قیمت معتبر موجود نیست'};
+// Pure helpers: no state, exported as RayoInventoryV10.consumptionMath for QA.
+function cmPct(part,whole){if(part===null||whole===null||part===undefined||whole===undefined)return null;const p=Number(part),w=Number(whole);return Number.isFinite(p)&&Number.isFinite(w)&&w>0?p/w*100:null}
+function cmLevel(value,warn,critical){if(value===null||value===undefined||!Number.isFinite(Number(value)))return 'na';const v=Number(value);return v>critical?'critical':v>warn?'warning':'ok'}
+function cmWorst(levels){let worst='na';for(const l of A(levels))if((CONSUMPTION_RANK[l]||0)>CONSUMPTION_RANK[worst])worst=l;return worst}
+function cmMedian(values){const v=A(values).filter(x=>x!==null&&Number.isFinite(x)).sort((a,b)=>a-b);if(!v.length)return null;const m=Math.floor(v.length/2);return v.length%2?v[m]:(v[m-1]+v[m])/2}
+// Largest-remainder split in whole toman: the shares always add up to the rounded total (no rounding drift).
+function cmAllocate(total,weights){
+ const t=Math.round(Number(total)),w=A(weights).map(x=>Number.isFinite(x)&&x>0?x:0),sum=w.reduce((a,b)=>a+b,0);
+ if(!Number.isFinite(t)||!(sum>0))return null;
+ const raw=w.map(x=>t*x/sum),out=raw.map(x=>Math.trunc(x));let rest=t-out.reduce((a,b)=>a+b,0);
+ const order=raw.map((x,i)=>({i,f:Math.abs(x-out[i])})).filter(x=>w[x.i]>0).sort((a,b)=>b.f-a.f||a.i-b.i),step=rest<0?-1:1;
+ for(let k=0;rest!==0&&order.length;k=(k+1)%order.length){out[order[k].i]+=step;rest-=step}
+ return out;
+}
+// Default total-loss limits follow the material cost target: target × (waste limit + variance limit).
+function cmDerivedLoss(s){return {warn:N(s.targetMaterialCostPercent)*(N(s.wasteWarn)+N(s.varianceWarn))/100,critical:N(s.targetMaterialCostPercent)*(N(s.wasteCritical)+N(s.varianceCritical))/100}}
+function cmValue(raw,key,limits=CONSUMPTION_LIMITS[key]){if(raw===undefined||raw===null||S(raw)==='')return null;const v=RayoIngredientMath.parse(raw);return v!==null&&Number.isFinite(v)&&v>=limits[0]&&v<=limits[1]&&(!CONSUMPTION_INTEGER.has(key)||Number.isInteger(v))?v:null}
+function cmNormalizeSettings(raw){
+ const src=raw&&typeof raw==='object'?raw:{},out={...CONSUMPTION_DEFAULTS};
+ for(const k of Object.keys(CONSUMPTION_LIMITS)){const v=cmValue(src[k],k);if(v!==null)out[k]=v}
+ out.lossSalesAuto=src.lossSalesAuto!==false;
+ if(out.lossSalesAuto){const d=cmDerivedLoss(out);out.lossSalesWarn=d.warn;out.lossSalesCritical=d.critical}
+ out.overrides=A(src.overrides).filter(o=>o&&['ingredient','category'].includes(o.scope)&&S(o.key)).map(o=>{const x={scope:o.scope,key:S(o.key)};for(const k of CONSUMPTION_OVERRIDE_KEYS){const v=cmValue(o[k],k);if(v!==null)x[k]=v}return x});
+ out.updatedAt=S(src.updatedAt);out.updatedBy=S(src.updatedBy);
+ return out;
+}
+function cmValidateSettings(input,{ingredientIds=null,categories=null}={}){
+ const src=input&&typeof input==='object'?input:{},errors=[],value={lossSalesAuto:src.lossSalesAuto!==false};
+ for(const k of Object.keys(CONSUMPTION_LIMITS)){if(value.lossSalesAuto&&(k==='lossSalesWarn'||k==='lossSalesCritical'))continue;const v=cmValue(src[k],k),[lo,hi]=CONSUMPTION_LIMITS[k];if(v===null)errors.push(`${CONSUMPTION_LABELS[k]}: ${CONSUMPTION_INTEGER.has(k)?'عدد صحیح':'عدد'} بین ${F(lo)} و ${F(hi)} وارد کنید`);else value[k]=v}
+ if(value.lossSalesAuto&&!errors.length){const d=cmDerivedLoss(value);value.lossSalesWarn=d.warn;value.lossSalesCritical=d.critical}
+ for(const [w,c] of CONSUMPTION_PAIRS)if(value[w]!==undefined&&value[c]!==undefined&&value[w]>value[c])errors.push(`${CONSUMPTION_LABELS[w]} نباید از «${CONSUMPTION_LABELS[c]}» بیشتر باشد`);
+ const seen=new Set();value.overrides=[];
+ A(src.overrides).forEach((o,index)=>{const n=index+1,scope=S(o?.scope),key=S(o?.key),x={scope,key};
+  if(!['ingredient','category'].includes(scope)||!key){errors.push(`آستانهٔ اختصاصی ${F(n)}: نوع و کالا یا گروه را انتخاب کنید`);return}
+  if(scope==='ingredient'&&ingredientIds&&!ingredientIds.has(key))errors.push(`آستانهٔ اختصاصی ${F(n)}: کالا در کاتالوگ مرکزی نیست`);
+  if(scope==='category'&&categories&&!categories.has(key))errors.push(`آستانهٔ اختصاصی ${F(n)}: گروه کالا معتبر نیست`);
+  if(seen.has(`${scope}|${key}`))errors.push(`آستانهٔ اختصاصی ${F(n)}: برای همین ${scope==='ingredient'?'کالا':'گروه'} قبلاً آستانه تعریف شده است`);seen.add(`${scope}|${key}`);
+  for(const k of CONSUMPTION_OVERRIDE_KEYS){if(o[k]===undefined||o[k]===null||S(o[k])==='')continue;const v=cmValue(o[k],k);if(v===null)errors.push(`آستانهٔ اختصاصی ${F(n)} — ${CONSUMPTION_LABELS[k]}: عدد معتبر وارد کنید`);else x[k]=v}
+  if(!CONSUMPTION_OVERRIDE_KEYS.some(k=>x[k]!==undefined))errors.push(`آستانهٔ اختصاصی ${F(n)}: حداقل یک مقدار وارد کنید`);
+  for(const [w,c] of CONSUMPTION_PAIRS){const wv=x[w]??value[w],cv=x[c]??value[c];if(CONSUMPTION_OVERRIDE_KEYS.includes(w)&&(x[w]!==undefined||x[c]!==undefined)&&wv>cv)errors.push(`آستانهٔ اختصاصی ${F(n)}: ${CONSUMPTION_LABELS[w]} نباید از حد بحرانی بیشتر باشد`)}
+  value.overrides.push(x)});
+ return {ok:!errors.length,errors:[...new Set(errors)],value};
+}
+function cmThresholdsFor(s,item){
+ const pick=(scope,key)=>A(s?.overrides).find(o=>o.scope===scope&&o.key===key)||null,own=pick('ingredient',S(item?.id)),cat=pick('category',S(item?.category)),out={source:own?'ingredient':cat?'category':'global'};
+ for(const k of CONSUMPTION_OVERRIDE_KEYS)out[k]=own?.[k]??cat?.[k]??s?.[k]??CONSUMPTION_DEFAULTS[k];
+ return out;
+}
+// Management summary: waste and unexplained shortage against net sales (surplus never reduces the loss).
+function cmLossSummary({netSales,wasteValue,shortageValue},s){
+ const known=[wasteValue,shortageValue].filter(x=>x!==null&&x!==undefined&&Number.isFinite(Number(x))),loss=known.length?known.reduce((a,b)=>a+Number(b),0):null,lossSalesPct=cmPct(loss,netSales);
+ return {loss,wasteSalesPct:cmPct(wasteValue,netSales),varianceSalesPct:cmPct(shortageValue,netSales),lossSalesPct,level:cmLevel(lossSalesPct,N(s?.lossSalesWarn),N(s?.lossSalesCritical))};
+}
+function consumptionAlertSettings(doc=inv){return cmNormalizeSettings(doc?.settings?.consumptionAlerts)}
+function jAdd(date,days){return window.RayoBeverageControl?.addDays?.(D(date),days)||(typeof addJDays==='function'?addJDays(D(date),days):'')}
+function jDays(from,to){if(!controlDate(from)||!controlDate(to)||cmp(from,to)>0)return 0;let d=D(from),n=1;while(d!==D(to)&&n<4000){d=jAdd(d,1);if(!d)return 0;n++}return n}
+function consumptionKind(i,recipeIds){const t=['MENU_INGREDIENT','MENU_CONSUMABLE','OPERATIONAL_CONSUMABLE','GENERAL_INVENTORY','NON_STOCK'].includes(i?.itemType)?i.itemType:'MENU_INGREDIENT';if(t==='MENU_CONSUMABLE')return 'direct';if(t==='OPERATIONAL_CONSUMABLE'||t==='GENERAL_INVENTORY')return 'indirect';return recipeIds.has(i.id)?'recipe':'ingredient'}
+// Physical stock at the end of `day`: an end-of-day whole count on `day`, a start-of-day count on the next day, or a spot count on `day`.
+// One baseline lookup also returns the record a system position would continue from.
+function consumptionBoundary(id,day,spots){
+ const next=jAdd(day,1),base=next?unifiedBaseline(id,next,{before:true}):unifiedBaseline(id,day);
+ if(base.quantity!==null&&((base.date===D(day)&&base.boundary==='END')||(base.date===next&&base.boundary==='START')))return {physical:{quantity:base.quantity,date:base.date,boundary:base.boundary,kind:base.source==='opening'?'opening':'whole',ids:base.ids},base};
+ const spot=A(spots).filter(x=>x.date===D(day)).at(-1);
+ if(spot)return {physical:{quantity:spot.actual,date:spot.date,boundary:'END',kind:'spot',ids:[spot.id].filter(Boolean)},base};
+ return {physical:null,base};
+}
+// Every physical count of one item as an end-of-day point (a start-of-day count closes the previous day).
+function consumptionCountPoints(i,spots){
+ const pts=[],unitOk=u=>!u||RayoIngredientMath.unitKey(u)===RayoIngredientMath.unitKey(ingredientUnit(i));
+ for(const st of A(inv?.stocktakes)){if(!wholeScope(st)||st.status!=='approved'||!controlDate(st.date))continue;const l=A(st.lines).filter(x=>x.ingredientId===i.id);if(l.length!==1||!unitOk(l[0].unitSnapshot))continue;const q=Q(l[0].actual),end=controlBoundary(st)==='START'?jAdd(st.date,-1):D(st.date);if(q!==null&&end)pts.push({date:end,quantity:q,kind:'whole'})}
+ for(const o of A(inv?.openingBalances)){if(!wholeScope(o)||o.status==='void'||o.ingredientId!==i.id||!controlDate(o.date)||!unitOk(o.unitSnapshot))continue;const q=Q(o.quantity),end=controlBoundary(o)==='START'?jAdd(o.date,-1):D(o.date);if(q!==null&&end)pts.push({date:end,quantity:q,kind:'whole'})}
+ for(const s of A(spots))pts.push({date:s.date,quantity:s.actual,kind:'spot'});
+ const map=new Map();for(const p of pts.sort((a,b)=>cmp(a.date,b.date)||(a.kind==='spot')-(b.kind==='spot')))if(!map.has(p.date))map.set(p.date,p);
+ return [...map.values()];
+}
+// Net sales = Sepidz pre-tax total (RayoCashVariance.sales: net receivable − tax + debtor − delivery fee + Snapp), rial ÷ 10.
+function consumptionCash(){
+ const status=window.RAYO_API_GATEWAY?.getModuleStatus?.('cashreport'),byDate=new Map();
+ if(status?.sourceValid!==true||!Array.isArray(cash?.reports)||typeof window.RayoCashVariance?.sales!=='function')return {valid:false,byDate};
+ for(const r of cash.reports){if(!r||r.isArchived===true||r.IsArchived===true||S(r.status).toLowerCase()==='void')continue;const d=D(r.date);if(!controlDate(d))continue;const s=window.RayoCashVariance.sales(r),g=byDate.get(d)||{salesRial:0,taxRial:0,invoices:0,reports:0};g.salesRial+=N(s.totalSales);g.taxRial+=N(s.taxAmount);g.invoices+=N(r.receiptCount)+N(r.snappReceiptCount);g.reports++;byDate.set(d,g)}
+ return {valid:true,byDate};
+}
+function consumptionCashRange(index,from,to){let sales=0,tax=0,invoices=0,days=0;for(const [d,g] of index.byDate)if(inRange(d,from,to)){sales+=g.salesRial;tax+=g.taxRial;invoices+=g.invoices;days++}return {salesToman:sales/10,taxToman:tax/10,invoices,days}}
+function consumptionReport(from,to,{history=true}={}){
+ if(!loaded||!inv||!pricing)return {ready:false,error:'اطلاعات انبار هنوز آماده نیست'};
+ from=D(from);to=D(to);
+ if(!controlDate(from)||!controlDate(to))return {ready:false,error:'تاریخ شمسی معتبر وارد کنید'};
+ if(cmp(from,to)>0)return {ready:false,error:'تاریخ شروع بعد از تاریخ پایان است'};
+ const settings=consumptionAlertSettings(),dayBefore=jAdd(from,-1),periodDays=jDays(from,to),quality=new Map(),fix=x=>x===null||!Number.isFinite(x)?null:Math.abs(x)<1e-9?0:x;
+ const addQ=(key,label,example,severity='warning')=>{const q=quality.get(key)||{key,label,severity,count:0,examples:[]};q.count++;if(example&&q.examples.length<8&&!q.examples.includes(S(example)))q.examples.push(S(example));quality.set(key,q)};
+ if(!dayBefore)return {ready:false,error:'تاریخ روز قبل از بازه قابل محاسبه نیست'};
+ const ingredients=A(pricing.ingredients),byId=new Map(ingredients.map(i=>[i.id,i])),menus=new Map(A(pricing.menuItems).map(m=>[m.id,m]));
+ const recipeIds=new Set([...A(pricing.recipes).map(r=>r.ingredientId),...A(pricing.recipeVersions).flatMap(v=>A(v.lines).map(l=>l.ingredientId))].filter(Boolean));
+ const group=(rows,key)=>{const m=new Map();for(const r of rows){const k=key(r);if(!m.has(k))m.set(k,[]);m.get(k).push(r)}return m};
+ const movesBy=group(A(inv.inventoryMovements),m=>m.ingredientId),receiptByKey=new Map(A(inv.stockReceipts).map(r=>[`receipt:${r.id}`,r])),recordById=new Map([...A(inv.wasteRecords),...A(inv.consumptionRecords)].map(w=>[`${w.recordKind==='consumption'?'consumptionRecord':'wasteRecord'}:${w.id}`,w]));
+ const spotsBy=new Map();for(const c of A(inv.spotCounts)){if(c.status!=='approved'||!controlDate(c.date))continue;for(const l of A(c.lines)){const q=Q(l.actual);if(q===null)continue;if(!spotsBy.has(l.ingredientId))spotsBy.set(l.ingredientId,[]);spotsBy.get(l.ingredientId).push({id:c.id,date:D(c.date),actual:q})}}
+ for(const list of spotsBy.values())list.sort((a,b)=>cmp(a.date,b.date));
+ const versionsBy=group(A(pricing.recipeVersions),v=>v.menuItemId),recipesBy=group(A(pricing.recipes),r=>r.menuItemId);
+ for(const list of versionsBy.values())list.sort((a,b)=>cmp(b.effectiveFrom||'',a.effectiveFrom||'')||S(b.createdAt).localeCompare(S(a.createdAt)));
+ // Same recipe choice as recipeAt/unifiedSales: the dated version effective on the sale day; with versions but none yet effective, no recipe.
+ const recipeFor=(menuId,dt)=>{const vs=versionsBy.get(menuId);if(vs?.length){const v=vs.find(x=>beforeOrEq(x.effectiveFrom||'0000/00/00',dt));return v?{lines:A(v.lines),source:'version',versionId:v.id,effectiveFrom:D(v.effectiveFrom)}:{lines:[],source:'none'}}return {lines:A(recipesBy.get(menuId)),source:'current'}};
+ const items=ingredients.filter(i=>i.itemType!=='NON_STOCK'&&i.inventoryTracked!==false);
+ const opening=new Map(),carry=new Map();
+ for(const i of items){const b=consumptionBoundary(i.id,dayBefore,spotsBy.get(i.id));opening.set(i.id,b);if(!b.physical&&b.base.quantity!==null)carry.set(i.id,{date:b.base.date,includeFrom:b.base.boundary==='START'})}
+ let carryMin='';for(const c of carry.values())if(!carryMin||cmp(c.date,carryMin)<0)carryMin=c.date;
+ // One pass over item sales: theoretical gross use per material and per menu item, plus pre-period use for system-carried openings.
+ const theo=new Map(),preSales=new Map(),menuRows=new Map(),ingIssue=new Map(),carryIssue=new Set(),yields=new Map(),addMap=(m,k,v)=>m.set(k,(m.get(k)||0)+v);let itemsSold=0,itemRevenue=0,itemRevenueEstimated=false;
+ for(const sp of A(inv.salesPeriods)){
+  if(sp.status==='void'||sp.isArchived===true)continue;
+  if(!A(sp.lines).length&&controlDate(saleDate(sp))&&inRange(saleDate(sp),from,to))addQ('salesNoLines','فروش ثبت‌شده بدون ریز آیتم',sp.reference||sp.id);
+  for(const l of A(sp.lines)){
+   const dt=saleDate(sp,l);if(!controlDate(dt)){addQ('salesBadDate','ردیف فروش بدون تاریخ معتبر',sp.reference||sp.id,'error');continue}
+   const inPeriod=inRange(dt,from,to),beforePeriod=!!carryMin&&cmp(dt,from)<0&&cmp(dt,carryMin)>=0;if(!inPeriod&&!beforePeriod)continue;
+   const mi=menus.get(l.menuItemId),sold=controlNumber(l.quantity);
+   if(!mi||sold===null){if(inPeriod)addQ('salesUnmapped','فروش بدون نگاشت معتبر به آیتم منو یا با تعداد نامعتبر',`${sp.reference||sp.id||''} ${S(l.menuItemName||l.menuItemId)}`,'error');continue}
+   let row=null;
+   if(inPeriod){row=menuRows.get(mi.id);if(!row){row={menuId:mi.id,name:S(mi.name)||mi.id,code:S(mi.code),category:S(mi.category),qty:0,revenue:0,revenueEstimated:false,noRecipe:false,lines:new Map()};menuRows.set(mi.id,row)}row.qty+=sold;itemsSold+=sold;
+    const amount=Number(l.saleAmountToman),price=Number(l.salePriceToman);let rev;if(Number.isFinite(amount)&&amount!==0)rev=amount;else if(Number.isFinite(price)&&price>0)rev=sold*price;else{rev=sold*N(mi.currentPriceToman);row.revenueEstimated=true;itemRevenueEstimated=true}row.revenue+=rev;itemRevenue+=rev}
+   const recipe=recipeFor(mi.id,dt);
+   if(!recipe.lines.length){if(inPeriod){row.noRecipe=true;addQ('salesNoRecipe','فروش آیتم منو بدون رسپی معتبر در تاریخ فروش',row.name,'error')}else for(const id of carry.keys())carryIssue.add(id);continue}
+   if(inPeriod&&!l.date&&D(sp.from)&&D(sp.from)!==D(sp.to)&&(cmp(sp.from,from)<0||A(versionsBy.get(mi.id)).some(v=>after(v.effectiveFrom,sp.from)&&beforeOrEq(v.effectiveFrom,sp.to))))addQ('salesAggregated','فروش تجمیعی چندروزه که مرز بازه یا تغییر رسپی را قطع می‌کند (ریز روزانه لازم است)',sp.reference||sp.id);
+   for(const r of recipe.lines){
+    const material=byId.get(r.ingredientId);
+    if(!material){if(inPeriod)addQ('recipeNoCatalog','ماده رسپی بدون شناسه کالای مرکزی',`${row.name}: ${S(r.ingredientId)||'—'}`,'error');continue}
+    const gross=RayoIngredientMath.grossQuantity(material,r,Math.abs(sold));
+    if(!Number.isFinite(gross)){if(inPeriod){if(!ingIssue.has(material.id))ingIssue.set(material.id,[]);ingIssue.get(material.id).push(`${row.name}: واحد، مقدار یا افت خط رسپی نامعتبر است`);addQ('recipeInvalid','خط رسپی با واحد، مقدار یا افت نامعتبر',`${row.name} ← ${material.name}`,'error')}else carryIssue.add(material.id);continue}
+    const signed=gross*(sold<0?-1:1);
+    if(inPeriod){addMap(theo,material.id,signed);addMap(row.lines,material.id,signed);
+     const snapshot=Object.prototype.hasOwnProperty.call(r,'wastePercent'),wp=N(snapshot?r.wastePercent:material.wastePercent),key=`${wp}|${snapshot?'snapshot':'catalog'}|${recipe.source}`;if(!yields.has(material.id))yields.set(material.id,new Map());const y=yields.get(material.id).get(key)||{wastePercent:wp,yieldFactor:RayoIngredientMath.yieldFactor(material,r),source:snapshot?'افت ثبت‌شده در نسخهٔ رسپی':'افت فعلی کاتالوگ',recipeSource:recipe.source==='version'?'نسخهٔ تاریخ‌دار رسپی':'رسپی جاری (بدون نسخهٔ تاریخ‌دار)',netQty:0,grossQty:0,unit:S(r.recipeUnit||r.unit||material.recipeUnit)};y.netQty+=N(r.quantity)*Math.abs(sold)*(sold<0?-1:1);y.grossQty+=signed;yields.get(material.id).set(key,y)}
+    else{const c=carry.get(material.id);if(c&&(c.includeFrom?cmp(dt,c.date)>=0:after(dt,c.date)))addMap(preSales,material.id,signed)}
+   }
+  }
+ }
+ const cashIdx=consumptionCash(),cashNow=consumptionCashRange(cashIdx,from,to),invoices=cashIdx.valid&&cashNow.invoices>0?cashNow.invoices:null,alertWindow=periodDays>=settings.minDays||(settings.minInvoices>0&&N(invoices)>=settings.minInvoices);
+ const rows=[];
+ for(const i of items){
+  const id=i.id,movements=A(movesBy.get(id)),spots=A(spotsBy.get(id)),hasRecipe=recipeIds.has(id),kind=consumptionKind(i,recipeIds),reasons=[],estimates=[],ob=opening.get(id);
+  // Opening: physical boundary count, otherwise the system position carried from the item's latest count (estimate).
+  let openQty=null,open;
+  if(ob.physical){openQty=ob.physical.quantity;open={...ob.physical,physical:true}}
+  else if(ob.base.quantity!==null){const mv0=unifiedMovements(id,ob.base.date,from,{includeFrom:ob.base.boundary==='START',before:true,movements}),s0=hasRecipe?(preSales.get(id)||0):0;openQty=mv0.quantityKnown&&!carryIssue.has(id)?fix(ob.base.quantity+mv0.net-s0):null;open={physical:false,kind:'system',date:ob.base.date,boundary:ob.base.boundary,baseQuantity:ob.base.quantity,movementNet:mv0.net,salesConsumption:s0,ids:ob.base.ids};
+   if(openQty===null)reasons.push('موجودی سیستمی ابتدای دوره به‌دلیل گردش یا رسپی نامعتبر قابل محاسبه نیست');else estimates.push(`ابتدای دوره شمارش فیزیکی ندارد؛ موجودی سیستمی از شمارش ${ob.base.date} منتقل شده و نتیجه، مغایرت از همان تاریخ را هم در بر می‌گیرد`)}
+  else{open={physical:false,kind:'none',issues:A(ob.base.issues)};reasons.push('موجودی ابتدای دوره ثبت نشده است (پیش از این دوره شمارش کلی برای این قلم نیست)')}
+  const mv=unifiedMovements(id,from,to,{movements}),records={inflow:[],returns:[],adjust:[],waste:[],auth:[]};let inflow=0,returns=0,adjust=0,waste=0,missing=0,auth=0;
+  for(const {movement:m,impact} of mv.rows){
+   const t=m.movementType,base={id:m.id,date:D(m.date),type:t,label:MOVEMENT_TYPE_LABELS[t]||t,quantity:Math.abs(impact),reference:movementReference(m)};
+   if(t==='PURCHASE_RECEIPT'){const r=receiptByKey.get(S(m.sourceKey));let cost=r?grossReceiptCost(r):controlNumber(m.unitCostToman),source=cost>0?(r?'receipt':'movement'):'',costDate=D(m.date);if(!(cost>0)){const info=costInfoAtDate(id,m.date);cost=info.value;source=info.source;costDate=info.date}const x={...base,cost:cost>0?cost:null,costSource:source,costDate};if(impact>=0){inflow+=impact;records.inflow.push(x)}else{returns+=-impact;records.returns.push(x)}}
+   else if(WASTE_TYPES.has(t)||t==='MISSING'){if(t==='MISSING')missing+=-impact;else waste+=-impact;const w=recordById.get(`${m.referenceType}:${m.referenceId}`);records.waste.push({...base,reason:S(w?.reason||m.reasonCode),person:S(w?.responsiblePersonnelId||w?.reportedByPersonnelId)?personnelName(w.responsiblePersonnelId||w.reportedByPersonnelId):S(w?.reportedByName||m.personnelName),menuId:w?.type==='menu'?S(w.itemId):'',recordId:S(w?.id)})}
+   else if(AUTH_TYPES.has(t)){auth+=-impact;const w=recordById.get(`${m.referenceType}:${m.referenceId}`);records.auth.push({...base,reason:S(w?.reason||m.reasonCode)})}
+   else{adjust+=impact;records.adjust.push({...base,quantity:impact})}
+  }
+  if(!mv.quantityKnown){reasons.push(...mv.issues);for(const x of mv.issues)addQ(/تکراری/.test(x)?'movementDuplicate':/تاریخ/.test(x)?'movementBadDate':'movementInvalid',/تکراری/.test(x)?'گردش تکراری ناسازگار':/تاریخ/.test(x)?'ورود یا خروج بدون تاریخ معتبر':'گردش با مقدار، واحد یا محل نامعتبر',`${i.name}: ${x}`,'error')}
+  const cb=consumptionBoundary(id,to,spots),closeQty=cb.physical?cb.physical.quantity:null,close=cb.physical?{...cb.physical,physical:true}:{physical:false,kind:'none'};
+  if(!cb.physical)reasons.push('شمارش فیزیکی پایان دوره ثبت نشده است؛ موجودی سیستمی جای شمارش گذاشته نمی‌شود');
+  const theoQty=hasRecipe?(ingIssue.has(id)?null:fix(theo.get(id)||0)):null;if(hasRecipe&&theoQty===null)reasons.push(...A(ingIssue.get(id)));
+  const active=mv.rows.length||N(theoQty)||N(openQty)||N(closeQty)||ingIssue.has(id);if(!active)continue;
+  // Valuation: weighted average of the opening stock (price before the period) and priced receipts of the period.
+  const openCost=costInfoAtDate(id,from,true),parts=[];if(openQty>0){if(openCost.value>0)parts.push({quantity:openQty,cost:openCost.value,source:openCost.source,date:openCost.date,label:'موجودی ابتدای دوره'});else estimates.push('بهای موجودی ابتدای دوره معلوم نیست؛ فقط خریدهای دوره در میانگین آمده‌اند')}
+  for(const x of records.inflow)if(x.cost>0&&x.quantity>0)parts.push({quantity:x.quantity,cost:x.cost,source:x.costSource,date:x.costDate||x.date,label:`ورود ${x.date}`});
+  const weightQty=parts.reduce((a,p)=>a+p.quantity,0),fallback=weightQty>0?null:costInfoAtDate(id,to);
+  const unitCost=weightQty>0?parts.reduce((a,p)=>a+p.quantity*p.cost,0)/weightQty:(fallback.value>0?fallback.value:null),priceSources=weightQty>0?parts.map(p=>p.source):[fallback.source],priceEstimated=priceSources.some(x=>x==='catalog-undated'||x==='history-undated');
+  const price={method:weightQty>0?'weighted':'last',label:weightQty>0?'میانگین موزون موجودی ابتدای دوره و خریدهای دوره':'آخرین قیمت معتبر تا پایان دوره',unitCost,estimated:priceEstimated,parts,fallback,openCost};
+  if(unitCost===null){reasons.push('قیمت خرید معتبر برای ارزش‌گذاری موجود نیست');addQ('priceMissing','قلم بدون قیمت خرید معتبر',i.name)}else if(priceEstimated){estimates.push('قیمت تاریخی ثبت نشده؛ آخرین قیمت موجود کاتالوگ استفاده شده است');addQ('priceEstimated','ارزش‌گذاری با آخرین قیمت موجود (قیمت تاریخی ناموجود)',i.name,'info')}
+  const inflowNet=fix(inflow-returns+adjust),countsOk=openQty!==null&&closeQty!==null&&mv.quantityKnown,actual=countsOk?fix(openQty+inflowNet-closeQty-auth):null,recorded=fix(waste+missing);
+  const unexplained=actual!==null&&hasRecipe&&theoQty!==null?fix(actual-theoQty-recorded):null,shortage=unexplained===null?null:Math.max(0,unexplained),surplus=unexplained===null?null:Math.max(0,-unexplained);
+  const systemClose=openQty===null||!mv.quantityKnown||(hasRecipe&&theoQty===null)?null:fix(openQty+mv.net-(theoQty||0));
+  if(!open.physical&&open.kind!=='none')addQ('noOpeningCount','قلم بدون شمارش فیزیکی ابتدای دوره (موجودی سیستمی منتقل شده)',i.name);else if(open.kind==='none')addQ('noOpening','قلم بدون هیچ شمارش پیش از دوره',i.name,'error');
+  if(!cb.physical)addQ('noClosingCount','قلم بدون شمارش فیزیکی پایان دوره',i.name);
+  if((actual!==null&&actual<0&&!hasRecipe)||N(openQty)<0||N(closeQty)<0)addQ('negative','مقدار منفی غیرمجاز (مصرف یا موجودی منفی)',i.name,'error');
+  const val=q=>q===null||unitCost===null?null:q*unitCost,values={inflow:val(inflow),returns:val(returns),actual:val(actual),theoretical:val(theoQty),recorded:val(recorded),waste:val(waste),missing:val(missing),auth:val(auth),shortage:val(shortage),surplus:val(surplus)};
+  const perInvoice=actual!==null&&invoices?actual/invoices:null;
+  // Items without recipe: compare consumption per invoice with the median of earlier count-to-count intervals.
+  let baseline=null;
+  if(!hasRecipe&&history){
+   const pts=consumptionCountPoints(i,spots).filter(p=>cmp(p.date,dayBefore)<=0),intervals=[];
+   for(let k=pts.length-1;k>0&&intervals.length<settings.historyPeriods;k--){const a=pts[k-1],b=pts[k],start=jAdd(a.date,1),days=controlDayGap(a.date,b.date);if(!start||days<1)continue;const m2=unifiedMovements(id,a.date,b.date,{includeFrom:false,movements}),c=cashIdx.valid?consumptionCashRange(cashIdx,start,b.date):{invoices:0};let used=null,why='';if(!m2.quantityKnown)why='گردش نامعتبر';else{used=fix(a.quantity+m2.purchaseQty+m2.otherNet-b.quantity-m2.authQty);if(used<0)why='شمارش بیشتر از انتظار';else if(!(c.invoices>0))why='فاکتور صندوق ثبت نشده'}intervals.push({from:start,to:b.date,days,used,invoices:c.invoices,perInvoice:!why?used/c.invoices:null,valid:!why,why})}
+   const valid=intervals.filter(x=>x.valid);baseline={intervals,validCount:valid.length,median:valid.length>=settings.minValidPeriods?cmMedian(valid.map(x=>x.perInvoice)):null,previous:valid[0]||null};
+  }
+  const th=cmThresholdsFor(settings,i),wastePct=cmPct(values.recorded,values.actual),variancePct=hasRecipe?cmPct(values.shortage,values.theoretical):null,alerts=[];
+  const dataStatus=reasons.length?'insufficient':estimates.length?'estimated':'final';
+  if(values.actual!==null)alerts.push({key:'waste',label:'پرتی ثبت‌شده از مصرف واقعی',value:wastePct,warn:th.wasteWarn,critical:th.wasteCritical,level:cmLevel(wastePct,th.wasteWarn,th.wasteCritical),basis:`ارزش پرتی و ضایعات ثبت‌شده ÷ ارزش مصرف واقعی × ۱۰۰`,action:'علت‌های ثبت پرتی، روش نگهداری و تاریخ انقضا، سفارش بیش از نیاز و آموزش پرسنل بررسی شود.'});
+  if(hasRecipe&&values.shortage!==null)alerts.push({key:'variance',label:'مغایرت کسری توضیح‌داده‌نشده از مصرف تئوریک',value:variancePct,warn:th.varianceWarn,critical:th.varianceCritical,level:cmLevel(variancePct,th.varianceWarn,th.varianceCritical),basis:'ارزش کسری توضیح‌داده‌نشده ÷ ارزش مصرف تئوریک × ۱۰۰',action:'شمارش ابتدا و پایان، رسپی و Portion، ثبت خرید، تبدیل واحد، پرتی ثبت‌نشده یا احتمال خروج بدون ثبت بررسی شود.'});
+  if(!hasRecipe){const median=baseline?.median??null,dev=median>0&&perInvoice!==null?(perInvoice/median-1)*100:null,level=median===null||perInvoice===null?'na':median===0?(perInvoice>0?'warning':'ok'):cmLevel(dev,th.nonRecipeWarn,th.nonRecipeCritical);alerts.push({key:'nonRecipe',label:'مصرف به‌ازای هر فاکتور نسبت به میانهٔ بازه‌های قبلی',value:dev,median,current:perInvoice,warn:th.nonRecipeWarn,critical:th.nonRecipeCritical,level,note:median===null?'داده کافی برای هشدار وجود ندارد':median===0?'مبنای قبلی صفر بوده است':'',basis:`(مصرف هر فاکتور ÷ میانهٔ ${F(baseline?.validCount||0)} بازهٔ شمارش معتبر قبلی − ۱) × ۱۰۰`,action:'شمارش، ثبت ورودی، مصرف خارج از روال یا خروج بدون ثبت بررسی شود.'})}
+  const alertLevel=dataStatus==='insufficient'||!alertWindow||controlLevel(id)==='PARKED'?'na':cmWorst(alerts.map(a=>a.level));
+  const people=new Map(),why=new Map();for(const w of records.waste){if(w.person&&w.person!=='—')people.set(w.person,(people.get(w.person)||0)+1);if(w.reason)why.set(w.reason,(why.get(w.reason)||0)+1)}const top=m=>[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,c])=>c>1?`${k} (${F(c)})`:k).join('، ');
+  rows.push({id,code:S(i.code),name:S(i.name)||id,category:S(i.category),kind,kindLabel:CONSUMPTION_KINDS[kind],hasRecipe,controlLevel:controlLevel(id),status:S(i.status),unit:ingredientUnit(i),purchaseUnit:S(i.purchaseUnit),packageQuantity:i.packageQuantity??null,densityKgPerLiter:i.densityKgPerLiter??null,open:{quantity:openQty,...open},close:{quantity:closeQty,...close},systemClose,inflow:fix(inflow),returns:fix(returns),adjust:fix(adjust),inflowNet,waste:fix(waste),missing:fix(missing),recorded,auth:fix(auth),actual,theoretical:theoQty,unexplained,shortage,surplus,unitCost,price,values,perInvoice,per100:perInvoice===null?null:perInvoice*100,costPerInvoice:values.actual!==null&&invoices?values.actual/invoices:null,wastePct,variancePct,wasteSalesPct:null,varianceSalesPct:null,baseline,records,movementIssues:mv.issues,yields:yields.has(id)?[...yields.get(id).values()]:[],dataStatus,reasons:[...new Set(reasons)],estimates:[...new Set(estimates)],alerts,alertLevel,thresholds:th,wasteReasons:top(why),wastePeople:top(people)});
+ }
+ // Net sales: cash reports (pre-tax). Without cash reports the menu-price value of item sales is only an estimate.
+ const cashCovered=cashIdx.valid&&cashNow.days>0,netSales=cashCovered?cashNow.salesToman:itemRevenue>0?itemRevenue:null,sales={netSales,available:netSales!==null,source:cashCovered?'cash':itemRevenue>0?'items':'none',basis:cashCovered?'کل فروش بدون مالیات گزارش صندوق (خالص دریافتی − مالیات + بدهکار − کرایه + اسنپ)':itemRevenue>0?'ارزش فروش آیتم‌ها با قیمت فروش ثبت‌شده/قیمت منو (گزارش صندوق در بازه نیست)':'داده فروش در بازه نیست',estimated:!cashCovered||cashNow.days<periodDays,invoices,cashDays:cashIdx.valid?cashNow.days:0,periodDays,taxToman:cashCovered?cashNow.taxToman:null,itemsSold,itemRevenue,itemRevenueEstimated,cashValid:cashIdx.valid};
+ if(!cashIdx.valid)addQ('cashUnavailable','گزارش صندوق با Load معتبر در دسترس نیست؛ فروش خالص و تعداد فاکتور قابل محاسبه نیست',null,'error');else if(cashNow.days<periodDays)addQ('cashPartial',`گزارش صندوق فقط برای ${F(cashNow.days)} روز از ${F(periodDays)} روز بازه ثبت شده است`,null,cashNow.days?'warning':'error');
+ if(cashCovered)addQ('currency','مبالغ صندوق به ریال ثبت شده و برای این گزارش ÷۱۰ به تومان تبدیل شده‌اند؛ تخفیف و برگشت فروش در گزارش صندوق جدا ثبت نمی‌شوند',null,'info');
+ for(const r of rows){r.wasteSalesPct=cmPct(r.values.recorded,netSales);r.varianceSalesPct=cmPct(r.values.shortage,netSales);r.lossSalesPct=cmPct(r.values.recorded===null&&r.values.shortage===null?null:N(r.values.recorded)+N(r.values.shortage),netSales)}
+ const live=['inventory','pricing'].every(k=>window.RAYO_API_GATEWAY?.getModuleStatus?.(k)?.sourceValid===true);if(!live)addQ('notLive','دادهٔ انبار یا قیمت‌گذاری از Load زنده و معتبر نیامده است',null,'error');
+ const closure=A(inv.periodClosures).find(c=>c.status==='closed'&&D(c.from)===from&&D(c.to)===to);if(!closure)addQ('openPeriod','این بازه دورهٔ بسته‌شده ندارد؛ اعداد از دادهٔ جاری بازسازی شده‌اند و با ثبت‌های بعدی ممکن است تغییر کنند',null,'info');
+ // Menu impact: direct menu-item waste first, the rest of each material's loss by its theoretical use in each sold item (estimate).
+ const menuShare=new Map(),share=id=>{if(!menuShare.has(id))menuShare.set(id,{theoValue:0,theoIncomplete:false,wasteDirect:0,wasteEstimated:0,shortage:0,materials:[]});return menuShare.get(id)},unallocated={waste:0,shortage:0,materials:[]};
+ for(const r of rows){
+  if(!r.hasRecipe)continue;
+  const consumers=[...menuRows.values()].filter(m=>N(m.lines.get(r.id))>0);
+  for(const m of menuRows.values()){const q=m.lines.get(r.id);if(!q)continue;const s=share(m.menuId);if(r.unitCost===null)s.theoIncomplete=true;else s.theoValue+=q*r.unitCost}
+  if(r.unitCost===null)continue;
+  const totalWaste=Math.round(N(r.values.recorded)),direct=new Map();for(const w of r.records.waste)if(w.menuId&&menuRows.has(w.menuId))direct.set(w.menuId,(direct.get(w.menuId)||0)+w.quantity*r.unitCost);
+  let directSum=0;for(const [menuId,v] of direct){const x=Math.min(Math.round(v),totalWaste-directSum);if(x<=0)continue;directSum+=x;share(menuId).wasteDirect+=x;share(menuId).materials.push({ingredientId:r.id,name:r.name,kind:'waste-direct',value:x})}
+  const restWaste=totalWaste-directSum,weights=consumers.map(m=>N(m.lines.get(r.id))),wAlloc=restWaste>0?cmAllocate(restWaste,weights):null;
+  if(restWaste>0&&!wAlloc){unallocated.waste+=restWaste;unallocated.materials.push({ingredientId:r.id,name:r.name,kind:'waste',value:restWaste})}
+  A(wAlloc).forEach((x,k)=>{if(!x)return;const s=share(consumers[k].menuId);s.wasteEstimated+=x;s.materials.push({ingredientId:r.id,name:r.name,kind:'waste-estimated',value:x})});
+  const totalShort=Math.round(N(r.values.shortage)),sAlloc=totalShort>0?cmAllocate(totalShort,weights):null;
+  if(totalShort>0&&!sAlloc){unallocated.shortage+=totalShort;unallocated.materials.push({ingredientId:r.id,name:r.name,kind:'shortage',value:totalShort})}
+  A(sAlloc).forEach((x,k)=>{if(!x)return;const s=share(consumers[k].menuId);s.shortage+=x;s.materials.push({ingredientId:r.id,name:r.name,kind:'shortage-estimated',value:x})});
+ }
+ const menusOut=[...menuRows.values()].map(m=>{const s=share(m.menuId),wasteShare=s.wasteDirect+s.wasteEstimated,adjusted=s.theoIncomplete?null:s.theoValue+wasteShare+s.shortage,costPct=s.theoIncomplete?null:cmPct(s.theoValue,m.revenue),adjustedPct=cmPct(adjusted,m.revenue),wasteImpact=cmPct(wasteShare,m.revenue),varianceImpact=cmPct(s.shortage,m.revenue),lossImpact=cmPct(wasteShare+s.shortage,m.revenue);
+  const levels=[cmLevel(lossImpact,settings.lossSalesWarn,settings.lossSalesCritical),adjustedPct===null?'na':adjustedPct>settings.targetMaterialCostPercent?'warning':'ok'];
+  return {menuId:m.menuId,name:m.name,code:m.code,category:m.category,qty:m.qty,revenue:m.revenue,revenueEstimated:m.revenueEstimated,noRecipe:m.noRecipe,theoValue:s.theoIncomplete?null:s.theoValue,theoIncomplete:s.theoIncomplete,wasteDirect:s.wasteDirect,wasteEstimated:s.wasteEstimated,wasteShare,shortageShare:s.shortage,adjusted,costPct,adjustedPct,wasteImpact,varianceImpact,lossImpact,level:m.noRecipe||!(m.revenue>0)||!alertWindow?'na':cmWorst(levels),materials:s.materials,ingredientIds:[...m.lines.keys()],lines:Object.fromEntries(m.lines)}});
+ // Totals: a sum only includes rows where that figure is computable; how many rows were left out is reported with it.
+ const sum=(list,f)=>list.reduce((a,r)=>{const v=f(r);return v!==null&&Number.isFinite(v)?a+v:a},0),withActual=rows.filter(r=>r.values.actual!==null),withVariance=rows.filter(r=>r.values.shortage!==null);
+ const wasteValue=sum(rows,r=>r.values.recorded),shortageValue=sum(withVariance,r=>r.values.shortage),loss=cmLossSummary({netSales,wasteValue,shortageValue},settings);
+ const summary={netSales,invoices,itemsSold,actualValue:sum(withActual,r=>r.values.actual),actualRows:withActual.length,actualMissingRows:rows.length-withActual.length,wasteValue,wasteMissingPrice:rows.filter(r=>r.recorded>0&&r.values.recorded===null).length,wastePctOfActual:cmPct(sum(withActual,r=>r.values.recorded),sum(withActual,r=>r.values.actual)),shortageValue,surplusValue:sum(withVariance,r=>r.values.surplus),theoreticalValue:sum(rows,r=>r.values.theoretical),variancePct:cmPct(shortageValue,sum(withVariance,r=>r.values.theoretical)),varianceRows:withVariance.length,recipeRows:rows.filter(r=>r.hasRecipe).length,controllableLoss:loss.loss,wasteSalesPct:loss.wasteSalesPct,varianceSalesPct:loss.varianceSalesPct,lossSalesPct:loss.lossSalesPct,lossLevel:alertWindow?loss.level:'na',alertCount:rows.filter(r=>['warning','critical'].includes(r.alertLevel)).length,criticalCount:rows.filter(r=>r.alertLevel==='critical').length,incompleteCount:rows.filter(r=>r.dataStatus==='insufficient').length,estimatedCount:rows.filter(r=>r.dataStatus==='estimated').length,unallocated,alertWindow};
+ const order={error:0,warning:1,info:2};
+ return {ready:true,from,to,dayBefore,periodDays,settings,rows,menus:menusOut,summary,sales,quality:[...quality.values()].sort((a,b)=>order[a.severity]-order[b.severity]||b.count-a.count),closure:closure?{id:closure.id,closedAt:closure.closedAt||''}:null,generatedAt:now()};
+}
+// Saves only inventory.settings.consumptionAlerts on a fresh full Load; unknown keys inside it are kept; reload must match.
+async function saveConsumptionAlerts(input){
+ if(controlUI.busy)throw Error('عملیات دیگری در حال انجام است؛ کمی بعد دوباره تلاش کنید');
+ const checked=cmValidateSettings(input,{ingredientIds:new Set(A(pricing?.ingredients).map(i=>i.id)),categories:new Set(A(pricing?.ingredients).map(i=>S(i.category)).filter(Boolean))});
+ if(!checked.ok)throw Error(checked.errors.join('؛ '));
+ controlUI.busy=true;
+ try{const before=await controlLoad(),after=controlClone(before);after.settings=after.settings&&typeof after.settings==='object'?after.settings:{};const previous=after.settings.consumptionAlerts&&typeof after.settings.consumptionAlerts==='object'?after.settings.consumptionAlerts:{};
+  after.settings.consumptionAlerts={...previous,...checked.value,updatedAt:now(),updatedBy:actor()};controlAudit(after,'CONSUMPTION_ALERTS_CHANGED',{before:controlClone(previous),after:checked.value});await controlPersist(before,after);return consumptionAlertSettings()}
+ finally{controlUI.busy=false}
 }
 const controlUI={busy:false,plan:null,backedUp:false,uncertain:false};
 const controlClone=x=>JSON.parse(JSON.stringify(x));
@@ -985,6 +1232,8 @@ window.RayoInventoryV10={wasteSection,wastePerson,wasteSearch,wasteCategory,wast
 window.RayoInventoryV10.locations=activeLocations;
 /* Read-only helpers for the inventory reports tab (46): same valuation as the waste form (current gross unit cost). */
 Object.assign(window.RayoInventoryV10,{wasteEstimate:(type,id,qty,date)=>loaded?wasteEstimate(type,id,qty,date):null,eventLabels:()=>({...EVENT_LABELS}),wasteTypes:()=>[...WASTE_TYPES],authTypes:()=>[...AUTH_TYPES],wasteUnitOf:(type,id)=>{if(!loaded)return '';const row=type==='menu'?A(pricing.menuItems).find(x=>x.id===id):type==='asset'?wasteAssets().find(x=>x.id===id):A(pricing.ingredients).find(x=>x.id===id);return row?wasteUnit(type,row):''},costAtDate:(id,date)=>loaded?costAtDate(id,date):null});
+/* Consumption management report (46 tab «مدیریت مصرف»): read-only report, alert settings and the pure calculation helpers. */
+Object.assign(window.RayoInventoryV10,{consumptionReport:(from,to,options)=>consumptionReport(from,to,options),consumptionAlertSettings:()=>consumptionAlertSettings(),consumptionDefaults:()=>({...CONSUMPTION_DEFAULTS,overrides:[]}),consumptionLabels:()=>({fields:{...CONSUMPTION_LABELS},kinds:{...CONSUMPTION_KINDS},prices:{...CONSUMPTION_PRICE_LABELS},limits:JSON.parse(JSON.stringify(CONSUMPTION_LIMITS)),overrideKeys:[...CONSUMPTION_OVERRIDE_KEYS]}),saveConsumptionAlerts,costInfoAtDate:(id,date,exclusive)=>loaded?costInfoAtDate(id,date,exclusive):null,consumptionMath:{pct:cmPct,level:cmLevel,worst:cmWorst,median:cmMedian,allocate:cmAllocate,derivedLoss:cmDerivedLoss,normalize:cmNormalizeSettings,validate:cmValidateSettings,thresholdsFor:cmThresholdsFor,lossSummary:cmLossSummary}});
 Object.assign(window.RayoInventoryV10,{openModal,searchablePicker,pickerOpen,pickerFilter,pickerSelect,pickerKey,activePersonnelRows,countVariancePane,setVarianceOpenOnly,openVarianceReview,saveVarianceReview,recalcCountVariance,movementActive,openCountingUnitsEntry,openEventUnits,cuAddRow,cuRemoveRow,cuApply,cuCancel,cuUseLiveFactors,unitEntryFor,setUnitEntry,unitEntryNote,hasCountingUnits,countingUnitsButton});
 install();
 })();
