@@ -11,7 +11,7 @@ async function run(){
   const call=(method,params={})=>new Promise((resolve,reject)=>{const callId=++id;pending.set(callId,{resolve,reject});socket.send(JSON.stringify({id:callId,method,params}))});
   const evaluate=async expression=>{const result=await call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw new Error(result.exceptionDetails.exception?.description||result.exceptionDetails.text);return result.result.value};
 
-  await evaluate(`sessionStorage.setItem('rayo_admin_user','qa-admin')`);
+  await evaluate(`sessionStorage.setItem('rayo_admin_user','qa-admin');sessionStorage.setItem('rayo_admin_role','owner')`);
   await call('Page.navigate',{url:'http://127.0.0.1:8765/suppliers.html?tab=relations&qa='+Date.now()});
   await new Promise(resolve=>setTimeout(resolve,2500));
   await evaluate(`(async()=>{await supEnsureLoaded(false,true);await pcEnsureLoaded(true,true);const sup=getSupplierState(),pricing=getPricingState();sup.lists={...(sup.lists||{}),orderMethods:['تماس تلفنی']};sup.suppliers=[{id:'SUP-1',code:'SUP-001',company:'فروشگاه بهار',contactName:'علی رضایی',status:'فعال'},{id:'SUP-2',code:'SUP-002',company:'بازرگانی تابان',contactName:'مریم احمدی',status:'فعال'}];sup.supplierItems=[];pricing.ingredients=[{id:'I-1',code:'1001',name:'سیب قرمز',status:'فعال',itemType:'MENU_INGREDIENT'},{id:'I-2',code:'1002',name:'سیب سبز',status:'فعال',itemType:'MENU_INGREDIENT'},{id:'I-3',code:'1003',name:'پرتقال',status:'فعال',itemType:'MENU_INGREDIENT'}];supplierUI.tab='relations';renderView()})()`);

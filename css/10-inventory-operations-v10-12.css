@@ -54,7 +54,7 @@
 .rayo-card-title{display:flex;align-items:center;gap:8px;margin-bottom:10px}.rayo-card-title h2{margin:0}.section-head>.rayo-help-icon{margin-inline:8px auto}
 .rayo-whole-fields{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 12px;min-width:0;margin:0;padding:0;border:0}.rayo-whole-fields>*{flex:1 1 100%}
 .rayo-whole-summary{margin:0}.rayo-whole-toolbar{display:flex;flex:1 1 auto;flex-wrap:wrap;align-items:flex-end;gap:8px 12px}.rayo-whole-toolbar .field{flex:0 1 auto;margin:0}.rayo-whole-toolbar .field input,.rayo-whole-toolbar .field select{width:100%}
-.rayo-w-date{width:120px}.rayo-w-kind{width:160px}.rayo-w-note{width:190px}.rayo-w-search{width:180px}.rayo-whole-fields>.rayo-list-meta-v10101{flex:0 1 auto;margin:0}
+.rayo-w-date{width:120px}.rayo-w-note{width:190px}.rayo-w-search{width:180px}.rayo-whole-fields>.rayo-list-meta-v10101{flex:0 1 auto;margin:0}
 .rayo-whole-cell input[data-whole-count]{flex:0 1 120px;width:120px}.rayo-whole-addbox{display:inline-flex;align-items:center;gap:4px}.rayo-whole-addbox input{width:110px}
 @media(max-width:700px){.rayo-whole-toolbar .field{width:100%}.rayo-whole-fields>.rayo-list-meta-v10101{flex-basis:100%}.rayo-whole-cell input[data-whole-count]{flex:1 1 90px;width:auto}}
 .badge[data-whole-saved][hidden]{display:none}
@@ -76,3 +76,16 @@
 .waste-item-filters{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px;margin-bottom:6px}#v10EvItem{width:100%;min-height:170px}.waste-value{min-height:38px;display:flex;align-items:center;font-weight:700}.waste-fine-box{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px;padding:12px;border:1px solid #fedf89;background:#fffaeb;border-radius:10px}.waste-fine-box[hidden]{display:none}
 /* Beverage control: date and the three role pickers on one desktop row; optional reasons as small buttons + dialog. */
 @media(min-width:900px){.v1012-bev-head{grid-template-columns:repeat(4,minmax(0,1fr))}}.v1012-bev-reason-cell{white-space:nowrap}.v1012-bev-reason-btn{display:block;width:100%;margin:2px 0;font-size:11px}.v1012-bev-reason-btn.filled{border-color:#abefc6;background:#ecfdf3;color:#067647}.v1012-bev-reason-btn.needed{border-color:#fda29b;background:#fef3f2;color:#b42318}.v1012-bev-dialog{border:0;border-radius:14px;padding:16px;width:min(420px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.25)}.v1012-bev-dialog::backdrop{background:rgba(15,23,42,.45)}.v1012-bev-dialog h3{margin:0 0 10px;font-size:15px}.v1012-bev-dialog textarea{width:100%}
+/* Beverage variance bars: per beverage / per month, day (teal) and night (orange) stacked. */
+.v1012-bev-legend i.bar{width:12px;height:10px;border:0;border-radius:3px}.v1012-bev-legend i.bar.day{background:#0d9488}.v1012-bev-legend i.bar.night{background:#ea580c}
+.v1012-bev-bars{display:flex;flex-direction:column;gap:7px;margin:6px 0 4px}
+.v1012-bev-bar-row{display:grid;grid-template-columns:minmax(110px,22%) minmax(0,1fr) 54px;align-items:center;gap:10px;font-size:13px}
+.v1012-bev-bar-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v1012-bev-bar-track{display:flex;height:14px;background:#f2f4f7;border-radius:7px;overflow:hidden}
+.v1012-bev-bar-track i{display:block;height:100%}.v1012-bev-bar-track i.day{background:#0d9488}.v1012-bev-bar-track i.night{background:#ea580c}
+.v1012-bev-bar-row b{text-align:left;font-variant-numeric:tabular-nums}
+@media(max-width:640px){.v1012-bev-bar-row{grid-template-columns:minmax(80px,32%) minmax(0,1fr) 40px;font-size:12px}}
+/* Inventory has 9 top tabs: wrap on wide screens instead of hiding the last ones; phones keep one scrolling line. */
+@media(min-width:761px){.v1012-tabs:not(.v1012-subtabs){flex-wrap:wrap;overflow:visible}}
+.v1012-bev-bar-row{grid-template-columns:minmax(110px,22%) minmax(0,1fr) max-content}.v1012-bev-bar-row b{white-space:nowrap}
+.v1012-rep-filters{flex-wrap:wrap}.v1012-rep-export{display:inline-flex;gap:6px;margin-inline-start:auto}

@@ -37,7 +37,7 @@
 | تأمین | فاکتور سریع بدون اقلام + پرداخت در یک Save؛ دکمهٔ داشبورد | 42، 00؛ qa_supplier_quick_invoice | purchaseInvoices.hasLineDetails + supplierPayments | Implemented | زیاد | ویرایش پرداخت بعد از ثبت از تب پرداخت‌ها | — |
 | تأمین | میز سفارش‌گذاری و سفارش‌های ثبت‌شده در نوار تب | 42، 46::supplierTabs | purchaseRequests | Implemented | زیاد | `qa_v10_12_0` هنوز حذف این تب‌ها را انتظار دارد | — |
 | تأمین | بدهی و مانده اولیه | 42؛ qa_supplier_parties_debts | invoices/payments/directDebts | Implemented | زیاد | دفتر رسمی حسابداری نیست | reconcile نمونه |
-| انبار | تک‌انبار اجباری، ۸ تب (کنترل روزانه نوشیدنی تب جدا)، فرم پرتی با سکشن/اموال/جریمه (qa_inventory_waste_form)، موجودی کل و چاپ؛ ورود چندسطری؛ مغایرت ثبت‌شده | inventory.html، 32، 46؛ qa_single_warehouse_mode، qa_unified_inventory | ledger/counts/pricing | Implemented | زیاد | تب موجودی ~۴۵ ثانیه (CUR-15) | — |
+| انبار | تک‌انبار اجباری، ۹ تب (کنترل روزانه نوشیدنی و گزارش‌ها تب جدا)، فرم پرتی با سکشن/اموال/جریمه (qa_inventory_waste_form)، موجودی کل و چاپ؛ ورود چندسطری؛ مغایرت ثبت‌شده | inventory.html، 32، 46؛ qa_single_warehouse_mode، qa_unified_inventory | ledger/counts/pricing | Implemented | زیاد | تب موجودی ~۴۵ ثانیه (CUR-15) | — |
 | انبار | جدول موجودی: مرتب‌سازی سه‌حالته، فیلتر گروه و وضعیت موجودی، «گردش» | 46؛ qa_inventory_stock_sort_filter | محاسبه در حافظه | Implemented | زیاد | — | — |
 | انبار | سطح کنترل (سبک/دقیق/کنارگذاشته)، شمارش هفتگی مصرفی‌ها، صفرگذاری با بازگردانی، بازنشانی شمارش‌ها با Backup | 32، 46؛ qa_inventory_control_levels | settings.itemControlLevels، spotCounts، stocktakes | Implemented | متوسط | صفرگذاری/بازنشانی/شمارش هفتگی QA اختصاصی ندارند | QA این سه |
 | انبار | Ledger زمانی قلم با مانده جاری و اقدام سریع | 32::unifiedLedgerRows/drill | ledger + sales | Implemented | زیاد | — | — |
@@ -45,7 +45,8 @@
 | انبار | ورود مستقیم چندسطری بدون قیمت؛ ویرایش با ابطال و ثبت دوباره | 46؛ qa_inventory_receipt_ui | stockReceipts + movement | Implemented | زیاد | ویرایش QA اختصاصی ندارد | — |
 | انبار | انتقال داخلی | 32، 46؛ qa_single_warehouse_mode | inventoryMovements | Deprecated | زیاد | در تک‌انبار رد می‌شود؛ رکوردهای قدیمی حفظ؛ منوی پرسنل گزینهٔ انتقال ندارد و صفحهٔ آن فقط پیام نشان می‌دهد | — |
 | انبار | شمارش کل/افتتاحیه، بررسی و بازمحاسبهٔ مغایرت | 32؛ qa_inventory_count_edit، qa_unified_inventory | stocktakes | Implemented | زیاد | فرم شمارش گروهی (bulk) در تک‌انبار نمایش داده نمی‌شود | — |
-| کاتالوگ/انبار | اقلام آماده‌سازی‌شده، ترکیب مواد، چگالی و تبدیل در شمارش گروهی | 08، 46، 47؛ qa_prepared_items_conversion | pricing.preparedItems + stocktakes.preparedLines | Implemented (Frontend) | زیاد | در حالت کنترل کل رایو، فرم شمارش کل هنوز ردیف اقلام آماده ندارد | افزودن به شمارش کل |
+| کاتالوگ/انبار | اقلام آماده‌سازی‌شده، ترکیب مواد، چگالی و تبدیل در شمارش گروهی و شمارش کل رایو | 08، 32، 46، 47؛ qa_prepared_items_conversion، qa_unified_inventory | pricing.preparedItems + stocktakes.preparedLines | Implemented (Frontend) | زیاد | ماندگاری preparedLines شمارش کل روی Backend زنده آزموده نشده | آزمون Save/Load روی سرور |
+| انبار | برگهٔ شمارش دستی (چاپ / اکسل) بر اساس بخش، گروه و محل نگهداری | 32؛ qa_unified_inventory | inventory.settings.countSheet | Implemented (Frontend) | کم | چیدمان در سطح گروه کالاست، نه تک‌قلم | — |
 | انبار | واحدهای شمارش هر قلم و ورود چندواحدی (شمارش کل/دوره‌ای/گروهی، ورود مستقیم، پرتی/مصرف) | 08، 32، 46؛ qa_counting_units | ingredients.countingUnits + unitEntryDetail | Implemented (Frontend) | زیاد | پنل پرسنل (22) هنوز فقط واحد پایه؛ ماندگاری روی Backend زنده آزموده نشده | آزمون Save/Load روی سرور |
 | انبار | ابطال/آرشیو رسید | 46؛ qa_inventory_receipt_ui | receipt/movement | Implemented | زیاد | نشست مدیر Client | server authorization |
 | انبار | فروش/اسنپ و مصرف رسپی | 14، 32، 36 | salesPeriods/recipeVersions | Implemented | متوسط | کامل‌بودن ورودی کانال‌ها نامعلوم | تطبیق واردسازی |
@@ -62,6 +63,7 @@
 | شیفت | هفته/ماه/تقویم/نیاز/ظرفیت | 00–03، 41، 44؛ qa_shift_menu | plans/records/requirements | Implemented | زیاد | پوشش همه محاسبات در QA محدود | سناریوی شیفت کامل |
 | HR | مرخصی/مساعده/پیام/رزرو | 19، 22، 34، 37 | HR extensions | Implemented | متوسط | تراکنش چندرکوردی سروری ندارد | E2E تأیید |
 | حقوق | کارکرد/فیش/بستن دوره (ورود گروهی فقط پرسنل فعال با راهنمای تاشو؛ فیش بدون انتخاب پیش‌فرض و کمک‌هزینه برگشت = تعداد شیفت شب × مبلغ هر شیفت) | 00–03 | payrollClosures/salaryModel | Implemented | متوسط | نیاز تطبیق نمونهٔ عملیاتی مجاز | golden fixtures |
+| حقوق | ریز کارکرد دستگاه حضور و غیاب (ورود Excel/CSV/JSON/dat در «کارکرد ماه»)، «کارکرد ماه من» در پنل پرسنل، درخواست اصلاح کارکرد و تایید/رد مدیر | 18 (`RayoAttendance`)، 19، 22، 00؛ `qa_attendance_corrections` | attendanceLogs/attendanceCorrections | Implemented | متوسط | قالب واقعی خروجی دستگاه کافه هنوز با فایل نمونه تطبیق نشده؛ Save کل سند hr (مثل مرخصی) | ورود فایل واقعی دستگاه روی Stage |
 | انعام | Query/ثبت/فیلتر (فرم ثبت: پرسنل فعال در ستون‌های هر گروه، گزینهٔ «همه پرسنل»، شرکت‌کنندگان فعلی همیشه حفظ؛ وضعیت فهرست از دفتر تسویه `tipLiveStatus` و با فیلتر پرسنل وضعیت سهم همان نفر) | 00؛ qa_tips_query/qa_tip_form_filters | tipGroups | Implemented | زیاد | Query به سند کامل تبدیل نشود | guard completeness |
 | انعام | تسویه ماهانه و گردکردن جمع ماهانهٔ هر نفر به پایینِ ۵۰۰۰ (سهم گروه دقیق) | 00، 34، 22؛ qa_tip_monthly_settlement، qa_personnel_payroll_forecast | payments.tipAllocations | Implemented | زیاد | پرداخت legacy بی‌لینک تخصیص نمی‌یابد | حفظ روابط |
 | آموزش | پروتکل/چک‌لیست/گزارش؛ ورود گروهی CSV/JSON چک‌لیست بر اساس پوزیشن | 29 و 22؛ qa_checklist_csv_import | HR arrays | Implemented | متوسط | ورود گروهی پروتکل وجود ندارد (`qa_protocol_bulk_import` شکست) | — |
@@ -81,8 +83,12 @@
 | ابزار | Excel/CSV/چاپ | 18 و importer حوزه؛ [قالب‌ها](EXCEL_IMPORT_FORMATS.md) | فایل انتخابی/fixture | Implemented | متوسط | CDN؛ قالب‌ها به importer وابسته‌اند | تست فایل ساختگی |
 | ابزار | ورود اعداد: ارقام فارسی، جداکنندهٔ سه‌رقمی، خالی‌شدن فیلد مبلغ با کلیک | 35::RayoNumberUX؛ qa_numeric_input | — | Implemented | زیاد | — | — |
 | سپیدز | بارگذاری صفحهٔ ممیزی روی دادهٔ زنده | 33 | sepidsaudit | Partial | زیاد | ماژول روی سرور ساخته نشده (404)؛ صفحه پیام خطا می‌دهد (CUR-13) | Initialize صریح ماژول |
-| خطا | ثبت پایدار Client | 31 | errorlog | Partial | زیاد | scrub/auth/retention سروری تأییدنشده | CUR-09 |
+| خطا | ثبت پایدار Client (صفحه‌های مدیریت: 30 از لحظهٔ آماده‌شدن Gateway؛ پنل پرسنل و صندوقدار: 31؛ هر ذخیره لاگ سرور را دوباره می‌خواند و فقط ورودی‌های ذخیره‌نشدهٔ همان صفحه را اضافه می‌کند؛ خطای تکراری toast یک بار ثبت می‌شود) | 30، 31 | errorlog | Partial | زیاد | scrub/auth/retention سروری تأییدنشده | CUR-09 |
 | آینده | React، API v2 و DB | راهنمای مهاجرت | هدف پیشنهادی | Planned | طرح | در مخزن پیاده نشده | تصمیم و فازبندی |
+| دسترسی | کاربران مدیریت با بخش‌های مجاز (منو + نگهبان صفحه) | 44::RayoAdminAccess، 00::loginV5، 16 | hr.settings.adminUsers | Partial | زیاد | فقط سمت مرورگر؛ API مجوز کاربر ندارد؛ hash در سند HR قابل خواندن است | RBAC سروری |
+| مدیریت | پنل مانیتورینگ (هشدارها، دارایی/تعهدات، عملکرد ماه، سود/زیان ماهانه و تجمعی) | 49؛ منابع 20/32/40/12/00 | خواندنی همهٔ ماژول‌ها | Implemented | متوسط | دقت تابع دادهٔ منابع (قیمت ناقص انبار، فاکتور خرید ثبت‌نشده) | — |
+| انبار | گزارش‌های انبار: پرتی/ضایعات، مغایرت شمارش، ورود، گردش تجمیعی؛ CSV و خروجی AI | 46 (تب reports)، 32 | inventory/pricing | Implemented | متوسط | ارزش ضایعات با بهای فعلی است نه زمان رخداد | — |
+| ابزار | حفظ فوکوس و مکان‌نما هنگام بازسازی صفحه با تایپ | 35::RayoFocusKeeper؛ 00 و 22؛ qa_base_data_search_input | — | Implemented | زیاد | — | — |
 | آینده | چندمستاجری، RBAC سروری، audit قطعی | راهنمای مهاجرت | هدف پیشنهادی | Planned | طرح | tenant فعلی در API نیست | تصمیم محصول/Backend |
 
 وضعیت suiteها و شکست‌های شناخته‌شده در بخش ۶ [مرجع فنی](CURRENT_IMPLEMENTATION.md) است.

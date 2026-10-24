@@ -15,4 +15,6 @@ fire('focusin',inp);inp._v='۳۵۰۰';fire('input',inp);assert.equal(inp._v,'۳�
 fire('focusin',inp);inp._v='5';fire('input',inp);inp._v='';fire('input',inp);fire('focusout',inp);assert.equal(inp.value,'','typed then cleared stays empty');
 const zero=new HTMLInputElement({value:'0'});ctx.RayoNumberUX.scan(zero);fire('focusin',zero);assert.equal(zero._v,'');fire('focusout',zero);assert.equal(zero.value,'0');
 const prog=new HTMLInputElement({value:'10'});ctx.RayoNumberUX.scan(prog);fire('focusin',prog);prog.value=20;assert.equal(prog.value,'20');fire('focusout',prog);assert.equal(prog.value,'20','programmatic set wins');
+const count=new HTMLInputElement({type:'number',value:'1250'});delete count.attrs.inputmode;count.labels=[{textContent:'تعداد فیش سالن'}];ctx.RayoNumberUX.scan(count);assert.equal(count._v,'۱٬۲۵۰','«سالن» (hall) is not «سال» (year): the receipt count is grouped');
+const year=new HTMLInputElement({type:'number',value:'1405'});delete year.attrs.inputmode;year.labels=[{textContent:'سال'}];ctx.RayoNumberUX.scan(year);assert.equal(year._v,'۱۴۰۵','a year stays ungrouped');
 console.log('numeric UX ok');

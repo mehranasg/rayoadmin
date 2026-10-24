@@ -36,3 +36,70 @@
 /* Read-only tables: sortable headers and a show-more button. */
 .staff-panel-body th.st-sortable{cursor:pointer;user-select:none;white-space:nowrap}.staff-panel-body th.st-sortable::after{content:' ⇅';color:var(--muted);font-size:11px}.staff-panel-body th[data-sort=asc]::after{content:' ▲';color:var(--primary)}.staff-panel-body th[data-sort=desc]::after{content:' ▼';color:var(--primary)}
 .staff-panel-body .st-table-more{display:block;margin:10px auto 0}.staff-panel-body .st-table-more[hidden]{display:none}
+
+/* Dashboard: «بیشتر» keeps the same gap as the tiles above it. */
+.staff-more-row{margin-top:14px}
+@media(max-width:680px){.staff-more-row{margin-top:8px}}
+
+/* ===== Personnel panel skin (2026-10): Vazirmatn, light minimal surfaces, calm header, icon-chip tiles. Visual only. ===== */
+.staff-panel-body,.staff-public-body{font-family:Vazirmatn,IRANSansX,Vazir,Tahoma,Arial,sans-serif;background:#f6f7f9;--line:#e9edf1}
+.staff-panel-body .card,.staff-public-body .card{box-shadow:none;border-color:var(--line);border-radius:16px}
+.staff-panel-body .topbar{min-height:56px;background:rgba(255,255,255,.96);box-shadow:0 1px 0 var(--line);border-bottom:0}
+.staff-panel-body .topbar .btn{background:transparent;border-color:transparent;color:#344054;font-weight:500}
+.staff-panel-body .topbar .btn:hover{background:#f2f4f7;border-color:transparent}
+.staff-panel-body #staffBackBtn{background:#f2f4f7;border-color:transparent;color:#344054;font-weight:600}
+.staff-panel-body #staffBackBtn:hover{background:#e9edf1;border-color:transparent;color:#101828}
+.staff-panel-body #staffTitle{font-weight:700;font-size:15px}
+.staff-panel-body .status-line{color:var(--muted);font-size:12px}
+.staff-panel-body .page-head h1{font-size:21px;font-weight:700}
+.staff-panel-body .page-head p{color:var(--muted)}
+/* dashboard tiles */
+.staff-panel-body .module-link .card{display:flex;flex-direction:column;align-items:flex-start;gap:4px;background:#fff;transition:border-color .15s,box-shadow .15s,transform .15s}
+.staff-panel-body .module-link:hover .card{transform:none;border-color:#99d5cd;box-shadow:0 4px 14px rgba(15,118,110,.08)}
+.staff-panel-body .module-link:active .card{transform:scale(.985)}
+.staff-panel-body .module-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:#effaf8;font-size:21px!important;margin-bottom:8px!important;line-height:1}
+.staff-panel-body .module-link h3{font-weight:700;color:#101828}
+.staff-panel-body .module-link p{color:#667085}
+.staff-panel-body .staff-more-row .btn{background:#fff;border-color:var(--line);border-radius:12px}
+/* forms */
+.staff-panel-body input,.staff-panel-body select,.staff-panel-body textarea{background:#fff;border-color:#dfe4ea}
+.staff-panel-body .btn-primary{border-radius:12px}
+.staff-panel-body .cash-sticky-banner{background:rgba(255,255,255,.97)}
+.staff-public-body .card{box-shadow:0 10px 30px rgba(16,24,40,.06)}
+/* The top bar is sticky again (body no longer clips scrolling); the live cash result sits right under it. */
+.staff-panel-body .cash-sticky-banner{top:60px;z-index:6}
+
+/* ===== Staff panel compact pass (2026-10-21) ===== */
+/* Tables: no forced 760–850px minimum on phones; tighter cells so short lists fit without sideways scrolling. */
+@media(max-width:680px){.staff-panel-body .data-table{min-width:0}.staff-panel-body .data-table th,.staff-panel-body .data-table td{padding:7px 4px;font-size:11.5px;white-space:normal;line-height:1.5}.staff-panel-body .data-table th{white-space:nowrap}.staff-panel-body .data-table input{min-width:72px}.staff-panel-body .data-table .btn-sm{min-height:34px;min-width:0;padding:4px 8px}}
+.staff-panel-body .st-compact td small{font-size:10.5px}
+/* Inventory count: label beside field, one-line hint, sub headings */
+.staff-panel-body .st-inline-form{margin-bottom:8px}.staff-panel-body .st-one-line{padding:7px 10px;font-size:12px;margin:6px 0 10px}.staff-panel-body .st-cnt-sub{margin:8px 0 6px;font-size:13px}
+.staff-panel-body #stCntResults:empty{display:none}
+/* «ثبت درخواست مرخصی جدید»: a compact green button on the left; the form opens as a card below it. */
+.staff-panel-body details.staff-collapsible-form:not([open]){background:none;border:0;box-shadow:none;padding:0;margin-bottom:10px}
+.staff-panel-body .staff-collapsible-form>summary{width:fit-content;margin-inline-start:auto;background:#067647;color:#fff;border-radius:10px;padding:8px 14px!important;font-weight:600;font-size:13px;min-height:40px;display:flex;align-items:center}
+.staff-panel-body .staff-collapsible-form>summary:hover{background:#05603a}
+.staff-panel-body .staff-collapsible-form[open]>summary{border-bottom:0;margin-bottom:12px}
+/* Purchase invoice / order: supplier search + dropdown on one row (dropdown on the left), outside-list seller fields,
+   step indicator on one line, line-item fields as label-beside-input. */
+.staff-panel-body .st-pick{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:6px;width:100%}
+.staff-panel-body .st-pick>*{min-width:0;width:100%}
+.staff-panel-body .st-other-seller{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}.staff-panel-body .st-other-seller[hidden]{display:none}
+.staff-panel-body .inv-steps{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;font-size:12px;margin:0 0 8px;white-space:nowrap}
+.staff-panel-body .inv-step{display:flex;gap:4px;align-items:center;padding:4px 8px;border-radius:999px;background:#f2f4f7}.staff-panel-body .inv-step-active{background:#e6f6f3;color:#0f766e}
+.staff-panel-body .purchase-doc-line{display:grid;grid-template-columns:1fr;gap:6px}
+.staff-panel-body .purchase-doc-line>.field{display:grid;grid-template-columns:minmax(84px,32%) minmax(0,1fr);align-items:center;gap:6px;margin:0}
+.staff-panel-body .purchase-doc-line>.field>label{margin:0;font-size:11.5px;line-height:1.4}
+.staff-panel-body .purchase-doc-line>.field.purchase-doc-item{grid-template-columns:minmax(84px,32%) minmax(0,1fr) minmax(0,1.2fr)}
+/* Filter toolbars (date, shift, month…) on phones: label beside its field, like the forms. */
+@media(max-width:680px){.staff-panel-body .toolbar{display:grid;grid-template-columns:1fr;gap:8px}.staff-panel-body .toolbar>.field{display:grid;grid-template-columns:minmax(78px,32%) minmax(0,1fr);align-items:center;gap:7px;margin:0}.staff-panel-body .toolbar>.field>label{margin:0;font-size:11px}}
+.staff-panel-body .form-grid>.field.full:has(#stInvLines),.staff-panel-body .form-grid>.field.full:has(#stReqLines){display:block!important}
+.staff-panel-body .form-grid>.field.full:has(#stInvLines)>label,.staff-panel-body .form-grid>.field.full:has(#stReqLines)>label{display:block;font-weight:700;margin-bottom:6px}
+.staff-panel-body .module-link p:empty{display:none}
+/* «انعام‌های من»: all-time strip (received / settled / owed) and the selected month heading. */
+.staff-panel-body .st-tip-alltime .section-head{margin-bottom:8px}.staff-panel-body .st-tip-alltime h2{font-size:15px;margin:0}
+.staff-panel-body .st-tip-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:6px}
+.staff-panel-body .st-tip-strip>div{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border-radius:12px;background:#f8fafc;border:1px solid var(--line,#e9edf1)}
+.staff-panel-body .st-tip-strip span{font-size:11px;color:var(--muted)}.staff-panel-body .st-tip-strip b{font-size:15px;font-variant-numeric:tabular-nums}
+.staff-panel-body .st-tip-title{font-size:16px;margin:4px 2px 10px}

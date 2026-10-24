@@ -194,7 +194,7 @@ async function assetsHarness(doc,loadFails=false){
   t.api.bevSettingsFilter('');assert(rows.every(r=>r.style.display==='flex'));
  });
 
- await test('staff panel: permission gate, no counter-name fields, identity from the live personnel record per stage',async()=>{
+ await test('staff panel: permission gate, no counter or role fields (2026-10-21: roles come from whoever enters each stage), identity from the live personnel record per stage',async()=>{
   const access=p=>({enabled:true,permissions:p});
   const hr={personnel:[{id:'P1',name:'سارا',status:'فعال',username:'sara',userAccess:access({beverageControl:true})},{id:'P2',name:'نیما',status:'فعال',userAccess:access({})},{id:'P3',name:'رضا',status:'فعال',userAccess:access({beverageControl:true})}],lists:{}};
   const server={hr,pricing:{ingredients:ITEMS},inventory:{settings:{beverageControl:{itemIds:['water','coke','zir']}},changeLog:[],keepMe:{x:1}},suppliers:{},assets:{}};
@@ -203,18 +203,18 @@ async function assetsHarness(doc,loadFails=false){
    vm.runInContext(read('js/22-staff-panel.js'),c);c.RayoBeverageControl.today=()=> '1405/07/08';await c.staffInit();return{c,dom,gw,el:dom.get,R:c.RayoBeverageControl}};
   const denied=await run('P2');assert.equal(denied.c.redirect,'index.html?denied=1','staff without permission cannot open the page');
   const a=await run('P1');let html=a.el('staffView').innerHTML;
-  assert(html.includes('کنترل روزانه فروش نوشابه')&&html.includes('rbcForm')&&html.includes('rbc_nightUpper'));
-  assert(html.includes('rbc_role_morningCounter')&&html.includes('rbc_role_nightCounter')&&html.includes('rbc_role_storekeeper')&&!html.includes('stBevCM'),'the three people of the day are picked from personnel');
+  assert(html.includes('شمارش نوشیدنی‌ها')&&html.includes('rbcForm')&&html.includes('rbc_nightUpper'));
+  assert(!html.includes('rbc_role_')&&!html.includes('stBevCM'),'staff do not pick the people of the day');
   assert(html.includes('مانده مورد انتظار شب')&&html.includes('مغایرت شبانه'),'staff see the same calculated fields');
   await a.R.form.setDate('1405/07/08');await a.R.form.setItem('coke');assert.equal(a.gw.saves,0,'opening and loading the form never saves');
-  for(const [k,v] of Object.entries({morningUpper:'20',morningLower:'10',role_morningCounter:'P1',role_storekeeper:'P3'}))a.el(`rbc_${k}`).value=v;await a.R.form.save();
-  assert.deepEqual(JSON.parse(JSON.stringify(a.R.rolesOf(server.inventory.beverageDailyControls[0]))),{morningCounter:{personnelId:'P1',name:'سارا'},nightCounter:null,storekeeper:{personnelId:'P3',name:'رضا'}},'roles saved on the date record');
+  for(const [k,v] of Object.entries({morningUpper:'20',morningLower:'10'}))a.el(`rbc_${k}`).value=v;await a.R.form.save();
+  assert.deepEqual(JSON.parse(JSON.stringify(a.R.rolesOf(server.inventory.beverageDailyControls[0]))),{morningCounter:{personnelId:'P1',name:'سارا'},nightCounter:null,storekeeper:null},'the morning counter is the person who entered the morning count');
   assert.equal(a.gw.saves,1);let line=a.R.lineOf(a.R.recordOf(server.inventory,'1405/07/08'),'coke');
   assert.equal(line.morningCountedBy.personnelId,'P1');assert.equal(line.morningCountedBy.name,'سارا','name from the personnel record, not the session text');assert.equal(server.inventory.beverageDailyControls[0].source,'staff');
   const b=await run('P3');await b.R.form.setDate('1405/07/08');await b.R.form.setItem('coke');assert.equal(b.el('rbc_morningUpper').value,'20');
   for(const [k,v] of Object.entries({inflow:'10',nonSale:'2',nonSaleReason:'شکسته',sales:'16',nightUpper:'12',nightLower:'8'}))b.el(`rbc_${k}`).value=v;await b.R.form.save();
   line=b.R.lineOf(b.R.recordOf(server.inventory,'1405/07/08'),'coke');
-  assert.equal(line.morningCountedBy.personnelId,'P1','night entry keeps the morning counter');assert.equal(line.nightCountedBy.personnelId,'P3');assert.equal(line.updatedBy.personnelId,'P3');assert.equal(line.createdBy.personnelId,'P1');
+  assert.equal(line.morningCountedBy.personnelId,'P1','night entry keeps the morning counter');assert.deepEqual(JSON.parse(JSON.stringify(b.R.rolesOf(server.inventory.beverageDailyControls[0]))),{morningCounter:{personnelId:'P1',name:'سارا'},nightCounter:{personnelId:'P3',name:'رضا'},storekeeper:null},'the night counter is set automatically and the morning counter is kept');assert.equal(line.nightCountedBy.personnelId,'P3');assert.equal(line.updatedBy.personnelId,'P3');assert.equal(line.createdBy.personnelId,'P1');
   assert.equal(b.R.metrics(line).daily,2);assert.deepEqual(server.inventory.keepMe,{x:1},'unknown inventory fields kept');assert.equal(server.inventory.beverageDailyControls.length,1);
   hr.personnel[2].userAccess.permissions.beverageControl=false;await b.R.form.setItem('zir');b.el('rbc_morningUpper').value='1';b.el('rbc_morningLower').value='1';const n=b.gw.saves;await b.R.form.save();
   assert.equal(b.gw.saves,n,'permission is re-read from the server at save time');assert.equal(b.el('rbc_morningUpper').value,'1','input kept after a refused save');

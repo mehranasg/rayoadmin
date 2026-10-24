@@ -6,7 +6,7 @@
   <meta name="rayo-build" content="10.10.0">
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
   <title>ثبت گزارش صندوق رایو</title>
-  <link rel="stylesheet" href="./cash-report/css/style.css?v=10.10.0&amp;ui_lists=1&amp;num_ux=1&amp;cash_items=1&amp;dash_quick=1&amp;bev_roles=1&amp;personnel_ux=2">
+  <link rel="stylesheet" href="./cash-report/css/style.css?v=10.10.0&amp;ui_lists=1&amp;num_ux=1&amp;cash_items=1&amp;dash_quick=1&amp;bev_roles=1&amp;personnel_ux=2&amp;mob_cash=1&amp;mob_cash=1&amp;tabs_ux=1&amp;ui_2610=1">
 <link rel="stylesheet" href="./css/04-v10-9-fixes.css?v=10.10.0"><link rel="stylesheet" href="./css/06-operations-v10-9-2.css?v=10.10.0"><link rel="stylesheet" href="./css/07-central-catalog-v10-10.css?v=10.10.0"></head>
 <body>
   <div id="loading" class="loading show">در حال دریافت اطلاعات…</div>
@@ -32,36 +32,38 @@
     </header>
     <section class="container">
       <form id="cashForm" class="panel">
-        <div class="section-head">
-          <div><h2 id="formTitle">گزارش روزانه</h2><small>مبالغ را مطابق گزارش دستگاه‌ها به ریال وارد کنید.</small></div>
+        <div class="section-head cash-entry-head">
+          <div><h2 id="formTitle">گزارش روزانه</h2><small><b>همهٔ مبالغ به ریال است</b> (مطابق گزارش دستگاه‌ها).</small></div>
+          <div id="liveBalance" class="cash-live-balance" aria-live="polite"></div>
           <button type="button" id="reloadBtn" class="secondary">بروزرسانی</button>
         </div>
-        <div class="form-grid">
+        <div class="form-grid" data-pos-box>
           <label>تاریخ<input id="reportDate" placeholder="1405/05/13" required></label>
-          <label>خالص دریافتی (ریال)<input id="netReceivable" type="text" inputmode="decimal" value="0"></label>
-          <label>انعام پیک داخل صندوق (ریال)<input id="tipDelivery" type="text" inputmode="decimal" value="0"></label>
-          <label>انعام پارکبان داخل صندوق (ریال)<input id="tipValet" type="text" inputmode="decimal" value="0"></label>
-          <label>انعام سالن داخل صندوق (ریال)<input id="tipHall" type="text" inputmode="decimal" value="0"></label>
-          <label>کارتخوان ۱ (ریال)<input id="pos1" type="text" inputmode="decimal" value="0"></label>
-          <label>کارتخوان ۲ (ریال)<input id="pos2" type="text" inputmode="decimal" value="0"></label>
-          <label>کارتخوان ۳ (ریال)<input id="pos3" type="text" inputmode="decimal" value="0"></label>
-          <label>کارتخوان ۴ (ریال)<input id="pos4" type="text" inputmode="decimal" value="0"></label>
-          <label>کارتخوان ۵ (ریال)<input id="pos5" type="text" inputmode="decimal" value="0"></label>
-          <label>کارتخوان ۶ (ریال)<input id="pos6" type="text" inputmode="decimal" value="0"></label>
+          <label>خالص دریافتی<input id="netReceivable" type="text" inputmode="decimal" value="0"></label>
+          <label>انعام پیک داخل صندوق<input id="tipDelivery" type="text" inputmode="decimal" value="0"></label>
+          <label>انعام پارکبان داخل صندوق<input id="tipValet" type="text" inputmode="decimal" value="0"></label>
+          <label>انعام سالن داخل صندوق<input id="tipHall" type="text" inputmode="decimal" value="0"></label>
+          <label>کارتخوان ۱<input id="pos1" type="text" inputmode="decimal" value="0"></label>
+          <label>کارتخوان ۲<input id="pos2" type="text" inputmode="decimal" value="0"></label>
+          <label>کارتخوان ۳<input id="pos3" type="text" inputmode="decimal" value="0"></label>
+          <label data-pos-slot hidden>کارتخوان ۴<input id="pos4" type="text" inputmode="decimal" value="0"></label>
+          <label data-pos-slot hidden>کارتخوان ۵<input id="pos5" type="text" inputmode="decimal" value="0"></label>
+          <label data-pos-slot hidden>کارتخوان ۶<input id="pos6" type="text" inputmode="decimal" value="0"></label>
+          <div class="cash-pos-more"><button type="button" class="secondary cash-pos-add" onclick="RayoCashPos.add(this)">+ کارتخوان</button></div>
           <div class="full dest-split">
             <div class="dest-block"><b>کارت به کارت</b><small>هر واریز را در یک ردیف با کارت مقصد خودش ثبت کنید.</small><div id="cardItems"></div></div>
             <div class="dest-block"><b>نقدی تحویل‌شده</b><small>هر تحویل نقد را در یک ردیف با گیرندهٔ خودش ثبت کنید.</small><div id="cashItems"></div></div>
           </div>
-          <label>تعداد کل فیش سالن و مشترکین و حضوری<input id="receiptCount" type="number" min="0" value="0"></label>
-          <label>تعداد فیش سالن<input id="hallReceiptCount" type="number" min="0" value="0"></label>
-          <label>جمع فروش سالن (ریال)<input id="hallAmount" type="text" inputmode="decimal" value="0"></label>
-          <label>تعداد فیش مشترکین<input id="subscriberReceiptCount" type="number" min="0" value="0"></label>
-          <label>جمع فروش مشترکین (ریال)<input id="subscriberAmount" type="text" inputmode="decimal" value="0"></label>
-          <label>مالیات سپیدز (ریال)<input id="taxAmount" type="text" inputmode="decimal" value="0"></label>
-          <label>بدهکار سپیدز (ریال)<input id="debtorAmount" type="text" inputmode="decimal" value="0"></label>
-          <label>مبلغ اسنپ (ریال)<input id="snappAmount" type="text" inputmode="decimal" value="0"></label>
-          <label>تعداد فیش اسنپ<input id="snappReceiptCount" type="number" min="0" value="0"></label>
-          <label>جمع کرایه‌های دریافتی (ریال)<input id="deliveryFeeAmount" type="text" inputmode="decimal" value="0"></label>
+          <label>تعداد کل فیش سالن و مشترکین و حضوری<input id="receiptCount" type="number" data-money min="0" value="0"></label>
+          <label>تعداد فیش سالن<input id="hallReceiptCount" type="number" data-money min="0" value="0"></label>
+          <label>جمع فروش سالن<input id="hallAmount" type="text" inputmode="decimal" value="0"></label>
+          <label>تعداد فیش مشترکین<input id="subscriberReceiptCount" type="number" data-money min="0" value="0"></label>
+          <label>جمع فروش مشترکین<input id="subscriberAmount" type="text" inputmode="decimal" value="0"></label>
+          <label>مالیات سپیدز<input id="taxAmount" type="text" inputmode="decimal" value="0"></label>
+          <label>بدهکار سپیدز<input id="debtorAmount" type="text" inputmode="decimal" value="0"></label>
+          <label>مبلغ اسنپ<input id="snappAmount" type="text" inputmode="decimal" value="0"></label>
+          <label>تعداد فیش اسنپ<input id="snappReceiptCount" type="number" data-money min="0" value="0"></label>
+          <label>جمع کرایه‌های دریافتی<input id="deliveryFeeAmount" type="text" inputmode="decimal" value="0"></label>
           <p class="full form-note">«خالص دریافتی»، «مالیات» و «بدهکار» را عیناً از گزارش صندوق سپیدز وارد کنید؛ فروش سالن/مشترکین بدون مالیات است. بدهکار (مشترکین) بعداً تسویه می‌شود و در مغایرت صندوق اثری ندارد. «کرایه‌های دریافتی» داخل خالص دریافتی است و فقط از کل فروش کسر می‌شود. انعام فقط وقتی وارد شود که داخل کارتخوان، کارت‌به‌کارت یا نقد همین صندوق آمده باشد؛ انعام نقدی که مستقیم به پرسنل داده شده وارد نشود.</p>
           <label class="full">توضیحات روز<textarea id="notes"></textarea></label>
         </div>
@@ -77,8 +79,8 @@
       </form>
     </section>
   </main>
-  <script src="./js/app-config.js?v=10.10.0"></script>
-  <script src="./js/config.js?v=10.10.0&amp;cash_custody=1&amp;num_ux=1&amp;cash_items=1&amp;bev_v2=1&amp;bev_roles=1&amp;sepidz_sales=1"></script>
-  <script src="./cash-report/js/app.js?v=10.10.0&amp;cash_custody=1&amp;cash_items=1&amp;sepidz_sales=1"></script>
-<script src="./js/13-jalali-picker.js?v=10.10.0&amp;ui_lists=1"></script><script src="./js/31-error-log-client-v9-8-0.js?v=10.10.0"></script><script src="./js/35-operational-closeout-v10-2.js?v=10.10.0&amp;num_ux=1&amp;cash_items=1&amp;merge_1405_07=1"></script><script src="./js/37-requested-fixes-v10-4.js?v=10.10.0&amp;settings_split=1&amp;merge_1405_07=1"></script></body>
+  <script src="./js/app-config.js?v=10.10.0&amp;mob_cash=1"></script>
+  <script src="./js/config.js?v=10.10.0&amp;cash_custody=1&amp;num_ux=1&amp;cash_items=1&amp;bev_v2=1&amp;bev_roles=1&amp;sepidz_sales=1&amp;mob_cash=1&amp;staff_2610b=1"></script>
+  <script src="./cash-report/js/app.js?v=10.10.0&amp;cash_custody=1&amp;cash_items=1&amp;sepidz_sales=1&amp;mob_cash=1&amp;ui_2610=1"></script>
+<script src="./js/13-jalali-picker.js?v=10.10.0&amp;ui_lists=1"></script><script src="./js/31-error-log-client-v9-8-0.js?v=10.10.0&amp;mob_cash=1"></script><script src="./js/35-operational-closeout-v10-2.js?v=10.10.0&amp;num_ux=1&amp;cash_items=1&amp;merge_1405_07=1&amp;ui_2610=1&amp;num_grp=1"></script><script src="./js/37-requested-fixes-v10-4.js?v=10.10.0&amp;settings_split=1&amp;merge_1405_07=1"></script></body>
 </html>

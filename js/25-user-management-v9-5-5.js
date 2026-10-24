@@ -4,7 +4,7 @@ const A=x=>Array.isArray(x)?x:[];
 const S=x=>String(x??'').trim();
 const E=s=>typeof esc==='function'?esc(s):String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DEFAULT_PERMISSIONS={cashReport:false,purchaseRequests:false,purchaseInvoices:false,tips:false,surveys:false,suppliersView:false,inventoryWaste:false,inventoryTransfers:false,inventoryCounts:false,inventoryConsumption:false,reservations:false,beverageControl:false};
-const LABELS={cashReport:'گزارش صندوق',purchaseRequests:'سفارش خرید',purchaseInvoices:'فاکتور خرید',tips:'انعام',surveys:'نظرسنجی',suppliersView:'مشاهده تأمین‌کنندگان',inventoryWaste:'ثبت ضایعات/پرتی',inventoryTransfers:'انتقال موجودی',inventoryCounts:'شمارش موجودی',inventoryConsumption:'ثبت مصرف مجاز',reservations:'ثبت رزرو و بیعانه',beverageControl:'فرم روزانه نوشیدنی'};
+const LABELS={cashReport:'گزارش صندوق',purchaseRequests:'سفارش خرید',purchaseInvoices:'فاکتور خرید',tips:'انعام',surveys:'نظرسنجی',suppliersView:'مشاهده تأمین‌کنندگان',inventoryWaste:'ثبت ضایعات/پرتی',inventoryTransfers:'انتقال موجودی',inventoryCounts:'شمارش موجودی',inventoryConsumption:'ثبت مصرف مجاز',reservations:'ثبت رزرو و بیعانه',beverageControl:'شمارش نوشیدنی‌ها'};
 const ui={search:'',employmentStatus:'فعال',accessStatus:''};
 function people(){return A(state?.personnel)}
 function activePersonnel(p){return S(p?.status)==='فعال'}
@@ -53,7 +53,7 @@ function openEditor(id){
       <label class="um-permission-option"><input type="checkbox" data-um-perm="surveys" ${pm.surveys?'checked':''}><span>ثبت نظرسنجی مشتری</span></label><label class="um-permission-option"><input type="checkbox" data-um-perm="suppliersView" ${pm.suppliersView?'checked':''}><span>مشاهده اطلاعات تأمین‌کنندگان</span></label>
       <label class="um-permission-option"><input type="checkbox" data-um-perm="inventoryWaste" ${pm.inventoryWaste?'checked':''}><span>ثبت ضایعات/پرتی مواد</span></label>
       <label class="um-permission-option"><input type="checkbox" data-um-perm="inventoryConsumption" ${pm.inventoryConsumption?'checked':''}><span>ثبت مصرف مجاز/پرسنلی</span></label>
-      <label class="um-permission-option"><input type="checkbox" data-um-perm="inventoryCounts" ${pm.inventoryCounts?'checked':''}><span>ثبت شمارش موجودی</span></label><label class="um-permission-option"><input type="checkbox" data-um-perm="beverageControl" ${pm.beverageControl?'checked':''}><span>ثبت فرم روزانه نوشیدنی</span></label>
+      <label class="um-permission-option"><input type="checkbox" data-um-perm="inventoryCounts" ${pm.inventoryCounts?'checked':''}><span>ثبت شمارش موجودی</span></label><label class="um-permission-option"><input type="checkbox" data-um-perm="beverageControl" ${pm.beverageControl?'checked':''}><span>شمارش نوشیدنی‌ها</span></label>
       <label class="um-permission-option"><input type="checkbox" data-um-perm="reservations" ${pm.reservations?'checked':''}><span>ثبت رزرو و بیعانه (صندوقدار)</span></label>
     </div></div>
   </div>${!isActive?'<div class="hint" style="margin-top:12px">این پرسنل غیرفعال است؛ حتی با نام کاربری و رمز صحیح امکان ورود به پنل را ندارد.</div>':'<div class="hint" style="margin-top:12px">برای ورود، هم وضعیت همکاری پرسنل و هم دسترسی پنل باید فعال باشد.</div>'}`;

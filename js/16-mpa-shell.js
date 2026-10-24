@@ -1,11 +1,11 @@
 (()=>{
 const file=(location.pathname.split('/').pop()||'index.html').toLowerCase();const internal=file!=='index.html'&&file!=='';if(internal&&!sessionStorage.getItem('rayo_admin_user')){location.replace('index.html?next='+encodeURIComponent(file+location.search));return}
-const routes={dashboard:'index.html',suppliers:'suppliers.html',pricing:'pricing.html',inventory:'inventory.html',reports:'reports.html',cashReport:'cash-report-admin.html',assets:'assets.html',finance:'finance.html',survey:'survey.html',sepidsAudit:'sepids-audit.html'};
-const settingsViews=new Set(['dataManagement','settings','softwareSettings','violationSettings','changelog','errorLog']);
+const routes={dashboard:'index.html',monitor:'index.html?view=monitor',suppliers:'suppliers.html',pricing:'pricing.html',inventory:'inventory.html',reports:'reports.html',cashReport:'cash-report-admin.html',assets:'assets.html',finance:'finance.html',survey:'survey.html',sepidsAudit:'sepids-audit.html'};
+const settingsViews=new Set(['dataManagement','settings','softwareSettings','violationSettings','changelog','errorLog','adminUsers']);
 const requestedView=new URLSearchParams(location.search).get('view');
 if(file==='personnel.html'&&settingsViews.has(requestedView)){location.replace('settings.html'+location.search);return}
-const hrViews=new Set(['personnel','userManagement','personnelProfile','personnelReports','leaveRequests','protocols','checklistTemplates','checklistReports','violationSettings','staffingNeeds','staffingCapacity','staffingMap','annualCalendar','monthlyShiftPlan','shiftPlan','shiftHistory','shiftReport','payroll','payslip','tips','penalties','delays','payments','consumption','leaves','salaryCalculator','salaryReverse','salaryPersonnel','salaryRates','salarySettings','costForecast','dataManagement','settings','changelog','errorLog','dailyMessage','violations','advanceRequests','reservations']);
-function destination(v){if(settingsViews.has(v))return file==='settings.html'?'':'settings.html?view='+encodeURIComponent(v);if(routes[v])return routes[v];if(hrViews.has(v)&&file!=='personnel.html')return 'personnel.html?view='+encodeURIComponent(v);return ''}
+const hrViews=new Set(['personnel','userManagement','personnelProfile','personnelReports','leaveRequests','protocols','checklistTemplates','checklistReports','violationSettings','staffingNeeds','staffingCapacity','staffingMap','annualCalendar','monthlyShiftPlan','shiftPlan','shiftHistory','shiftReport','payroll','payslip','tips','penalties','delays','payments','consumption','leaves','salaryCalculator','salaryReverse','salaryPersonnel','salaryRates','salarySettings','costForecast','dataManagement','settings','changelog','errorLog','dailyMessage','violations','advanceRequests','reservations','attendanceCorrections']);
+function destination(v){if(v==='monitor'&&(file==='index.html'||file==='')&&requestedView==='monitor')return '';if(settingsViews.has(v))return file==='settings.html'?'':'settings.html?view='+encodeURIComponent(v);if(routes[v])return routes[v];if(hrViews.has(v)&&file!=='personnel.html')return 'personnel.html?view='+encodeURIComponent(v);return ''}
 document.addEventListener('click',e=>{const b=e.target.closest('.nav-btn[data-view]');if(!b)return;const href=destination(b.dataset.view);if(href){e.preventDefault();e.stopImmediatePropagation();location.href=href}},true);
 const originalGoView=window.goView;
 window.goView=function(v){const href=destination(v);if(href){location.href=href;return}return originalGoView.apply(this,arguments)};
@@ -13,7 +13,7 @@ function addCards(){if(typeof views==='undefined')return;const old=views.dashboa
 function selectView(){
   const map={'personnel.html':'personnel','suppliers.html':'suppliers','pricing.html':'pricing','menu-management.html':'pricing','base-data.html':'pricing','inventory.html':'inventory','reports.html':'reports','cash-report-admin.html':'cashReport','assets.html':'assets','finance.html':'finance','survey.html':'survey','sepids-audit.html':'sepidsAudit'};
   const q=new URLSearchParams(location.search).get('view');
-  currentView=file==='settings.html'?(settingsViews.has(q)?q:'softwareSettings'):file==='personnel.html'&&q&&hrViews.has(q)?q:(map[file]||'dashboard');
+  currentView=file==='settings.html'?(settingsViews.has(q)?q:'softwareSettings'):file==='personnel.html'&&q&&hrViews.has(q)?q:(file==='index.html'||file==='')&&q==='monitor'?'monitor':(map[file]||'dashboard');
   if(currentView==='dashboard')addCards();
 }
 // Select the route while scripts are loading; the base renderer opens it once ready.

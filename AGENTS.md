@@ -26,7 +26,7 @@
 - `category` and `itemType` are independent concepts.
 - Inventory is single-warehouse: `RayoInventoryV10.unifiedMode()` always returns true and internal transfers are not recorded. Each item continues from its own latest whole count unless its control level is «دقیق» (PRECISE).
 - Keep historical names, codes, prices and recipe data as snapshots or versions.
-- Preserve the current 8-tab inventory structure (stock, receipt, sales, waste, count & variance, daily beverage control, reorder, settings) unless the product owner explicitly requests a change. The issue and periodic-variance tabs were removed at the owner's request (single warehouse).
+- Preserve the current 9-tab inventory structure (stock, receipt, sales, waste, count & variance, daily beverage control, reorder, reports, settings) unless the product owner explicitly requests a change. The issue and periodic-variance tabs were removed at the owner's request (single warehouse).
 
 ## Working rules
 

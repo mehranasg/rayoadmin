@@ -412,7 +412,9 @@ async function mutateRecord(options={}){
   const moduleKey=frontendModuleName(options.module),module=backendModuleName(moduleKey),collection=String(options.collection||'').trim(),operation=String(options.operation||'').trim();
   if(!collection)throw new RayoApiError({code:'invalid_collection',message:'نام Collection برای Mutate الزامی است.'});
   if(!['insert','update','upsert','archive'].includes(operation))throw new RayoApiError({code:'invalid_operation',message:'عملیات Mutate معتبر نیست.'});
-  const expectedVersion=options.expectedVersion===undefined?moduleVersion(module):Number(options.expectedVersion);
+  let expectedVersion=options.expectedVersion===undefined?moduleVersion(module):Number(options.expectedVersion);
+  /* Pages that only Load (e.g. the staff cash report) may have no version yet when Load carries none: a one-row Query supplies it. */
+  if(options.expectedVersion===undefined&&!(Number.isFinite(expectedVersion)&&expectedVersion>=0)){try{await queryCollection({module:moduleKey,collection,page:1,pageSize:1,signal:options.signal});expectedVersion=moduleVersion(module)}catch(_){}}
   if(!Number.isFinite(expectedVersion)||expectedVersion<0)throw new RayoApiError({code:'version_unavailable',message:`نسخه ماژول ${module} در حافظه موجود نیست؛ ابتدا Query یا Load معتبر انجام دهید.`});
   const request={module,collection,operation,recordId:String(options.recordId||''),idField:String(options.idField||'id'),expectedVersion,requestId:String(options.requestId||requestId()),data:isObject(options.data)?options.data:{}};
   try{const response=await fetchTimeout(MUTATE_URL,{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8','Accept':'application/json'},body:JSON.stringify(request),signal:options.signal});const payload=await responsePayload(response,MUTATE_URL,'POST'),result=responseObject(payload,'version');rememberModuleVersion(module,ciGet(result,'version')??ciGet(payload,'version'));setModuleStatus(moduleKey,'ready');return result}catch(error){if(error instanceof RayoApiError&&error.status===409){error.code='version_conflict';error.name='RayoVersionConflictError';setModuleStatus(moduleKey,'conflict',error)}throw error}
@@ -616,6 +618,14 @@ dom.addEventListener('keydown',e=>{
 });
 window.RayoCashDestinations.itemsOf=itemsOf;window.RayoCashDestinations.applyItems=applyItems;
 window.RayoCashItemsUI={html,read,refresh,refreshOptions,setRefs(refs){editorRefs=refs||{}}};
+/* Card readers (pos1…pos6): three are shown by default; readers 4–6 appear when they hold an amount or the user adds one.
+   Every form keeps all six inputs in the DOM (hidden ones stay 0), so reading and saving are unchanged. */
+window.RayoCashPos={
+  MAX:6,DEFAULT:3,
+  shown(index,value){return index<=3||Math.abs(cashAmount(value).value||0)>0},
+  addButton(){return '<button type="button" class="btn btn-sm cash-pos-add" onclick="RayoCashPos.add(this)">+ کارتخوان</button>'},
+  add(btn){const box=btn.closest('[data-pos-box]'),next=box?.querySelector('[data-pos-slot][hidden]');if(next){next.hidden=false;next.querySelector('input')?.focus()}if(!box?.querySelector('[data-pos-slot][hidden]'))btn.hidden=true}
+};
 })();
 // Daily soft-drink control (inventory.beverageDailyControls). One live record per date, one line per beverage
 // (ingredientId from pricing.ingredients via settings.beverageControl.itemIds). Shared by the admin desktop table,
@@ -730,7 +740,7 @@ function html(config){cfg=config||{};css();const t=today();st.date=normDate(cfg.
  <fieldset id="rbcSel" class="rbc-sel"><div class="field"><label for="rbcDate">تاریخ *</label><input id="rbcDate" data-jalali="1" inputmode="numeric" value="${E(st.date)}" onchange="RayoBeverageControl.form.setDate(this.value)"></div><div><span class="rbc-label" id="rbcItemLabel">نوشیدنی *</span><div id="rbcItem" class="rbc-items" role="group" aria-labelledby="rbcItemLabel">${itemsHtml()}</div></div></fieldset>
  <p id="rbcStatus" class="rbc-status" role="status" aria-live="polite">${items.length?'نوشیدنی را انتخاب کنید.':'هنوز نوشیدنی برای کنترل روزانه تعیین نشده است.'}</p>
  <fieldset id="rbcFields" class="rbc-fields" disabled>
- <section class="rbc-box"><h3>افراد این روز</h3><div class="rbc-roles">${ROLES.map(([k,l,h])=>`<label class="rbc-in">${E(l)}<select id="rbc_role_${k}" onchange="RayoBeverageControl.form.recalc()">${peopleOptions(null)}</select><small>${E(h)}</small></label>`).join('')}</div><small class="rbc-by">برای همهٔ نوشیدنی‌های این تاریخ مشترک است. شمارش صبح فردا باید با تحویل انباردار امشب برابر باشد؛ اختلاف، مغایرت شبانه است.</small></section>
+ ${cfg.autoRoles?'<p class="rbc-by">نام شما برای مرحله‌ای که وارد می‌کنید (شمارش صبح یا شب) خودکار ثبت می‌شود.</p>':`<section class="rbc-box"><h3>افراد این روز</h3><div class="rbc-roles">${ROLES.map(([k,l,h])=>`<label class="rbc-in">${E(l)}<select id="rbc_role_${k}" onchange="RayoBeverageControl.form.recalc()">${peopleOptions(null)}</select><small>${E(h)}</small></label>`).join('')}</div><small class="rbc-by">برای همهٔ نوشیدنی‌های این تاریخ مشترک است. شمارش صبح فردا باید با تحویل انباردار امشب برابر باشد؛ اختلاف، مغایرت شبانه است.</small></section>`}
  <section class="rbc-box"><h3>شمارش صبح</h3><div class="rbc-pair">${input('morningUpper','بالا')}${input('morningLower','پایین')}</div><small id="rbcMorningBy" class="rbc-by"></small></section>
  <section class="rbc-box"><h3>گردش روز</h3><div class="rbc-pair">${input('inflow','ورودی روز','مجموع شارژ هر دو یخچال')}${input('nonSale','خروج غیر فروش','پرسنلی، مهمان، شکسته…')}</div></section>
  <section class="rbc-box"><h3>مانده شب</h3><div class="rbc-pair">${input('nightUpper','بالا')}${input('nightLower','پایین')}</div><small id="rbcNightBy" class="rbc-by"></small></section>
@@ -766,11 +776,13 @@ function setItem(id){if(st.saving)return;st.itemId=S(id);refreshItems();if(st.it
 async function save(){if(st.saving||st.loading)return;if(!st.itemId)return cfg.toast?.('نوشیدنی را انتخاب کنید',true);if(st.baseline===null)return cfg.toast?.('اطلاعات این نوشیدنی هنوز بارگذاری نشده است',true);if(st.blocked)return cfg.toast?.(st.blocked,true);
  const item=itemOf(st.itemId);if(!item)return cfg.toast?.('این نوشیدنی در فهرست کنترل نیست',true);
  const {values:vals,errors}=readForm();if(errors.length){status(errors.join('؛ '),'error');return cfg.toast?.(errors[0],true)}
- const roles=readRoles(),lineChanged=changedFields(st.line,vals).length>0;
+ let roles=readRoles();const lineChanged=changedFields(st.line,vals).length>0;
  if(!lineChanged&&!roles)return cfg.toast?.(st.existing?'تغییری برای ذخیره وجود ندارد':'حداقل یک مقدار وارد کنید',true);
  const date=st.date,itemId=st.itemId;st.saving=true;lock(true);
  try{if(st.existing&&lineChanged&&!await (cfg.confirm||(m=>window.confirm(m)))(EDIT_CONFIRM))return status('ذخیره لغو شد؛ مقادیر فرم حفظ شده است.','warn');
   status('در حال ذخیره…');const who=await cfg.actor(),doc=await cfg.load(),at=new Date().toISOString(),requestId=window.RAYO_API_GATEWAY?.createRequestId?.()||String(Date.now());
+  /* autoRoles (staff panel): whoever enters the morning / night count becomes that day's morning / night counter. */
+  if(cfg.autoRoles&&who?.personnelId){const ch=changedFields(st.line,vals),self={personnelId:who.personnelId,name:who.name},auto={};if(ch.some(f=>f.startsWith('morning'))&&S(st.roles?.morningCounter?.personnelId)!==self.personnelId)auto.morningCounter=self;if(ch.some(f=>f.startsWith('night'))&&S(st.roles?.nightCounter?.personnelId)!==self.personnelId)auto.nightCounter=self;if(Object.keys(auto).length)roles={...(roles||{}),...auto}}
   const r=applyEdit(doc,{date,item,values:vals,actor:who,at,baseline:st.baseline,recordId:`BEV-${requestId}`,roles}),ok=c=>(!lineChanged||savedMatches(c,date,itemId,vals))&&(!roles||rolesMatch(c,date,roles));
   if(r.changed){let checked=null;try{checked=await cfg.save(doc)}catch(e){if(!UNKNOWN_SAVE.includes(S(e?.code)))throw e;checked=await cfg.load().catch(()=>null);if(!checked||!ok(checked))throw e}
    if(!checked)checked=await cfg.load();if(!ok(checked))throw new Error('ذخیره روی سرور تأیید نشد؛ مقادیر فرم حفظ شد. دوباره تلاش کنید.');st.doc=checked;cfg.onSaved?.(checked)}

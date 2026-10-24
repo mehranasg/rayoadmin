@@ -56,7 +56,8 @@ function retry(key){RETRY[key]?.()}
 
 function nav(){
   const s=currentSection();
-  return `<div class="card sw-settings-nav"><div class="field" style="margin:0"><label for="swSectionSelect">بخش تنظیمات</label><select id="swSectionSelect" onchange="SoftwareSettingsHub.goSection(this.value)">${SECTIONS.map(([k,l])=>`<option value="${k}" ${k===s?'selected':''}>${E(l)}</option>`).join('')}</select></div></div>`;
+  /* section tabs, same pill style as the page tabs of the other parts */
+  return `<div class="card sw-settings-nav" role="tablist" aria-label="بخش تنظیمات"><div class="tabs-inline">${SECTIONS.map(([k,l])=>`<button type="button" role="tab" aria-selected="${k===s}" class="tab-pill${k===s?' active':''}" onclick="SoftwareSettingsHub.goSection('${k}')">${E(l)}</button>`).join('')}</div></div>`;
 }
 
 // `views` is a top-level binding of 00-base.js, not a window property.

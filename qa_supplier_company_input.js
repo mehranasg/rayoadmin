@@ -10,7 +10,7 @@ async function run(){
   socket.onmessage=event=>{const msg=JSON.parse(event.data);if(msg.id&&pending.has(msg.id)){const {resolve,reject}=pending.get(msg.id);pending.delete(msg.id);msg.error?reject(new Error(msg.error.message)):resolve(msg.result)}};
   const call=(method,params={})=>new Promise((resolve,reject)=>{const callId=++id;pending.set(callId,{resolve,reject});socket.send(JSON.stringify({id:callId,method,params}))});
   const evaluate=async expression=>{const result=await call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw new Error(result.exceptionDetails.text);return result.result.value};
-  await evaluate(`sessionStorage.setItem('rayo_admin_user','qa-admin')`);
+  await evaluate(`sessionStorage.setItem('rayo_admin_user','qa-admin');sessionStorage.setItem('rayo_admin_role','owner')`);
   await call('Page.navigate',{url:'http://127.0.0.1:8765/suppliers.html'});
   await new Promise(resolve=>setTimeout(resolve,1800));
   await evaluate(`window.supEnsureLoaded=async()=>window.getSupplierState();window.supSaveData=async()=>({ok:true});editSupplierAdmin()`);

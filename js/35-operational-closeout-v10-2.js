@@ -51,7 +51,8 @@ function showNum(v,kind){if(kind!=='amount')return enToFa(faToEn(String(v??'')))
 const NUM_SIG=/[0-9۰-۹٠-٩.٫\-]/;
 function numLabel(inp){const f=inp.closest('.field')||inp.closest('label')||inp.parentElement;return S(inp.labels?.[0]?.textContent||f?.querySelector?.('label')?.textContent||(f?.tagName==='LABEL'?f.textContent:'')||inp.getAttribute('aria-label')||inp.placeholder||'')}
 const NUM_MONEY_LABEL=/تومان|ریال|مبلغ|قیمت/;
-const NUM_DIGITS_LABEL=/تاریخ|سال|ماه|روز|ساعت|زمان|کد|شماره|تلفن|موبایل|همراه|کارت|شبا|پلاک|ملی|پستی|رمز/;
+/* «کارت» alone means a card number; «کارتخوان» (card reader) and «کارت به کارت» are amounts. */
+const NUM_DIGITS_LABEL=/تاریخ|سال(?!ن)|ماه|روز|ساعت|زمان|کد|شماره|تلفن|موبایل|همراه|(?<!به[\s‌]*)کارت(?![\s\u200c]*خوان|[\s\u200c]*به[\s\u200c]*کارت)|شبا|پلاک|ملی|پستی|رمز/;
 const NUM_TEXT_LABEL=/شرح|توضیح|روش|نام|عنوان|نوع|وضعیت|محل|علت|دلیل|یادداشت|آدرس/;
 function numKind(inp){
  if(!(inp instanceof HTMLInputElement))return'';if(inp.__faNum)return inp.__faNum;
@@ -60,6 +61,8 @@ function numKind(inp){
  const label=numLabel(inp),key=`${inp.id} ${inp.name}`.toLowerCase(),current=S(NATIVE_VALUE.get.call(inp));
  if(inp.dataset.jalali==='1'||inp.classList.contains('jalali-input')||type==='tel')return'digits';
  const hinted=type==='number'||/^(numeric|decimal)$/.test(S(inp.getAttribute('inputmode')))||inp.matches('[data-money],[data-v102-money],[data-raw-number]');
+ /* inputmode="decimal" / data-money are only put on amount fields: group them whatever their label says. */
+ if(S(inp.getAttribute('inputmode'))==='decimal'||inp.matches('[data-money],[data-v102-money]'))return /\d[\/:]\d/.test(faToEn(current))?'digits':'amount';
  if(hinted){if(/\d[\/:]\d/.test(faToEn(current)))return'digits';if(!NUM_MONEY_LABEL.test(label)&&(NUM_DIGITS_LABEL.test(label)||/date|year|month|day|phone|mobile|tel|code|time/.test(key)))return'digits';return'amount'}
  if(NUM_MONEY_LABEL.test(label)&&!NUM_TEXT_LABEL.test(label)&&!NUM_DIGITS_LABEL.test(label)&&/^[\d۰-۹٠-٩٬,،.٫\s-]*$/.test(current))return'amount';
  return'';
@@ -83,7 +86,7 @@ document.addEventListener('input',e=>{const el=e.target;if(!el?.__faNum)return;e
 // puts it back, so nothing is lost. Typing and then deleting everything leaves the field empty on purpose.
 // Digit-only fields (dates, codes, phone numbers) keep their text and only get it selected.
 let numSelectOnce=null;
-document.addEventListener('focusin',e=>{const el=e.target;if(!el?.__faNum||el.readOnly||el.disabled)return;const shown=NATIVE_VALUE.get.call(el);if(shown==='')return;if(el.__faNum==='amount'){el.__faHold=shown;NATIVE_VALUE.set.call(el,'');return}numSelectOnce=el;setTimeout(()=>{if(document.activeElement===el)try{el.setSelectionRange(0,NATIVE_VALUE.get.call(el).length)}catch(_){try{el.select()}catch(__){}}},0);setTimeout(()=>{if(numSelectOnce===el)numSelectOnce=null},600)});
+document.addEventListener('focusin',e=>{const el=e.target;if(!el?.__faNum||el.readOnly||el.disabled||window.__rayoRestoringFocus)return;const shown=NATIVE_VALUE.get.call(el);if(shown==='')return;if(el.__faNum==='amount'){el.__faHold=shown;NATIVE_VALUE.set.call(el,'');return}numSelectOnce=el;setTimeout(()=>{if(document.activeElement===el)try{el.setSelectionRange(0,NATIVE_VALUE.get.call(el).length)}catch(_){try{el.select()}catch(__){}}},0);setTimeout(()=>{if(numSelectOnce===el)numSelectOnce=null},600)});
 document.addEventListener('mouseup',e=>{if(numSelectOnce&&e.target===numSelectOnce){numSelectOnce=null;e.preventDefault()}},true);
 document.addEventListener('focusout',e=>{const el=e.target;if(!el?.__faNum||el.__faHold==null)return;if(NATIVE_VALUE.get.call(el)==='')NATIVE_VALUE.set.call(el,el.__faHold);el.__faHold=null});
 document.addEventListener('reset',e=>setTimeout(()=>e.target?.querySelectorAll?.('input').forEach(i=>{if(i.__faNum)i.value=NATIVE_VALUE.get.call(i)}),0));
@@ -97,6 +100,15 @@ function faDigitsIn(root){if(!root)return;if(root.nodeType===3)return faTextNode
 function installFaDigits(){if(window.RAYO_FA_DIGITS_DISABLED||typeof MutationObserver==='undefined'||!document.body||!NATIVE_VALUE)return;faDigitsIn(document.body);scanNumericInputs(document);new MutationObserver(ms=>{for(const m of ms){if(m.type==='characterData'){faTextNode(m.target);continue}m.addedNodes.forEach(n=>{faDigitsIn(n);if(n.nodeType===1)scanNumericInputs(n)})}}).observe(document.body,{childList:true,subtree:true,characterData:true})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installFaDigits);else installFaDigits();
 window.RayoNumberUX={toEn:faToEn,toFa:enToFa,format:showNum,raw:rawNum,scan:scanNumericInputs};
+// ---------- Typing survives re-renders ----------
+// A field whose input/change handler re-renders the page (search boxes, filters) keeps focus and caret: the focused
+// field is identified before the rebuild (id, data-live-filter, or label/placeholder and position) and focused again
+// afterwards, so typing continues without clicking the field again. Used by admin renderView (00) and the staff panel render (22).
+function shownValue(el){return String((el.tagName==='TEXTAREA'?Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value'):NATIVE_VALUE).get.call(el))}
+function focusSig(el){const f=el.closest('.field,label'),lab=(el.labels?.[0]||f?.querySelector?.('label'))?.textContent||'';return [el.tagName,el.getAttribute('type')||'',el.name||'',el.getAttribute('placeholder')||'',el.getAttribute('aria-label')||'',S(lab)].join('|')}
+function focusSnapshot(root){const el=document.activeElement;if(!el||!root||!NATIVE_VALUE||!root.contains(el)||!el.matches('input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]),textarea'))return null;const sig=focusSig(el),same=[...root.querySelectorAll(el.tagName)].filter(x=>focusSig(x)===sig);let start=null,end=null;try{start=el.selectionStart;end=el.selectionEnd}catch(_){}return {id:el.id,live:el.dataset.liveFilter||'',sig,index:same.indexOf(el),start,end,atEnd:end!=null&&end===shownValue(el).length}}
+function focusRestore(root,s){if(!s||!root)return;let next=s.id?document.getElementById(s.id):null;if(next&&!root.contains(next))next=null;if(!next&&s.live)next=root.querySelector(`[data-live-filter="${CSS.escape(s.live)}"]`);if(!next){const same=[...root.querySelectorAll(s.sig.split('|')[0])].filter(x=>focusSig(x)===s.sig);next=same[s.index]||(same.length===1?same[0]:null)}if(!next||next.disabled||document.activeElement===next)return;window.__rayoRestoringFocus=true;try{next.focus({preventScroll:true})}finally{window.__rayoRestoringFocus=false}const caret=()=>{if(document.activeElement!==next||s.start==null)return;try{const len=shownValue(next).length;if(s.atEnd)next.setSelectionRange(len,len);else next.setSelectionRange(Math.min(s.start,len),Math.min(s.end,len))}catch(_){}};caret();setTimeout(caret,0)}
+window.RayoFocusKeeper={snapshot:focusSnapshot,restore:focusRestore};
 
 // ---------- Duplicate import buttons/ids and general post-render cleanup ----------
 function dedupeImports(){const seen=new Set;document.querySelectorAll('#view button,#view a.btn').forEach(b=>{const t=S(b.textContent).replace(/\s+/g,' ');if(!/ورود.*(excel|اکسل)/i.test(t))return;const key=t.toLowerCase();if(seen.has(key))b.remove();else seen.add(key)});const ids=new Set;document.querySelectorAll('#view [id],#modalBody [id]').forEach(x=>{if(ids.has(x.id))x.remove();else ids.add(x.id)})}

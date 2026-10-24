@@ -4,7 +4,7 @@
 
 ## ۱. معماری، پوشه و وابستگی
 
-برنامه MPA، classic script، DOM مستقیم و state سراسری است. npm/package.json، bundler، React، TypeScript، OpenAPI یا پروژهٔ Backend قابل Build در checkout وجود ندارد. ۴۱ HTML (۱۸ در ریشه، ۲۳ در `personel/`) و ۵۱ فایل در `js/` (00 تا 48 به‌علاوهٔ `app-config.js` و `config.js`؛ شمارهٔ 39 بدون شکاف تا 48) به‌علاوهٔ `cash-report/js/app.js` وجود دارند. ترتیب script و overrideها بخشی از قرارداد Runtime است.
+برنامه MPA، classic script، DOM مستقیم و state سراسری است. npm/package.json، bundler، React، TypeScript، OpenAPI یا پروژهٔ Backend قابل Build در checkout وجود ندارد. ۴۱ HTML (۱۸ در ریشه، ۲۳ در `personel/`) و ۵۲ فایل در `js/` (00 تا 49 به‌علاوهٔ `app-config.js` و `config.js`؛ بدون شکاف تا 49) به‌علاوهٔ `cash-report/js/app.js` وجود دارند. ترتیب script و overrideها بخشی از قرارداد Runtime است.
 
 | مسیر | نقش |
 |---|---|
@@ -67,9 +67,13 @@
 | اموال | 12، 19، 30 | assets | Load/Save |
 | نظرسنجی | 21 و 22 | survey | Load/Save |
 | آموزش/چک‌لیست | 29 و 22 | HR extensions | Load/Save |
+| حفظ فوکوس هنگام تایپ (سراسری) | 35 (`RayoFocusKeeper`)؛ فراخوانی در `renderView` فایل 00 و `render` فایل 22 | — | فیلد فعال قبل از بازسازی صفحه (id، `data-live-filter` یا برچسب/placeholder و ترتیب) شناسایی و پس از آن با همان مکان‌نما فوکوس می‌شود؛ هر جست‌وجو/فیلتری که با تایپ صفحه را دوباره رسم کند پیوسته تایپ می‌شود |
+| کاربران مدیریت | 44 (`RayoAdminAccess`، view `adminUsers` در settings)، 00 (`loginV5`)، 16 | hr.settings.adminUsers | ورود ثابت = مالک؛ کاربر تعریف‌شده فقط بخش‌های مجاز منو را می‌بیند و صفحهٔ دیگر «دسترسی ندارید» نشان می‌دهد؛ ذخیره با `commit` (Save کامل HR با guard)؛ کنترل سمت مرورگر |
+| پنل مانیتورینگ | 49 (`views.monitor`، `RayoMonitor`)؛ منابع: 20 (`RayoFinanceLedger.load/summary/monthCalc`)، 32 (`RayoInventoryV10.ensure`, `wasteEstimate`)، 40 (`RayoReorder`)، 12 (`getAssetsValuation`)، 00 (`monthMetrics`) | خواندنی: finance، cashreport، inventory، pricing، assets، hr | `index.html?view=monitor`؛ هیچ Save یا Initialize |
+| گزارش‌های انبار | 46 (تب `reports`: `repSet`, `repPreset`, `repExport`) و helperهای خواندنی 32 | inventory + pricing (+ HR برای نام افراد) | فقط خواندنی؛ CSV و Markdown برای AI |
 | تنظیمات | 16، 17، 38، 39، 44، 48؛ `SoftwareSettingsHub`, `RayoBackup.downloadAll` | HR settings؛ هاب: کارت‌های ماژول مالک (pricing, inventory, suppliers, finance, cashreport, assets)؛ همه ماژول‌ها در Backup/Reset | خواندن کامل؛ ذخیره با دکمهٔ همان ماژول؛ [ضمیمه](SETTINGS_SEPARATION_AND_TABLE_RESET.md) |
-| ورود اعداد (سراسری) | 35 (`RayoNumberUX`) | — | نمایش ارقام فارسی و جداکنندهٔ سه‌رقمی؛ `value` خام انگلیسی؛ کلیک روی فیلد مبلغ آن را خالی و ترک بدون تایپ مقدار را برمی‌گرداند |
-| خطا | 31؛ `RayoErrorLog.capture` | errorlog.entries | Load/Save با استثنای guard |
+| ورود اعداد (سراسری) | 35 (`RayoNumberUX`) | — | `inputmode="decimal"`/`data-money` همیشه مبلغ است و «کارتخوان»/«کارت به کارت» برخلاف «کارت» (شماره کارت) مبلغ تشخیص داده می‌شوند؛ نمایش ارقام فارسی و جداکنندهٔ سه‌رقمی؛ `value` خام انگلیسی؛ کلیک روی فیلد مبلغ آن را خالی و ترک بدون تایپ مقدار را برمی‌گرداند |
+| خطا | 30 (صفحه‌های مدیریت) و 31 (پنل پرسنل/صندوقدار)؛ `RayoErrorLog.capture`؛ صف حافظهٔ 17 فقط وقتی هیچ‌کدام نصب نشده | errorlog.entries | ذخیره = Load تازه + افزودن ورودی‌های ذخیره‌نشده (بدون بازنویسی ورودی صفحه‌های دیگر) |
 
 ## ۴. قرارداد و Backend موجود
 
@@ -120,7 +124,7 @@ node qa_v10_12_1.js
 | افت/منو/قیمت | `qa_standard_preparation_loss.js`, `qa_prepared_items_conversion.js`, `qa_counting_units.js`, `qa_v10_12_1.js` |
 | انبار | `qa_unified_inventory.js`, `qa_single_warehouse_mode.js`, `qa_inventory_control_levels.js`, `qa_inventory_stock_sort_filter.js`, `qa_inventory_entry_issue.js`, `qa_inventory_waste_form.js`, `qa_inventory_bulk_count.js`, `qa_inventory_count_edit.js`, `qa_inventory_receipt_ui.js`, `qa_reorder_point.js`, `qa_operational_forecast.js`, `qa_beverage_serving_control.js` |
 | صندوق | `qa_cash_variance.js`, `qa_cash_destinations.js`, `qa_cash_reports_query.js`, `qa_cash_custody.js` |
-| پرسنل/انعام/آموزش | `qa_personnel_counts.js`, `qa_personnel_payroll_forecast.js`, `qa_personnel_salary_account.js`, `qa_tips_query.js`, `qa_tip_form_filters.js`, `qa_tip_monthly_settlement.js`, `qa_checklist_csv_import.js` |
+| پرسنل/انعام/آموزش | `qa_personnel_counts.js`, `qa_personnel_payroll_forecast.js`, `qa_personnel_salary_account.js`, `qa_tips_query.js`, `qa_tip_form_filters.js`, `qa_tip_monthly_settlement.js`, `qa_checklist_csv_import.js`, `qa_attendance_corrections.js` |
 | تأمین/مالی | `qa_supplier_workflows.js`, `qa_supplier_quick_invoice.js`, `qa_supplier_navigation_payment.js`, `qa_supplier_relation_search.js`, `qa_supplier_modal_order_method.js`, `qa_supplier_parties_debts.js`, `qa_finance_obligations.js`, `qa_finance_accrual_tax.js`, `qa_opening_settlement.js` |
 | UI/ناوبری | `qa_management_tabs.js`, `qa_page_startup.js`, `qa_numeric_input.js`, `qa_shift_menu.js`, `qa_sales_audit_navigation.js`, `qa_ui_lists_assets.js` |
 
@@ -145,7 +149,7 @@ node qa_v10_12_1.js
 | [cash-report-admin.html](../cash-report-admin.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 25 → 26 → 30 → 34 → 35 → 37 → 40 → 42 → 43 → D |
 | [cash-report.html](../cash-report.html) | C → cash-report/js/app.js → 13 → 31 → 35 → 37 |
 | [finance.html](../finance.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 25 → 26 → 30 → 34 → 35 → 37 → 40 → 42 → 43 → D |
-| [index.html](../index.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 23 → 25 → 26 → 30 → 32 → 33 → 34 → 35 → 37 → 40 → 42 → 43 → D |
+| [index.html](../index.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 23 → 25 → 26 → 30 → 32 → 33 → 34 → 35 → 37 → 40 → 42 → 43 → D → 49 |
 | [inventory.html](../inventory.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 25 → 26 → 30 → 32 → 34 → 35 → 36 → 37 → 40 → 42 → 43 → D |
 | [menu-management.html](../menu-management.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 25 → 26 → 30 → 32 → 34 → 35 → 37 → 40 → 42 → 43 → D |
 | [personnel.html](../personnel.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 23 → 25 → 26 → 29 → 30 → 32 → 34 → 35 → 37 → 38 → 39 → 40 → 41 → 42 → 43 → D |
@@ -212,5 +216,6 @@ node qa_v10_12_1.js
 | 46 | [js/46-inventory-operations-v10-12.js](../js/46-inventory-operations-v10-12.js) |
 | 47 | [js/47-base-data-v10-12-1.js](../js/47-base-data-v10-12-1.js) |
 | 48 | [js/48-software-settings-hub.js](../js/48-software-settings-hub.js) |
+| 49 | [js/49-management-monitor.js](../js/49-management-monitor.js) |
 | ap | [js/app-config.js](../js/app-config.js) |
 | co | [js/config.js](../js/config.js) |
