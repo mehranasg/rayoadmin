@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>انبار و کنترل مصرف — رایو</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..800&display=swap">
+<link rel="stylesheet" href="css/theme.css">
+<script>try{var t=localStorage.getItem('rt_theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <div class="page-head">
+        <div>
+          <div class="crumbs"><span>عملیات</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>انبار</span></div>
+          <h1>انبار و کنترل مصرف</h1>
+          <p>انبار واحد · آخرین شمارش کامل: ۳ آبان ۱۴۰۵</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-secondary"><i data-lucide="clipboard-check"></i>شروع شمارش</button>
+          <button class="btn btn-primary" data-open="receiptModal"><i data-lucide="plus"></i>رسید جدید</button>
+        </div>
+      </div>
+
+      <div class="tabs" data-tabs="inv">
+        <button class="tab active" data-tab="stock"><i data-lucide="boxes"></i>موجودی</button>
+        <button class="tab" data-tab="receipt"><i data-lucide="package-plus"></i>رسید کالا</button>
+        <button class="tab" data-tab="sales"><i data-lucide="receipt"></i>فروش</button>
+        <button class="tab" data-tab="waste"><i data-lucide="trash-2"></i>ضایعات</button>
+        <button class="tab" data-tab="count"><i data-lucide="scale"></i>شمارش و مغایرت</button>
+        <button class="tab" data-tab="beverage"><i data-lucide="coffee"></i>کنترل روزانه نوشیدنی</button>
+        <button class="tab" data-tab="reorder"><i data-lucide="refresh-cw"></i>سفارش مجدد <span class="badge badge-danger">۳</span></button>
+        <button class="tab" data-tab="consumption"><i data-lucide="gauge"></i>مدیریت مصرف</button>
+        <button class="tab" data-tab="reports"><i data-lucide="chart-pie"></i>گزارش‌ها</button>
+        <button class="tab" data-tab="settings"><i data-lucide="sliders-horizontal"></i>تنظیمات</button>
+      </div>
+
+      <!-- Stock -->
+      <section data-panel="inv:stock">
+        <div class="grid grid-4" id="stockKpis"></div>
+        <div class="card flush mt">
+          <div class="toolbar">
+            <label class="search"><i data-lucide="search"></i><input id="q" placeholder="جستجوی نام یا کد سپیدز…"></label>
+            <div class="row" id="chips" style="flex-wrap:wrap"></div>
+            <button class="btn btn-secondary btn-sm"><i data-lucide="list-filter"></i>فیلتر</button>
+            <button class="btn btn-ghost btn-sm btn-icon" aria-label="خروجی"><i data-lucide="download"></i></button>
+          </div>
+          <div class="table-wrap"><table class="table" id="stockTable"></table></div>
+          <div class="pagination"><span id="countInfo"></span><div class="pages"><button class="active">۱</button><button>۲</button><button>۳</button></div></div>
+        </div>
+      </section>
+
+      <!-- Receipt -->
+      <section data-panel="inv:receipt" hidden>
+        <div class="grid grid-3">
+          <div class="card span-2">
+            <div class="card-head"><div><h2>ثبت رسید کالا</h2><p>ورود کالا به انبار از فاکتور خرید</p></div></div>
+            <div class="card-body stack">
+              <div class="grid grid-3">
+                <div class="field"><label>تأمین‌کننده</label><select class="select"><option>لبنیات پگاه</option><option>رُست‌هاوس</option></select></div>
+                <div class="field"><label>تاریخ رسید</label><input class="input" value="۱۴۰۵/۰۸/۰۳"></div>
+                <div class="field"><label>شماره فاکتور</label><input class="input" placeholder="مثلاً ۲۴۵۸"></div>
+              </div>
+              <div class="table-wrap" style="border:1px solid var(--border);border-radius:var(--radius)">
+                <table class="table">
+                  <thead><tr><th>کالا</th><th class="num">مقدار</th><th>واحد</th><th class="num">فی (تومان)</th><th class="num">جمع</th><th></th></tr></thead>
+                  <tbody>
+                    <tr><td>شیر پرچرب</td><td class="num">۴۰</td><td>لیتر</td><td class="num">۴۰٬۰۰۰</td><td class="num">۱٬۶۰۰٬۰۰۰</td><td><button class="btn btn-ghost btn-sm btn-icon" aria-label="حذف"><i data-lucide="x"></i></button></td></tr>
+                    <tr><td>خامه صبحانه</td><td class="num">۲۴</td><td>عدد</td><td class="num">۱۰۰٬۰۰۰</td><td class="num">۲٬۴۰۰٬۰۰۰</td><td><button class="btn btn-ghost btn-sm btn-icon" aria-label="حذف"><i data-lucide="x"></i></button></td></tr>
+                  </tbody>
+                  <tfoot><tr><td colspan="4">جمع کل</td><td class="num">۴٬۰۰۰٬۰۰۰</td><td></td></tr></tfoot>
+                </table>
+              </div>
+              <div class="row between"><button class="btn btn-secondary btn-sm"><i data-lucide="plus"></i>افزودن ردیف</button>
+                <div class="row"><button class="btn btn-ghost">انصراف</button><button class="btn btn-primary" onclick="RT.toast('رسید با موفقیت ثبت شد')"><i data-lucide="check"></i>ثبت رسید</button></div></div>
+            </div>
+          </div>
+          <div class="stack">
+            <div class="alert alert-info"><i data-lucide="info"></i><div><b>به‌روزرسانی میانگین قیمت</b><p>با ثبت رسید، قیمت میانگین موزون اقلام در بهای تمام‌شده به‌روز می‌شود.</p></div></div>
+            <div class="card"><div class="card-head"><div><h3>آخرین رسیدها</h3></div></div><div class="card-body list">
+              <div class="list-item"><div class="thumb"><i data-lucide="truck"></i></div><div class="grow"><b>رُست‌هاوس</b><small>۲ آبان · ۸ قلم</small></div><b class="num">۴۸ م</b></div>
+              <div class="list-item"><div class="thumb"><i data-lucide="truck"></i></div><div class="grow"><b>لبنیات پگاه</b><small>۱ آبان · ۳ قلم</small></div><b class="num">۶٫۲ م</b></div>
+              <div class="list-item"><div class="thumb"><i data-lucide="truck"></i></div><div class="grow"><b>نان آوا</b><small>۳۰ مهر · ۵ قلم</small></div><b class="num">۳٫۸ م</b></div>
+            </div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Reorder -->
+      <section data-panel="inv:reorder" hidden>
+        <div class="card flush">
+          <div class="card-head" style="padding-bottom:var(--s4)"><div><h2>پیشنهاد سفارش مجدد</h2><p>اقلامی که زیر نقطهٔ سفارش هستند</p></div><button class="btn btn-primary btn-sm"><i data-lucide="send"></i>ایجاد درخواست خرید</button></div>
+          <div class="table-wrap"><table class="table" id="reorderTable"></table></div>
+        </div>
+      </section>
+
+      <!-- Placeholders for remaining tabs -->
+      <section data-panel="inv:sales" hidden><div class="card"><div class="empty"><div class="thumb"><i data-lucide="receipt"></i></div><h3>فروش و مصرف تئوریک</h3><p>اینجا جدول کسر موجودی بر اساس رسپی آیتم‌های فروخته‌شده قرار می‌گیرد.</p></div></div></section>
+      <section data-panel="inv:waste" hidden><div class="card"><div class="empty"><div class="thumb"><i data-lucide="trash-2"></i></div><h3>هنوز ضایعاتی ثبت نشده</h3><p>ضایعات این هفته را ثبت کنید تا در مغایرت لحاظ شود.</p><button class="btn btn-primary mt"><i data-lucide="plus"></i>ثبت ضایعات</button></div></div></section>
+      <section data-panel="inv:count" hidden><div class="card"><div class="empty"><div class="thumb"><i data-lucide="scale"></i></div><h3>شمارش و مغایرت</h3><p>نمای الگو برای فرم شمارش و جدول مغایرت.</p></div></div></section>
+      <section data-panel="inv:beverage" hidden><div class="card"><div class="empty"><div class="thumb"><i data-lucide="coffee"></i></div><h3>کنترل روزانه نوشیدنی</h3><p>نمای الگو برای چک‌لیست روزانهٔ بار.</p></div></div></section>
+      <section data-panel="inv:consumption" hidden><div class="card"><div class="empty"><div class="thumb"><i data-lucide="gauge"></i></div><h3>مدیریت مصرف</h3><p>نمای فقط‌خواندنی مصرف واقعی در برابر استاندارد.</p></div></div></section>
+      <section data-panel="inv:reports" hidden><div class="card"><div class="empty"><div class="thumb"><i data-lucide="chart-pie"></i></div><h3>گزارش‌های انبار</h3><p>نمودارهای مغایرت در صفحهٔ <a href="reports.html?tab=supply" style="color:var(--accent)">گزارش‌های مدیریتی</a> نمونه‌سازی شده‌اند.</p></div></div></section>
+      <section data-panel="inv:settings" hidden><div class="card"><div class="empty"><div class="thumb"><i data-lucide="sliders-horizontal"></i></div><h3>تنظیمات انبار</h3><p>سطح کنترل اقلام، واحدها و نقطهٔ سفارش.</p></div></div></section>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-backdrop" id="receiptModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <div class="modal-head"><h2 id="mTitle">رسید سریع</h2><button class="btn btn-ghost btn-sm btn-icon" data-close aria-label="بستن"><i data-lucide="x"></i></button></div>
+    <div class="modal-body">
+      <div class="field"><label>کالا</label><select class="select"><option>شیر پرچرب</option><option>دانه قهوه عربیکا</option></select></div>
+      <div class="grid grid-2">
+        <div class="field"><label>مقدار</label><div class="input-group"><input class="input" value="۲۰"><span class="suffix">لیتر</span></div></div>
+        <div class="field"><label>فی</label><div class="input-group"><input class="input" value="۴۰٬۰۰۰"><span class="suffix">تومان</span></div></div>
+      </div>
+      <div class="field"><label>توضیحات</label><textarea class="textarea" placeholder="اختیاری"></textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" data-close>انصراف</button><button class="btn btn-primary" data-close onclick="RT.toast('رسید ثبت شد')">ثبت</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="js/app.js"></script>
+<script src="js/mock-data.js"></script>
+<script src="js/inventory.js"></script>
+</body>
+</html>

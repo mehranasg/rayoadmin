@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>داشبورد — رایو</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..800&display=swap">
+<link rel="stylesheet" href="css/theme.css">
+<script>try{var t=localStorage.getItem('rt_theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <div class="page-head">
+        <div>
+          <h1>سلام، روز خوبی داشته باشید</h1>
+          <p>خلاصهٔ عملکرد کافه در یک نگاه — داده‌ها نمونه هستند.</p>
+        </div>
+        <div class="actions">
+          <div class="segmented" id="range">
+            <button data-r="7">۷ روز</button>
+            <button data-r="30" class="active">۳۰ روز</button>
+            <button data-r="90">۹۰ روز</button>
+          </div>
+          <button class="btn btn-secondary"><i data-lucide="download"></i>خروجی</button>
+          <button class="btn btn-primary"><i data-lucide="plus"></i>ثبت گزارش صندوق</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="grid grid-4" id="kpis"></div>
+
+      <!-- Trend + categories -->
+      <div class="grid grid-3 mt">
+        <div class="card span-2">
+          <div class="card-head">
+            <div><h2>روند فروش</h2><p>فروش خالص روزانه در مقایسه با دورهٔ قبل</p></div>
+            <div class="legend"><span><i style="background:var(--c1)"></i>دورهٔ جاری</span><span><i class="dash"></i>دورهٔ قبل</span></div>
+          </div>
+          <div class="card-body"><div class="chart" id="trend"></div></div>
+          <div class="stat-strip" id="trendStats"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h2>سهم دسته‌ها</h2><p>از فروش ۳۰ روز اخیر</p></div></div>
+          <div class="card-body"><div class="chart" id="donut" style="height:240px"></div><div class="list" id="catList"></div></div>
+        </div>
+      </div>
+
+      <!-- Heatmap + top items -->
+      <div class="grid grid-3 mt">
+        <div class="card span-2">
+          <div class="card-head">
+            <div><h2>ساعات اوج فروش</h2><p>میانگین تعداد فاکتور به تفکیک روز و ساعت</p></div>
+            <span class="badge badge-accent plain">اوج: پنجشنبه ۲۰ تا ۲۲</span>
+          </div>
+          <div class="card-body"><div class="chart" id="heat" style="height:280px"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h2>پرفروش‌ترین آیتم‌ها</h2><p>بر اساس تعداد</p></div><a class="btn btn-ghost btn-sm" href="reports.html">همه</a></div>
+          <div class="card-body" id="topItems"></div>
+        </div>
+      </div>
+
+      <!-- Bottom row -->
+      <div class="grid grid-3 mt">
+        <div class="card span-2 flush">
+          <div class="card-head" style="padding-bottom:var(--s4)"><div><h2>آخرین گزارش‌های صندوق</h2><p>مغایرت با سپیدز</p></div><button class="btn btn-secondary btn-sm"><i data-lucide="list"></i>مشاهده همه</button></div>
+          <div class="card-body table-wrap"><table class="table" id="cashTable"></table></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h2>نیاز به توجه</h2><p>هشدارهای امروز</p></div><span class="badge badge-danger plain">۵</span></div>
+          <div class="card-body"><div class="list" id="alerts"></div></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="js/app.js"></script>
+<script src="js/mock-data.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>

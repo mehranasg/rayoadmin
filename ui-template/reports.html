@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>گزارش‌های مدیریتی — رایو</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..800&display=swap">
+<link rel="stylesheet" href="css/theme.css">
+<script>try{var t=localStorage.getItem('rt_theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <div class="page-head">
+        <div>
+          <div class="crumbs"><span>گزارشات</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>گزارش‌های مدیریتی</span></div>
+          <h1>گزارش‌های مدیریتی</h1>
+          <p>سال مالی ۱۴۰۵ · داده‌ها نمونه هستند</p>
+        </div>
+        <div class="actions">
+          <select class="select" style="width:150px"><option>سال ۱۴۰۵</option><option>سال ۱۴۰۴</option></select>
+          <button class="btn btn-secondary"><i data-lucide="printer"></i>چاپ</button>
+          <button class="btn btn-primary"><i data-lucide="file-spreadsheet"></i>خروجی اکسل</button>
+        </div>
+      </div>
+
+      <div class="tabs" data-tabs="rep">
+        <button class="tab active" data-tab="profit"><i data-lucide="chart-column"></i>سود و زیان</button>
+        <button class="tab" data-tab="menu"><i data-lucide="sparkles"></i>مهندسی منو</button>
+        <button class="tab" data-tab="supply"><i data-lucide="truck"></i>خرید و انبار</button>
+        <button class="tab" data-tab="survey"><i data-lucide="smile"></i>رضایت مشتری</button>
+      </div>
+
+      <!-- ===== Profit & loss ===== -->
+      <section data-panel="rep:profit">
+        <div class="grid grid-4" id="pnlKpis"></div>
+        <div class="grid grid-3 mt">
+          <div class="card span-2">
+            <div class="card-head">
+              <div><h2>ترکیب درآمد ماهانه</h2><p>تفکیک درآمد به هزینه‌ها و سود خالص · خط: حاشیه سود</p></div>
+            </div>
+            <div class="card-body"><div class="chart chart-lg" id="pnlChart"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h2>از درآمد تا سود</h2><p>جمع سالانه</p></div></div>
+            <div class="card-body"><div class="chart chart-lg" id="waterfall"></div></div>
+          </div>
+        </div>
+        <div class="card flush mt">
+          <div class="card-head" style="padding-bottom:var(--s4)"><div><h2>صورت سود و زیان ماهانه</h2><p>مبالغ به میلیون تومان</p></div></div>
+          <div class="card-body table-wrap"><table class="table" id="pnlTable"></table></div>
+        </div>
+      </section>
+
+      <!-- ===== Menu engineering ===== -->
+      <section data-panel="rep:menu" hidden>
+        <div class="grid grid-3">
+          <div class="card span-2">
+            <div class="card-head">
+              <div><h2>ماتریس مهندسی منو</h2><p>محبوبیت (تعداد فروش) در برابر سود ناخالص هر آیتم</p></div>
+              <div class="legend" id="quadLegend"></div>
+            </div>
+            <div class="card-body"><div class="chart" id="scatter" style="height:440px"></div></div>
+          </div>
+          <div class="stack">
+            <div class="card"><div class="card-head"><div><h2>راهنمای تصمیم</h2></div></div>
+              <div class="card-body list" id="quadGuide"></div></div>
+          </div>
+        </div>
+        <div class="card flush mt">
+          <div class="card-head" style="padding-bottom:var(--s4)"><div><h2>جزئیات آیتم‌ها</h2><p>مرتب‌شده بر اساس سهم سود</p></div></div>
+          <div class="card-body table-wrap"><table class="table" id="menuTable"></table></div>
+        </div>
+      </section>
+
+      <!-- ===== Purchase & inventory ===== -->
+      <section data-panel="rep:supply" hidden>
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-head"><div><h2>هزینهٔ خرید به تفکیک تأمین‌کننده</h2><p>اندازهٔ هر خانه = مبلغ خرید ماه جاری</p></div></div>
+            <div class="card-body"><div class="chart" id="treemap" style="height:380px"></div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h2>مغایرت مصرف واقعی و تئوریک</h2><p>درصد انحراف · منفی یعنی مصرف بیش از رسپی</p></div></div>
+            <div class="card-body"><div class="chart" id="variance" style="height:380px"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Survey ===== -->
+      <section data-panel="rep:survey" hidden>
+        <div class="grid grid-3">
+          <div class="card">
+            <div class="card-head"><div><h2>رضایت کلی</h2><p>میانگین امتیاز از ۵</p></div></div>
+            <div class="card-body"><div class="chart" id="gauge" style="height:260px"></div>
+              <div class="row between"><span class="muted">۴۸۲ پاسخ این ماه</span><span class="badge badge-success plain">+۰٫۲ نسبت به قبل</span></div></div>
+          </div>
+          <div class="card span-2">
+            <div class="card-head">
+              <div><h2>امتیاز به تفکیک معیار</h2><p>ماه جاری در برابر ماه قبل</p></div>
+              <div class="legend"><span><i style="background:var(--c1)"></i>ماه جاری</span><span><i style="background:var(--c5)"></i>ماه قبل</span></div>
+            </div>
+            <div class="card-body"><div class="chart" id="radar" style="height:320px"></div></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="js/app.js"></script>
+<script src="js/mock-data.js"></script>
+<script src="js/reports.js"></script>
+</body>
+</html>

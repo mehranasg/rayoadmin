@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>راهنمای کامپوننت‌ها — رایو</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..800&display=swap">
+<link rel="stylesheet" href="css/theme.css">
+<script>try{var t=localStorage.getItem('rt_theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+      <div class="page-head">
+        <div><h1>راهنمای کامپوننت‌ها</h1><p>توکن‌ها و اجزای پایهٔ قالب — مرجع پیاده‌سازی روی برنامهٔ اصلی</p></div>
+      </div>
+
+      <div class="section-title">رنگ‌ها</div>
+      <div class="card"><div class="card-body swatches" id="swatches"></div></div>
+
+      <div class="section-title">تایپوگرافی</div>
+      <div class="card"><div class="card-body stack">
+        <h1>عنوان صفحه — ۲۲ پیکسل، Bold</h1>
+        <h2>عنوان کارت — ۱۷ پیکسل</h2>
+        <h3>عنوان بخش — ۱۵ پیکسل</h3>
+        <p>متن اصلی ۱۴ پیکسل با ارتفاع خط ۱٫۷. اعداد با ارقام فارسی و عرض ثابت نمایش داده می‌شوند: <span class="num">۱۲٬۴۵۰٬۰۰۰</span> تومان.</p>
+        <p class="muted">متن کمرنگ برای توضیحات و برچسب‌های ثانویه.</p>
+      </div></div>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="section-title">دکمه‌ها</div>
+          <div class="card"><div class="card-body stack">
+            <div class="demo-row">
+              <button class="btn btn-primary"><i data-lucide="plus"></i>اصلی</button>
+              <button class="btn btn-secondary">ثانویه</button>
+              <button class="btn btn-ghost">بی‌زمینه</button>
+              <button class="btn btn-danger"><i data-lucide="trash-2"></i>حذف</button>
+              <button class="btn btn-primary" disabled>غیرفعال</button>
+            </div>
+            <div class="demo-row">
+              <button class="btn btn-primary btn-sm">کوچک</button>
+              <button class="btn btn-secondary btn-sm"><i data-lucide="download"></i>خروجی</button>
+              <button class="btn btn-secondary btn-icon" aria-label="تنظیم"><i data-lucide="settings"></i></button>
+              <div class="segmented"><button class="active">روزانه</button><button>هفتگی</button><button>ماهانه</button></div>
+            </div>
+          </div></div>
+        </div>
+        <div>
+          <div class="section-title">نشان‌ها و برچسب‌ها</div>
+          <div class="card"><div class="card-body stack">
+            <div class="demo-row">
+              <span class="badge badge-success">پرداخت‌شده</span>
+              <span class="badge badge-warning">در انتظار</span>
+              <span class="badge badge-danger">مغایرت</span>
+              <span class="badge badge-info">جدید</span>
+              <span class="badge badge-neutral">بایگانی</span>
+              <span class="badge badge-accent plain">دقیق</span>
+            </div>
+            <div class="demo-row">
+              <button class="chip active">همه <span class="count">۲۴</span></button>
+              <button class="chip">لبنیات <span class="count">۶</span></button>
+              <button class="chip">قهوه <span class="count">۴</span></button>
+              <span class="delta up"><i data-lucide="trending-up"></i>۸٫۲٪</span>
+              <span class="delta down"><i data-lucide="trending-down"></i>۳٫۱٪</span>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="section-title">فرم‌ها</div>
+      <div class="card"><div class="card-body">
+        <div class="grid grid-3">
+          <div class="field"><label>نام کالا</label><input class="input" placeholder="مثلاً شیر پرچرب"><span class="hint">همان نامی که در سپیدز ثبت شده</span></div>
+          <div class="field"><label>دسته</label><select class="select"><option>لبنیات</option><option>قهوه</option></select></div>
+          <div class="field"><label>قیمت خرید</label><div class="input-group"><input class="input" value="۴۰٬۰۰۰"><span class="suffix">تومان</span></div></div>
+          <div class="field"><label>کد سپیدز</label><input class="input invalid" value="SP-10"><span class="error">کد باید ۴ رقم باشد</span></div>
+          <div class="field"><label>وضعیت</label><div class="row" style="height:40px"><label class="switch"><input type="checkbox" checked><span></span></label><span>فعال</span></div></div>
+          <div class="field"><label>گزینه‌ها</label><div class="row" style="height:40px;gap:16px"><label class="check"><input type="checkbox" checked>کنترل دقیق</label><label class="check"><input type="checkbox">ضایعات</label></div></div>
+        </div>
+      </div></div>
+
+      <div class="section-title">تب‌ها</div>
+      <div class="card"><div class="card-body" style="padding-bottom:0">
+        <div class="tabs" data-tabs="demo" style="margin-bottom:0">
+          <button class="tab active" data-tab="a"><i data-lucide="boxes"></i>موجودی</button>
+          <button class="tab" data-tab="b"><i data-lucide="package-plus"></i>رسید</button>
+          <button class="tab" data-tab="c">سفارش مجدد <span class="badge badge-danger">۳</span></button>
+        </div>
+      </div></div>
+
+      <div class="section-title">هشدارها</div>
+      <div class="grid grid-2">
+        <div class="alert alert-info"><i data-lucide="info"></i><div><b>اطلاع</b><p>بکاپ خودکار ساعت ۲ بامداد انجام می‌شود.</p></div></div>
+        <div class="alert alert-success"><i data-lucide="check-circle"></i><div><b>موفق</b><p>شمارش انبار ثبت شد.</p></div></div>
+        <div class="alert alert-warning"><i data-lucide="alert-triangle"></i><div><b>هشدار</b><p>۳ قلم زیر نقطهٔ سفارش است.</p></div></div>
+        <div class="alert alert-danger"><i data-lucide="octagon-alert"></i><div><b>خطا</b><p>اتصال به API برقرار نشد؛ داده‌ای ذخیره نشد.</p></div></div>
+      </div>
+
+      <div class="section-title">جدول</div>
+      <div class="card flush"><div class="table-wrap"><table class="table">
+        <thead><tr><th>پرسنل</th><th>نقش</th><th class="num">ساعت کارکرد</th><th>پیشرفت ماه</th><th>وضعیت</th></tr></thead>
+        <tbody>
+          <tr><td><div class="cell-main"><div class="avatar">س‌م</div><div><b>سارا محمدی</b><small>شیفت عصر</small></div></div></td><td>صندوقدار</td><td class="num">۱۶۸</td><td><div class="meter ok" style="width:120px"><i style="width:92%"></i></div></td><td><span class="badge badge-success">فعال</span></td></tr>
+          <tr><td><div class="cell-main"><div class="avatar">ع‌ر</div><div><b>علی رضایی</b><small>شیفت صبح</small></div></div></td><td>باریستا</td><td class="num">۱۴۲</td><td><div class="meter warn" style="width:120px"><i style="width:71%"></i></div></td><td><span class="badge badge-warning">مرخصی</span></td></tr>
+          <tr><td><div class="cell-main"><div class="avatar">ن‌ک</div><div><b>نیما کریمی</b><small>شیفت صبح</small></div></div></td><td>آشپز</td><td class="num">۹۸</td><td><div class="meter bad" style="width:120px"><i style="width:48%"></i></div></td><td><span class="badge badge-neutral">غیرفعال</span></td></tr>
+        </tbody>
+      </table></div></div>
+
+      <div class="grid grid-2">
+        <div>
+          <div class="section-title">حالت خالی</div>
+          <div class="card"><div class="empty"><div class="thumb"><i data-lucide="inbox"></i></div><h3>داده‌ای وجود ندارد</h3><p>اولین مورد را ثبت کنید.</p><button class="btn btn-primary btn-sm mt"><i data-lucide="plus"></i>افزودن</button></div></div>
+        </div>
+        <div>
+          <div class="section-title">پنجره و اعلان</div>
+          <div class="card"><div class="card-body demo-row">
+            <button class="btn btn-secondary" data-open="demoModal"><i data-lucide="app-window"></i>باز کردن پنجره</button>
+            <button class="btn btn-secondary" onclick="RT.toast('تغییرات ذخیره شد')"><i data-lucide="bell"></i>نمایش اعلان</button>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="section-title">پالت نمودار</div>
+      <div class="card"><div class="card-body"><div class="chart chart-sm" id="paletteChart"></div></div></div>
+
+    </main>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="demoModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="dmTitle">
+    <div class="modal-head"><h2 id="dmTitle">تأیید عملیات</h2><button class="btn btn-ghost btn-sm btn-icon" data-close aria-label="بستن"><i data-lucide="x"></i></button></div>
+    <div class="modal-body"><div class="alert alert-warning"><i data-lucide="alert-triangle"></i><div><b>پیش از ادامه بکاپ بگیرید</b><p>این عملیات ساختار داده را تغییر می‌دهد.</p></div></div></div>
+    <div class="modal-foot"><button class="btn btn-ghost" data-close>انصراف</button><button class="btn btn-primary" data-close>ادامه</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="js/app.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  var tokens=[['--accent','اصلی'],['--accent-soft','اصلی کمرنگ'],['--text','متن'],['--text-2','متن ثانویه'],['--text-3','متن کمرنگ'],['--bg','پس‌زمینه'],['--surface','سطح'],['--border','حاشیه'],['--success','موفق'],['--warning','هشدار'],['--danger','خطا'],['--info','اطلاع']];
+  document.getElementById('swatches').innerHTML=tokens.map(function(x){return'<div class="swatch"><i style="background:var('+x[0]+')"></i><div>'+x[1]+'<code>'+x[0]+'</code></div></div>'}).join('');
+  RT.tabs(document.querySelector('[data-tabs="demo"]'));
+  var names=['قهوه','سرد','دسر','صبحانه','غذا','سایر'];
+  RT.chart('paletteChart',function(t){return Object.assign(RT.base(t),{
+    tooltip:Object.assign(RT.base(t).tooltip,{trigger:'item'}),
+    xAxis:RT.axis(t,{type:'category',data:names,inverse:true,splitLine:{show:false}}),
+    yAxis:RT.axis(t,{type:'value',position:'right'}),
+    series:[{type:'bar',barWidth:'46%',colorBy:'data',data:[42,31,24,18,14,8],itemStyle:{borderRadius:[8,8,0,0]}}]
+  })});
+  RT.icons();
+});
+</script>
+</body>
+</html>
