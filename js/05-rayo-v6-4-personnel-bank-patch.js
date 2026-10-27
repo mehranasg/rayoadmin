@@ -21,7 +21,8 @@ function openPersonnelModalAtTopV64(){
 }
 function refreshPersonnelEmploymentEndV64(){
   const wrap=$('pv_employment_end_wrap'),input=$('pv_employment_end');if(!wrap||!input)return;
-  const ended=$('pv_status')?.value==='اتمام همکاری';wrap.hidden=!ended;input.required=ended;
+  /* Required for «اتمام همکاری»; also shown for «غیرفعال». Entry forms keep listing the person for one month after this date (00-base recentlyExitedPersonnel). */
+  const status=$('pv_status')?.value,ended=status==='اتمام همکاری';wrap.hidden=!ended&&status!=='غیرفعال';input.required=ended;
 }
 const PERSONNEL_ACCOMMODATION_ITEMS_V64=['تیشرت','ایپرون','روپوش','کلاه','بیسیم','هندزفری بیسیم','پیجر','تشک','بالش','ملحفه'];
 let personnelEquipmentEditingV64=[];
@@ -52,7 +53,7 @@ function editPersonnelV64(id){
   const statusField=$('pv_status')?.closest('.field');
   if(statusField){
     $('pv_status').addEventListener('change',refreshPersonnelEmploymentEndV64);
-    statusField.insertAdjacentHTML('afterend',`<div class="field" id="pv_employment_end_wrap"><label>تاریخ اتمام همکاری</label><input id="pv_employment_end" data-jalali="1" value="${esc(p.employmentEndDate||'')}" placeholder="1405/06/20"></div>`);
+    statusField.insertAdjacentHTML('afterend',`<div class="field" id="pv_employment_end_wrap"><label>تاریخ اتمام همکاری</label><small class="hint">تا یک ماه پس از این تاریخ می‌توان برای این پرسنل کارکرد، جریمه، پرداخت و… ثبت کرد.</small><input id="pv_employment_end" data-jalali="1" value="${esc(p.employmentEndDate||'')}" placeholder="1405/06/20"></div>`);
     refreshPersonnelEmploymentEndV64();window.RayoJalali?.mark?.();
   }
   if(!id&&typeof window.personnelOnboardingStepperV93==='function')$('modalBody').insertAdjacentHTML('afterbegin',window.personnelOnboardingStepperV93('info'));

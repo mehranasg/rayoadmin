@@ -40,11 +40,20 @@ check('گزارش شیفت فیلتر وضعیت با پیش‌فرض فعال �
 check('نام پرسنل بدون کد نمایش داده می‌شود (کد فقط برای هم‌نام‌ها)',base.includes('function personDisplayName(p)')&&!base.includes("p.id+' | '+p.name")&&!base.includes('${p.id} | ${p.name}'));
 check('مدیریت دسترسی‌ها پیش‌فرض پرسنل فعال است',access.includes("employmentStatus:'فعال'"));
 check('فیلد وضعیت همکاری قبل از انتخاب پرسنل در کارت فیلتر تب‌های HR',polish.includes('function personnelScopeField()')&&polish.includes("PERSONNEL_SCOPE_DEFAULTS={tips:'همه'}")&&polish.includes("field.insertAdjacentHTML('beforebegin'")&&polish.includes('personnelScopeField();'));
-check('مودال ورود گروهی: فقط پرسنل فعال، راهنمای تاشو و عرض بیشتر',base.includes("payrollFilteredRows().filter(r=>person(r.personnelId)?.status==='فعال')")&&base.includes('id="attEntryHelp" hidden')&&polishCss.includes('.modal:has(#attEntryWide)'));
+check('مودال ورود گروهی: پرسنل فعال و ترک‌کار یک ماه اخیر، راهنمای تاشو و عرض بیشتر',base.includes("payrollFilteredRows().filter(r=>isRecordablePersonnel(person(r.personnelId)))")&&base.includes('id="attEntryHelp" hidden')&&polishCss.includes('.modal:has(#attEntryWide)'));
 check('فیش حقوقی پیش‌فرض پرسنلی انتخاب نمی‌کند',base.includes("if(f.personnelId&&!people.some(x=>x.id===f.personnelId))f.personnelId='';")&&base.includes('<select onchange="ui.payslip.personnelId=this.value;renderView()"><option value="">انتخاب کنید</option>'));
 check('فیش حقوقی: تعداد شیفت شب × مبلغ هر شیفت = جمع کمک‌هزینه برگشت',base.includes("['کمک‌هزینه برگشت هر شیفت'")&&base.includes("['جمع کمک‌هزینه برگشت'"));
-check('مودال انعام: پیش‌فرض فعال، گزینه همه پرسنل، ستون به تفکیک گروه، حفظ شرکت‌کنندگان فعلی',base.includes('id="tip_all_people"')&&base.includes('tip-people-col')&&base.includes("showAll||p.status==='فعال'||existing.has(p.id)"));
+check('مودال انعام: پیش‌فرض فعال، گزینه همه پرسنل، ستون به تفکیک گروه، حفظ شرکت‌کنندگان فعلی',base.includes('id="tip_all_people"')&&base.includes('tip-people-col')&&base.includes("showAll||isRecordablePersonnel(p)||existing.has(p.id)"));
 check('وضعیت انعام از دفتر تسویه محاسبه می‌شود',base.includes('function tipLiveStatus(g,pid=')&&base.includes('badge(tipLiveStatus(g,ui.tipFilter.personnelId))'));
 check('فهرست پرداخت‌ها بدون واحد در خانه‌ها و با توضیح تومان',base.includes('همه مبالغ این فهرست به تومان است.'));
+
+{/* Non-active personnel stay recordable for one month after employmentEndDate. */
+ const pick=name=>{const m=base.match(new RegExp('function '+name+'\\([^]*?\\n'));if(!m)throw new Error('missing '+name);return m[0]};
+ const ctx={state:{personnel:[{id:'A',status:'فعال'},{id:'B',status:'اتمام همکاری',employmentEndDate:'1405/07/10'},{id:'C',status:'غیرفعال',employmentEndDate:'1405/05/01'},{id:'D',status:'غیرفعال'},{id:'E',status:'اتمام همکاری',employmentEndDate:'1405/12/15'}]},todayJ:()=>'1405/08/05',normalizeDigits:x=>String(x)};
+ vm.createContext(ctx);vm.runInContext(['parseJDate','dateCode','recentlyExitedPersonnel','isRecordablePersonnel','recordablePersonnel'].map(pick).join('\n')+';this.out=recordablePersonnel().map(p=>p.id).join(",");this.keep=recordablePersonnel("D").map(p=>p.id).join(",");this.edge=[recentlyExitedPersonnel(state.personnel[1],"1405/08/10"),recentlyExitedPersonnel(state.personnel[1],"1405/08/11"),recentlyExitedPersonnel(state.personnel[4],"1406/01/15"),recentlyExitedPersonnel(state.personnel[4],"1406/01/16")].join(",")',ctx);
+ check('پرسنل غیرفعال تا یک ماه پس از تاریخ اتمام همکاری در فرم‌های ثبت می‌ماند',ctx.out==='A,B,E'&&ctx.keep==='A,B,D,E'&&ctx.edge==='true,false,true,false');
+ check('فرم‌های ثبت از فهرست قابل‌ثبت استفاده می‌کنند',(base.match(/recordablePersonnel\(x\.personnelId\)\.map\(recordablePersonOption\)/g)||[]).length===5&&base.includes('people=recordablePersonnel(v.personnelId)')&&fs.readFileSync('js/34-final-operational-review-v10-1.js','utf8').includes("p.status==='فعال'||window.recentlyExitedPersonnel?.(p)||p.id===x.personnelId"));
+}
+check('لیست‌های پرسنل: انتخاب ستون و خروجی Excel',polish.includes("file()==='personnel.html'&&!table.closest('#modalBody')")&&polish.includes('listTools(table,meta)')&&polish.includes('applyListColumns(table)')&&polish.includes('window.RayoExcel.exportRows(data,')&&css.includes('.rayo-col-hidden-v10101{display:none!important}'));
 
 console.log(`PASS ${passed}`);
