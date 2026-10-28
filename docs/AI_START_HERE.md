@@ -29,6 +29,7 @@
 | کاربران مدیریت و دسترسی بخش‌ها | `js/44-phase1-polish-v10-10-1.js` (`RayoAdminAccess`)، `00-base.js::loginV5`، `16-mpa-shell.js` |
 | پنل مانیتورینگ مدیر | `js/49-management-monitor.js` (`index.html?view=monitor`) و منابع 20، 32، 12، 00 |
 | Import Excel/CSV | `js/18-excel-tools.js` و importer حوزه؛ [قالب‌ها](EXCEL_IMPORT_FORMATS.md) |
+| حضور و غیاب (تردد، روز کاری، قوانین شیفت) | `js/50-attendance-core.js` (منطق خالص: ورود فایل و موتور محاسبه `computeDay`)، `js/51-attendance-admin.js`؛ ماژول `attendance` در [مرجع داده](DATA_AND_API_REFERENCE.md)؛ `qa_attendance_import.js`، `qa_attendance_engine.js`، `qa_attendance_month.js`، `qa_attendance_report.js` |
 | تنظیمات/بکاپ/Reset | فایل‌های 38 و 39؛ [راهنمای Reset و Restore](SETTINGS_SEPARATION_AND_TABLE_RESET.md) |
 | معماری، تصمیم‌ها و مهاجرت | [راهنمای چهار مسیر و دفتر تصمیم‌ها](REBUILD_AND_MIGRATION_GUIDE.md)؛ پیشنهاد را با وضع جاری مخلوط نکنید |
 

@@ -27,7 +27,8 @@ const BACKEND_MODULES={
   finance:'finance',
   survey:'survey',
   errorlog:'errorlog',
-  sepidsaudit:'sepidsaudit'
+  sepidsaudit:'sepidsaudit',
+  attendance:'attendance'
 };
 const SUPPORTED_MODULES=Object.keys(BACKEND_MODULES);
 const MODULE_RUNTIME_STATUS=Object.fromEntries(SUPPORTED_MODULES.map(m=>[m,{state:'idle',initialized:null,lastError:'',lastSuccessAt:null,sourceValid:false,readOnly:true}]));
@@ -61,7 +62,8 @@ const MODULE_ALIASES={
   finance:['finance','financial','profitLoss','pnl','monthlyFinance','financeData'],
   survey:['survey','surveys','customerSurvey','customerFeedback','feedback','surveyData'],
   errorlog:['errorlog','errorLog','errors','errorLogs','rayoErrorLog'],
-  sepidsaudit:['sepidsaudit','sepidsAudit','audit','posAudit','cashAudit','sepidsControl']
+  sepidsaudit:['sepidsaudit','sepidsAudit','audit','posAudit','cashAudit','sepidsControl'],
+  attendance:['attendance','timeAttendance','attendanceData']
 };
 
 const MODULE_FIELDS={
@@ -74,7 +76,8 @@ const MODULE_FIELDS={
   finance:{arrays:['entries','monthlyOverrides','changeLog'],objects:['meta','settings']},
   survey:{arrays:['responses','changeLog'],objects:['meta','settings']},
   errorlog:{arrays:['entries'],objects:['meta']},
-  sepidsaudit:{arrays:['importBatches','rawBlocks','events','eventItems','changes','alerts','reviews','links'],objects:['meta','settings']}
+  sepidsaudit:{arrays:['importBatches','rawBlocks','events','eventItems','changes','alerts','reviews','links'],objects:['meta','settings']},
+  attendance:{arrays:['punches','importBatches','overrides','monthSaves','auditLog','changeLog'],objects:['meta','settings']}
 };
 
 const MODULE_DEFAULTS={
@@ -115,6 +118,11 @@ const MODULE_DEFAULTS={
     meta:{schemaVersion:'1.0.0',module:'Rayo Sepidz Audit',restaurant:'کافه‌رستوران رایو',currency:'تومان',updatedAt:null},
     settings:{sourceCurrency:'ریال',currencyDivisor:10,deletedAmountThresholdToman:5000000,lateDeleteMinutes:20,repeatEditThreshold:2,riskHigh:60,riskCritical:80,highRiskMenuItemIds:[],menuAliases:{}},
     importBatches:[],rawBlocks:[],events:[],eventItems:[],changes:[],alerts:[],reviews:[],links:[]
+  },
+  /* Attendance rules are not defaulted here: they come only from the explicit initialize file (seed/attendance-data.seed.json) or the settings page. */
+  attendance:{
+    meta:{schemaVersion:'1.0.0',module:'Rayo Attendance',restaurant:'کافه‌رستوران رایو',timezone:'Asia/Tehran',updatedAt:null},
+    settings:{},punches:[],importBatches:[],overrides:[],monthSaves:[],auditLog:[],changeLog:[]
   }
 };
 
@@ -860,6 +868,7 @@ window.RAYO_CONFIG={
   finance:{module:'finance',loadUrl:moduleLoadUrl('finance'),saveUrl:moduleSaveUrl('finance'),seed:{url:'./seed/finance-data.seed.json',bootstrapId:'finance-v9.5-initial'}},
   survey:{module:'survey',loadUrl:moduleLoadUrl('survey'),saveUrl:moduleSaveUrl('survey'),seed:{url:'./seed/survey-data.seed.json',bootstrapId:'survey-v9.5-initial'}},
   errorlog:{module:'errorlog',loadUrl:moduleLoadUrl('errorlog'),saveUrl:moduleSaveUrl('errorlog'),seed:{url:'./seed/error-log-data.seed.json',bootstrapId:'errorlog-v9.8-initial'}},
-  sepidsaudit:{module:'sepidsaudit',loadUrl:moduleLoadUrl('sepidsaudit'),saveUrl:moduleSaveUrl('sepidsaudit'),seed:{url:'./seed/sepids-audit-data.seed.json',bootstrapId:'sepidsaudit-v10-initial'}}
+  sepidsaudit:{module:'sepidsaudit',loadUrl:moduleLoadUrl('sepidsaudit'),saveUrl:moduleSaveUrl('sepidsaudit'),seed:{url:'./seed/sepids-audit-data.seed.json',bootstrapId:'sepidsaudit-v10-initial'}},
+  attendance:{module:'attendance',loadUrl:moduleLoadUrl('attendance'),saveUrl:moduleSaveUrl('attendance'),seed:{url:'./seed/attendance-data.seed.json',bootstrapId:'attendance-v1-initial'}}
 };
 })();

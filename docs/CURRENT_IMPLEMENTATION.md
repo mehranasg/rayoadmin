@@ -125,7 +125,7 @@ node qa_v10_12_1.js
 | افت/منو/قیمت | `qa_standard_preparation_loss.js`, `qa_prepared_items_conversion.js`, `qa_counting_units.js`, `qa_v10_12_1.js` |
 | انبار | `qa_unified_inventory.js`, `qa_single_warehouse_mode.js`, `qa_inventory_control_levels.js`, `qa_inventory_stock_sort_filter.js`, `qa_inventory_entry_issue.js`, `qa_inventory_waste_form.js`, `qa_inventory_bulk_count.js`, `qa_inventory_count_edit.js`, `qa_inventory_receipt_ui.js`, `qa_reorder_point.js`, `qa_operational_forecast.js`, `qa_beverage_serving_control.js`, `qa_consumption_management.js` |
 | صندوق | `qa_cash_variance.js`, `qa_cash_destinations.js`, `qa_cash_reports_query.js`, `qa_cash_custody.js` |
-| پرسنل/انعام/آموزش | `qa_personnel_counts.js`, `qa_personnel_payroll_forecast.js`, `qa_personnel_salary_account.js`, `qa_tips_query.js`, `qa_tip_form_filters.js`, `qa_tip_monthly_settlement.js`, `qa_checklist_csv_import.js`, `qa_attendance_corrections.js` |
+| پرسنل/انعام/آموزش | `qa_personnel_counts.js`, `qa_personnel_payroll_forecast.js`, `qa_personnel_salary_account.js`, `qa_tips_query.js`, `qa_tip_form_filters.js`, `qa_tip_monthly_settlement.js`, `qa_checklist_csv_import.js`, `qa_attendance_corrections.js`, `qa_attendance_import.js`, `qa_attendance_engine.js`, `qa_attendance_month.js`, `qa_attendance_report.js` |
 | تأمین/مالی | `qa_supplier_workflows.js`, `qa_supplier_quick_invoice.js`, `qa_supplier_navigation_payment.js`, `qa_supplier_relation_search.js`, `qa_supplier_modal_order_method.js`, `qa_supplier_parties_debts.js`, `qa_finance_obligations.js`, `qa_finance_accrual_tax.js`, `qa_opening_settlement.js` |
 | UI/ناوبری | `qa_management_tabs.js`, `qa_page_startup.js`, `qa_numeric_input.js`, `qa_shift_menu.js`, `qa_sales_audit_navigation.js`, `qa_ui_lists_assets.js` |
 
@@ -153,7 +153,7 @@ node qa_v10_12_1.js
 | [index.html](../index.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 23 → 25 → 26 → 30 → 32 → 33 → 34 → 35 → 37 → 40 → 42 → 43 → D → 49 |
 | [inventory.html](../inventory.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 25 → 26 → 30 → 32 → 34 → 35 → 36 → 37 → 40 → 42 → 43 → D |
 | [menu-management.html](../menu-management.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 25 → 26 → 30 → 32 → 34 → 35 → 37 → 40 → 42 → 43 → D |
-| [personnel.html](../personnel.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 23 → 25 → 26 → 29 → 30 → 32 → 34 → 35 → 37 → 38 → 39 → 40 → 41 → 42 → 43 → D |
+| [personnel.html](../personnel.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 23 → 25 → 26 → 29 → 30 → 32 → 34 → 35 → 37 → 38 → 39 → 40 → 41 → 42 → 43 → 50 → 51 → D |
 | [pricing.html](../pricing.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 25 → 26 → 30 → 32 → 34 → 35 → 37 → 40 → 42 → 43 → D |
 | [reports.html](../reports.html) | C → 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → 19 → 20 → 21 → 24 → 25 → 26 → 30 → 32 → 34 → 35 → 37 → 40 → 42 → 43 → D |
 | [sales-analysis.html](../sales-analysis.html) | C → 18 → 28 → 31 → 35 → 37 → 40 → 42 → 43 → D |

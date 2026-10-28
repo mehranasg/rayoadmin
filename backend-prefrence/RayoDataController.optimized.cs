@@ -39,7 +39,8 @@ namespace AlexChat.Web.Controllers
                 ["finance"] = "finance-data.json",
                 ["errorlog"] = "error-log-data.json",
                 ["survey"] = "survey-data.json",
-                ["sepidsaudit"] = "sepids-audit-data.json"
+                ["sepidsaudit"] = "sepids-audit-data.json",
+                ["attendance"] = "attendance-data.json"
             };
 
         // Each module has its own lock. Mutations on personnel do not block inventory.

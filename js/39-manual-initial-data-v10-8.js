@@ -2,6 +2,8 @@
 'use strict';
 const S=x=>String(x??'').trim();
 const MODULES={hr:'پرسنل و حقوق',suppliers:'تأمین‌کنندگان',pricing:'کالا، منو و رسپی',inventory:'انبار و کنترل مصرف',cashreport:'صندوق و فروش',assets:'اموال',finance:'مالی',survey:'نظرسنجی',errorlog:'لاگ خطا',sepidsaudit:'ممیزی سپیدز'};
+/* Initialize-only modules: not part of table reset/restore (older reset backups hold exactly the modules above). */
+const INIT_MODULES={...MODULES,attendance:'حضور و غیاب'};
 const clone=x=>JSON.parse(JSON.stringify(x));
 const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
 let preview=null,seedPreview=null,rollback=null,busy=false;
@@ -113,7 +115,7 @@ async function loadForInitialize(module){
   catch(e){if(e.status===404)return true;throw e}
 }
 async function inspectSeed(){
-  if(busy)return;seedPreview=null;controls();const module=S($('rayoInitModule')?.value);if(!MODULES[module])return;
+  if(busy)return;seedPreview=null;controls();const module=S($('rayoInitModule')?.value);if(!INIT_MODULES[module])return;
   busy=true;controls();message('در حال بررسی بارگذاری اولیه…');
   try{
     const gw=window.RAYO_API_GATEWAY;await loadForInitialize(module);
@@ -124,7 +126,7 @@ async function inspectSeed(){
 }
 async function initialize(){
   if(busy||!seedPreview)return;const p=seedPreview;if($('rayoInitModule')?.value!==p.module)return;
-  if(prompt(`برای بارگذاری اطلاعات اولیه «${MODULES[p.module]}» عبارت INITIALIZE را وارد کنید:`)!=='INITIALIZE')return;
+  if(prompt(`برای بارگذاری اطلاعات اولیه «${INIT_MODULES[p.module]}» عبارت INITIALIZE را وارد کنید:`)!=='INITIALIZE')return;
   busy=true;controls();
   try{const gw=window.RAYO_API_GATEWAY,missing=await loadForInitialize(p.module);const seed=clone(p.seed);seed.meta=seed.meta||{};seed.meta.initialized=true;await gw.saveModule(p.module,seed,{verify:true,allowSeedWrite:true,allowInitialize:true,allowUnconfirmedWrite:missing});seedPreview=null;message('بارگذاری اولیه و بازخوانی سرور تأیید شد.')}
   catch(e){message(e.message,true)}finally{busy=false;controls()}
@@ -138,7 +140,7 @@ function card(){return `<div class="card rayo-initial-data-card" id="rayo-initia
   <div id="rayoDataPreview"></div><div id="rayoDataMsg" class="hint" role="status" aria-live="polite"></div>
   <h3>بازگردانی بکاپ بازنشانی</h3><p class="muted">فایل JSON که پیش از بازنشانی دانلود شده است را انتخاب کنید. بازگردانی نیز پیش‌نمایش، بکاپ از وضعیت فعلی و تأیید جداگانه دارد.</p>
   <div class="toolbar"><label class="field">فایل بکاپ بازنشانی<input data-data-action type="file" accept=".json,application/json" onchange="RayoInitialData.restoreFile(event)"></label><button id="rayoRollbackBtn" class="btn" disabled onclick="RayoInitialData.previewRollback()">پیش‌نمایش بازگشت آخرین عملیات</button><button id="rayoRestoreBtn" class="btn btn-danger" disabled onclick="RayoInitialData.restore()">بازگردانی بکاپ</button></div>
-  <details><summary>بارگذاری اطلاعات اولیهٔ رایو — فقط برای ماژول مقداردهی‌نشده</summary><p>این گزینه داده نمونه وارد می‌کند و از بازنشانی جداول مستقل است.</p><div class="field"><label for="rayoInitModule">بخش موردنظر</label><select data-data-action id="rayoInitModule" onchange="RayoInitialData.inspectSeed()"><option value="">انتخاب کنید</option>${Object.entries(MODULES).map(([k,l])=>`<option value="${k}">${esc(l)}</option>`).join('')}</select></div><div id="rayoSeedPreview" dir="ltr"></div><button id="rayoInitializeBtn" class="btn" disabled onclick="RayoInitialData.initialize()">بارگذاری اطلاعات اولیه</button></details>
+  <details><summary>بارگذاری اطلاعات اولیهٔ رایو — فقط برای ماژول مقداردهی‌نشده</summary><p>این گزینه داده نمونه وارد می‌کند و از بازنشانی جداول مستقل است.</p><div class="field"><label for="rayoInitModule">بخش موردنظر</label><select data-data-action id="rayoInitModule" onchange="RayoInitialData.inspectSeed()"><option value="">انتخاب کنید</option>${Object.entries(INIT_MODULES).map(([k,l])=>`<option value="${k}">${esc(l)}</option>`).join('')}</select></div><div id="rayoSeedPreview" dir="ltr"></div><button id="rayoInitializeBtn" class="btn" disabled onclick="RayoInitialData.initialize()">بارگذاری اطلاعات اولیه</button></details>
 </div>`}
 function backupCard(){return `<div class="card rayo-live-backup-card" id="rayo-live-backup"><div class="section-head"><div><h2>بکاپ کامل داده‌های زنده</h2><p class="muted">همه بخش‌ها از سرور خوانده و در یک فایل ZIP دانلود می‌شوند.</p></div><button id="rayoBackupAllBtn" data-data-action class="btn btn-primary" onclick="RayoBackup.downloadAll()">تهیه بک آپ کامل</button></div></div>`}
 function dataManagementView(){const head=typeof pageHead==='function'?pageHead('مدیریت اطلاعات و بکاپ','نسخه پشتیبان، پیش‌نمایش بازنشانی جداول و بازگردانی داده‌ها'):'';setTimeout(()=>{if(preview)showPreview(preview);controls()},0);return head+backupCard()+card()}

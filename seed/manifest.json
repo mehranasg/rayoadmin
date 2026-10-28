@@ -12,7 +12,8 @@
     "finance": "seed/finance-data.seed.json",
     "survey": "seed/survey-data.seed.json",
     "errorlog": "seed/error-log-data.seed.json",
-    "sepidsaudit": "seed/sepids-audit-data.seed.json"
+    "sepidsaudit": "seed/sepids-audit-data.seed.json",
+    "attendance": "seed/attendance-data.seed.json"
   },
   "pricingSeed": {
     "seedId": "sepids-master-1405-05-19-v2",

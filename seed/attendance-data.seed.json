@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "module": "Rayo Attendance",
+    "restaurant": "کافه‌رستوران رایو",
+    "timezone": "Asia/Tehran",
+    "updatedAt": null
+  },
+  "settings": {
+    "businessDayCutoff": "06:00",
+    "standardRestMin": 120,
+    "windows": {
+      "morning": { "from": "06:00", "to": "12:00" },
+      "midday": { "from": "12:00", "to": "21:00" },
+      "night": { "from": "21:00", "to": "06:00" }
+    },
+    "toleranceMode": "full",
+    "earlyArrivalCountsAsOvertime": false,
+    "overtimeRequiresApproval": true,
+    "sameTypeMergeWindowMin": 30,
+    "oppositeTypeMergeWindowMin": 3,
+    "restFillMode": "standard",
+    "weekly": [
+      { "weekday": 0, "morningArrival": "09:00", "opening": "09:30", "morningLateToleranceMin": 15, "morningEnd": "17:30", "eveningStart": "16:30", "eveningLateToleranceMin": 0, "eveningEnd": "00:30" },
+      { "weekday": 1, "morningArrival": "09:00", "opening": "09:30", "morningLateToleranceMin": 15, "morningEnd": "17:30", "eveningStart": "16:30", "eveningLateToleranceMin": 0, "eveningEnd": "00:30" },
+      { "weekday": 2, "morningArrival": "09:00", "opening": "09:30", "morningLateToleranceMin": 15, "morningEnd": "17:30", "eveningStart": "16:30", "eveningLateToleranceMin": 0, "eveningEnd": "00:30" },
+      { "weekday": 3, "morningArrival": "09:00", "opening": "09:30", "morningLateToleranceMin": 15, "morningEnd": "17:30", "eveningStart": "16:30", "eveningLateToleranceMin": 0, "eveningEnd": "00:30" },
+      { "weekday": 4, "morningArrival": "09:00", "opening": "09:30", "morningLateToleranceMin": 15, "morningEnd": "17:30", "eveningStart": "16:30", "eveningLateToleranceMin": 0, "eveningEnd": "00:30" },
+      { "weekday": 5, "morningArrival": "08:30", "opening": "09:00", "morningLateToleranceMin": 15, "morningEnd": "17:30", "eveningStart": "16:30", "eveningLateToleranceMin": 0, "eveningEnd": "01:00" },
+      { "weekday": 6, "morningArrival": "08:30", "opening": "09:00", "morningLateToleranceMin": 15, "morningEnd": "17:30", "eveningStart": "16:30", "eveningLateToleranceMin": 0, "eveningEnd": "00:30" }
+    ]
+  },
+  "punches": [],
+  "importBatches": [],
+  "overrides": [],
+  "monthSaves": [],
+  "auditLog": [],
+  "changeLog": []
+}
