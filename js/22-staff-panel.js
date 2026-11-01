@@ -278,7 +278,8 @@ assetIncidentView=function(){const all=staffAssetsRows().slice().sort((a,b)=>S(a
 function staffAssetSearch(v){assetIncidentSearch=v;render()}
 function staffAssetChoose(id){assetIncidentSelectedId=S(id);render()}
 saveAssetIncident=async function(){const assetId=S(document.getElementById('stAssetIncAsset')?.value),custom=S(document.getElementById('stAssetIncCustom')?.value),type=S(document.getElementById('stAssetIncType')?.value),quantity=Math.max(1,N(document.getElementById('stAssetIncQty')?.value)),date=S(document.getElementById('stAssetIncDate')?.value)||today(),description=S(document.getElementById('stAssetIncDesc')?.value);if((!assetId&&!custom)||!type||!description)return toastStaff('دارایی/نام دارایی، نوع و شرح اتفاق الزامی است',true);assets=await update('assets',d=>{d.assetIncidents=A(d.assetIncidents);const a=A(d.assets).find(x=>x.id===assetId);d.assetIncidents.push({id:uid('AINC',d.assetIncidents),assetId,assetName:a?.name||custom,date,type,quantity,description,notes:'',reportedByPersonnelId:me.id,reportedByName:me.name,status:'جدید',managerNote:'',createdAt:now(),updatedAt:now()})});toastStaff('گزارش برای بررسی مدیر ثبت شد');render()}
-// Daily soft-drink control for staff with the beverageControl permission: one beverage per entry, same data, formula and
+// Daily soft-drink control for staff with the beverageControl permission: on a PC all beverages in one table saved together
+// (RayoBeverageControl.table), on a phone one beverage per entry (RayoBeverageControl.form); same data, formula and
 // merge rules as the admin form (window.RayoBeverageControl in config.js). The day's morning counter, night counter and
 // storekeeper are picked from active personnel; who typed each stage is the signed-in person, re-read from the live
 // personnel record at save time. Existing lines can be changed by staff only for today and yesterday; older dates are
@@ -292,9 +293,10 @@ function staffBevMine(){const R=window.RayoBeverageControl,rows=[];for(const rec
  return `<div class="section-head"><h2>ثبت‌های من</h2></div><div class="table-wrap"><table class="data-table"><thead><tr><th>تاریخ</th><th>نوشیدنی</th><th>مرحله ثبت‌شده توسط شما</th><th>آخرین ویرایش</th></tr></thead><tbody>${rows.slice(0,60).map(r=>`<tr><td>${E(r.date)}</td><td>${E(r.name)}</td><td>${E(r.stages)}</td><td>${E(r.by)}${r.at?` — ${E(R.atText(r.at))}`:''}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">هنوز ثبتی ندارید.</td></tr>'}</tbody></table></div>`}
 function staffBevRefreshMine(){const c=document.getElementById('stBevMine');if(c){c.innerHTML=staffBevMine();staffEnhanceTables()}}
 function staffBeverageView(){if(!permissions().beverageControl)return '<div class="card empty">دسترسی شمارش نوشیدنی‌ها فعال نیست.</div>';if(!window.RayoBeverageControl)return '<div class="card empty" role="alert">ماژول کنترل نوشابه بارگذاری نشد؛ صفحه را بروزرسانی کنید.</div>';if(!inventory||!pricing)return '<div class="card empty" role="alert">اطلاعات انبار یا کاتالوگ بارگذاری نشد؛ صفحه را بروزرسانی کنید.</div>';
- const head=`<div class="page-head"><div><h1>${STAFF_BEV_TITLE}</h1><p>تاریخ و نوشیدنی را انتخاب و اعداد را وارد کنید؛ خانهٔ خالی یعنی «وارد نشده»، نبودِ کالا را «۰» بنویسید.</p></div></div>`;
+ /* On a PC every beverage is entered in one table and saved together (like the admin form); phones keep the one-beverage form. */
+ const desktop=window.matchMedia?.('(min-width: 761px)')?.matches===true,head=`<div class="page-head"><div><h1>${STAFF_BEV_TITLE}</h1><p>${desktop?'تاریخ را انتخاب و اعداد همهٔ نوشیدنی‌ها را در جدول وارد کنید و یکجا ذخیره کنید':'تاریخ و نوشیدنی را انتخاب و اعداد را وارد کنید'}؛ خانهٔ خالی یعنی «وارد نشده»، نبودِ کالا را «۰» بنویسید.</p></div></div>`;
  if(!staffBevItems().length)return head+'<div class="card empty">مدیر هنوز اقلام نوشیدنی کنترل روزانه را تعیین نکرده است.</div>';
- return head+window.RayoBeverageControl.form.html(staffBevCfg())+`<div class="card" id="stBevMine">${staffBevMine()}</div>`}
+ return head+(desktop&&window.RayoBeverageControl.table?window.RayoBeverageControl.table:window.RayoBeverageControl.form).html(staffBevCfg())+`<div class="card" id="stBevMine">${staffBevMine()}</div>`}
 // ---------- کارکرد ماه من: ریز کارکرد دستگاه حضور و غیاب (hr.attendanceLogs) و درخواست اصلاح (hr.attendanceCorrections) ----------
 // The summary (approved corrections replace that day's in/out; plan from shift records) is RayoAttendance.summary in 18, the same one the admin sees.
 let staffAttMonth='',staffAttSaving=false;

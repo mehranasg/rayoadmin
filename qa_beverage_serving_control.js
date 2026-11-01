@@ -202,6 +202,12 @@ async function assetsHarness(doc,loadFails=false){
    c.location={pathname:'/personel/beverage-control.html',replace:u=>{c.redirect=u}};c.sessionStorage={getItem:()=>JSON.stringify({personnelId,name:sessionName}),removeItem(){}};c.document.body.dataset.staffView='beverageControl';c.setTimeout=()=>{};c.confirm=()=>true;
    vm.runInContext(read('js/22-staff-panel.js'),c);c.RayoBeverageControl.today=()=> '1405/07/08';await c.staffInit();return{c,dom,gw,el:dom.get,R:c.RayoBeverageControl}};
   const denied=await run('P2');assert.equal(denied.c.redirect,'index.html?denied=1','staff without permission cannot open the page');
+  {/* PC (min-width 761px): every beverage in one table saved together, no per-item picker */const {c,dom}=sharedContext({innerWidth:1200,toast(){},RayoJalali:{today:()=> '1405/07/08'},matchMedia:q=>({matches:q==='(min-width: 761px)'})});c.RAYO_API_GATEWAY=fakeGateway(server);
+   c.location={pathname:'/personel/beverage-control.html',replace(){}};c.sessionStorage={getItem:()=>JSON.stringify({personnelId:'P1',name:'سارا'}),removeItem(){}};c.document.body.dataset.staffView='beverageControl';c.setTimeout=()=>{};
+   vm.runInContext(read('js/22-staff-panel.js'),c);await c.staffInit();const t=dom.get('staffView').innerHTML;
+   assert(t.includes('rbtForm')&&!t.includes('rbcForm')&&t.includes('ذخیرهٔ همهٔ نوشیدنی‌ها'),'PC staff get the all-beverages table');
+   assert(['water','coke','zir'].every(id=>t.includes(`data-rbt-item="${id}"`))&&!t.includes('rbt_role_')&&t.includes('مغایرت شبانه'),'one row per beverage, no role pickers, same calculated columns');
+   assert.equal(c.RAYO_API_GATEWAY.saves,0,'rendering the table never saves')}
   const a=await run('P1');let html=a.el('staffView').innerHTML;
   assert(html.includes('شمارش نوشیدنی‌ها')&&html.includes('rbcForm')&&html.includes('rbc_nightUpper'));
   assert(!html.includes('rbc_role_')&&!html.includes('stBevCM'),'staff do not pick the people of the day');

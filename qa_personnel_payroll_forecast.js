@@ -112,6 +112,82 @@ let tests=0;const pending=[];function test(name,run){const r=run();if(r&&typeof 
   const row=calc(ctx,'P1',1405,6);
   near(row.delayDeduction,row.delayHours*100000*2);near(row.wage,10000000-row.delayDeduction);
  });
+ test('delay source attendance: the month record\'s attendanceLateMinutes replaces manual delay records',()=>{
+  const ctx=setup(),st=baseState({monthlyAdjustments:[adj({hoursOverride:'100',delaySource:'attendance',attendanceLateMinutes:90})],delays:[{id:'D1',personnelId:'P1',year:1405,month:6,scheduledTime:'09:00',actualTime:'10:00'}]});
+  setState(ctx,st);withSettings(ctx,{delayDeductionEnabled:1,delayDeductionFactor:2});
+  const row=calc(ctx,'P1',1405,6);
+  assert.equal(row.delaySource,'attendance');near(row.delayHours,1.5);near(row.manualDelayHours,1);near(row.delayDeduction,1.5*100000*2);
+ });
+ test('delay display-only for the month: reported on the payslip but never deducted, even with deduction enabled',()=>{
+  const ctx=setup(),st=baseState({monthlyAdjustments:[adj({hoursOverride:'100',delayDisplayOnly:true})],delays:[{id:'D1',personnelId:'P1',year:1405,month:6,scheduledTime:'09:00',actualTime:'10:00'}]});
+  setState(ctx,st);withSettings(ctx,{delayDeductionEnabled:1,delayDeductionFactor:2});
+  const row=calc(ctx,'P1',1405,6);
+  near(row.delayHours,1);near(row.delayDeduction,0);near(row.wage,10000000);assert.equal(row.delayDisplayOnly,true);
+ });
+ test('official start month: balances of months before payrollStartYear/Month never carry forward; old records stay',()=>{
+  const ctx=setup(),st=baseState({monthlyAdjustments:[adj({personnelId:'P2',month:5}),adj({personnelId:'P2',month:6}),adj({personnelId:'P2',month:7})]});
+  setState(ctx,st);
+  near(calc(ctx,'P2',1405,6).previousBalance,20000000,'without a start date the unpaid Mordad salary carries into Shahrivar');
+  withSettings(ctx,{payrollStartYear:1405,payrollStartMonth:6});
+  const before=calc(ctx,'P2',1405,5),start=calc(ctx,'P2',1405,6),next=calc(ctx,'P2',1405,7);
+  near(before.unpaid,20000000,'a pre-start month still computes on its own');near(start.previousBalance,0);near(start.unpaid,20000000);near(next.previousBalance,20000000,'months after the start still chain');
+  vm.runInContext("state.monthlyAdjustments.find(x=>x.personnelId==='P2'&&x.month===6).openingBalanceToman=-500000",ctx);
+  near(calc(ctx,'P2',1405,6).previousBalance,-500000,'an explicit opening balance of the start month still wins');
+  assert.equal(vm.runInContext('payrollBeforeStart(1405,5)+","+payrollBeforeStart(1405,6)+","+payrollBeforeStart(1404,12)',ctx),'true,false,true');
+ });
+ test('salary agreement history: a change from month X never rewrites earlier months (base pay or fixed↔hourly)',()=>{
+  const ctx=setup();setState(ctx,baseState({monthlyAdjustments:[adj({personnelId:'P2',month:5}),adj({personnelId:'P2',month:6}),adj({personnelId:'P2',month:7,hoursOverride:'100'})],payments:[{id:'PAY1',personnelId:'P2',salaryYear:1405,salaryMonth:5,amount:20000000,type:'پرداخت'}]}));
+  near(calc(ctx,'P2',1405,5).unpaid,0,'Mordad fully paid');
+  vm.runInContext("{const p=state.personnel.find(x=>x.id==='P2'),before=structuredClone(p);p.salaryContract={type:'hourly',monthlySalary:0};p.hourlyRate=200000;recordSalaryTerms(p,before,1405,7)}",ctx);
+  near(calc(ctx,'P2',1405,5).wage,20000000,'Mordad keeps the old fixed salary');near(calc(ctx,'P2',1405,5).unpaid,0,'and stays settled');
+  near(calc(ctx,'P2',1405,6).wage,20000000);near(calc(ctx,'P2',1405,7).wage,100*200000,'Mehr uses the new hourly terms');
+  assert.equal(vm.runInContext("state.personnel.find(x=>x.id==='P2').salaryContract.type+','+state.personnel.find(x=>x.id==='P2').salaryHistory.length",ctx),'hourly,2','top-level fields mirror the latest terms; old terms kept as the from-start entry');
+  vm.runInContext("{const p=state.personnel.find(x=>x.id==='P2'),before=structuredClone(p);p.salaryContract={type:'fixedMonthly',monthlySalary:25000000};p.hourlyRate=0;recordSalaryTerms(p,before,1405,6)}",ctx);
+  near(calc(ctx,'P2',1405,6).wage,25000000,'an entry inserted for an earlier month only covers its own range');near(calc(ctx,'P2',1405,7).wage,20000000,'later entry still wins for Mehr');
+  assert.equal(vm.runInContext("state.personnel.find(x=>x.id==='P2').salaryContract.type",ctx),'hourly','saving an older month never replaces the current terms');
+  vm.runInContext("{const p=state.personnel.find(x=>x.id==='P2'),before=structuredClone(p);recordSalaryTerms(p,before,0,0)}",ctx);
+  assert.equal(vm.runInContext("state.personnel.find(x=>x.id==='P2').salaryHistory.length",ctx),1,'«from the beginning» replaces the history');
+ });
+ test('personnel start date: no payroll row or carried balance for months before a person started',()=>{
+  const ctx=setup(),st=baseState({monthlyAdjustments:[adj({personnelId:'P2',month:6})]});st.personnel[1].startDate='1405/06/10';setState(ctx,st);
+  assert.equal(vm.runInContext("payrollRowsForPeriod(1405,5).map(r=>r.personnelId).join()",ctx),'P1','fixed-salary P2 (starts Shahrivar) is not charged for Mordad');
+  assert.equal(vm.runInContext("payrollRowsForPeriod(1405,6).map(r=>r.personnelId).join()",ctx),'P1,P2');
+  near(calc(ctx,'P2',1405,6).previousBalance,0);near(calc(ctx,'P2',1405,7).previousBalance,20000000,'balances still chain from the start month on');
+  vm.runInContext("state.monthlyAdjustments.push({personnelId:'P2',year:1405,month:5,hoursOverride:'10'})",ctx);
+  assert.equal(vm.runInContext("payrollRowsForPeriod(1405,5).map(r=>r.personnelId).join()",ctx),'P1,P2','data entered for an earlier month stays visible');
+  near(calc(ctx,'P2',1405,6).previousBalance,0,'but never carries into the start month');
+ });
+ test('pre-start months are hidden: no payroll rows, zero metrics, entry blocked',()=>{
+  const ctx=setup();setState(ctx,baseState({monthlyAdjustments:[adj({personnelId:'P2',month:5}),adj({personnelId:'P2',month:6})],tipGroups:[]}));withSettings(ctx,{payrollStartYear:1405,payrollStartMonth:6});
+  assert.equal(vm.runInContext('payrollRowsForPeriod(1405,5).length',ctx),0);assert(vm.runInContext('payrollRowsForPeriod(1405,6).length',ctx)>0);
+  const mm=metrics(ctx,1405,5);near(mm.net,0);near(mm.unpaid,0);
+  const src=fs.readFileSync('js/00-base.js','utf8');
+  assert((src.match(/if\(payrollBeforeStart\(y,m\)\)return toast\(PAYROLL_PRESTART_MSG,true\);/g)||[]).length===4,'work entry, bulk entry, finalize and month settlement are blocked');
+  assert(src.includes("if(payrollBeforeStart(n(o.salaryYear),n(o.salaryMonth)))throw Error("),'payment for a pre-start salary month is blocked');
+ });
+ test('owner-only pre-start cleanup: two steps, typed phrase, records archived (not destroyed) and restorable',async()=>{
+  const ctx=setup(),els={};let role='owner',commits=0,confirms=0,downloads=0;
+  const el=id=>els[id]||(els[id]={id,value:'',innerHTML:'',textContent:'',classList:{add(){},remove(){}}});
+  ctx.document.getElementById=el;ctx.document.createElement=()=>({click(){downloads++}});ctx.Blob=function(){};ctx.URL={createObjectURL:()=>'blob:x',revokeObjectURL(){}};
+  ctx.sessionStorage={getItem:k=>k==='rayo_admin_role'?role:k==='rayo_admin_user'?'admin':null,setItem(){},removeItem(){}};ctx.confirm=()=>{confirms++;return true};
+  setState(ctx,baseState({monthlyAdjustments:[adj({personnelId:'P2',month:5}),adj({personnelId:'P2',month:6})],payments:[{id:'PAY1',personnelId:'P2',salaryYear:1405,salaryMonth:4,amount:5,type:'پرداخت'},{id:'PAY2',personnelId:'P2',salaryYear:1405,salaryMonth:6,amount:7,type:'پرداخت'}]}));
+  withSettings(ctx,{payrollStartYear:1405,payrollStartMonth:6});vm.runInContext("state.lists={months:['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند']};commit=async()=>{__c();return true};toast=()=>{}",Object.assign(ctx,{__c:()=>commits++}));
+  role='user';vm.runInContext('preStartCleanupStep1()',ctx);assert.equal(els.modalBody?.innerHTML||'','','a non-owner never reaches the preview');
+  role='owner';vm.runInContext('preStartCleanupStep1()',ctx);assert(els.modalBody.innerHTML.includes('data-prestart="payments"'));
+  ctx.document.querySelectorAll=()=>[{checked:true,dataset:{prestart:'monthlyAdjustments'}},{checked:true,dataset:{prestart:'payments'}}];
+  vm.runInContext('preStartCleanupStep2()',ctx);el('prestart_phrase').value='اشتباه';await vm.runInContext('preStartCleanupRun()',ctx);assert.equal(commits,0,'wrong phrase deletes nothing');
+  el('prestart_phrase').value='حذف اطلاعات قبل از شهریور 1405';await vm.runInContext('preStartCleanupRun()',ctx);
+  assert.equal(commits,1);assert.equal(downloads,1,'backup downloaded first');
+  assert.equal(vm.runInContext("state.monthlyAdjustments.map(x=>x.month).join()+'|'+state.payments.map(x=>x.id).join()",ctx),'6|PAY2');
+  assert.equal(vm.runInContext("state.preStartArchives[0].records.payments[0].id+','+state.preStartArchives[0].records.monthlyAdjustments.length",ctx),'PAY1,1');
+  vm.runInContext('preStartRestore()',ctx);await new Promise(r=>setTimeout(r,0));assert.equal(confirms,2,'restore asks twice');
+  assert.equal(vm.runInContext("state.payments.map(x=>x.id).sort().join()+'|'+state.monthlyAdjustments.length+'|'+!!state.preStartArchives[0].restoredAt",ctx),'PAY1,PAY2|2|true');
+ });
+ test('payroll month list: «حقوق این ماه», «مانده از قبل» and «مانده کل» columns; guide button',()=>{
+  const src=fs.readFileSync('js/00-base.js','utf8');
+  assert(src.includes('<th>پرداخت این ماه</th>')&&src.includes('>مانده از قبل</th>')&&src.includes('>مانده کل</th>')&&src.includes('<td class="num">${money(r.previousBalance)}</td><td class="num"><b>${money(r.unpaid)}</b></td>'));
+  assert(src.includes('onclick="payrollGuide()"')&&src.includes('id="set_payrollStartYear"')&&src.includes('id="set_payrollStartMonth"'));
+ });
  test('fixed-monthly: worked hours are display-only; without an hourly basis overtime adds nothing and delay is never deducted',()=>{
   const ctx=setup();setState(ctx,baseState({monthlyAdjustments:[adj({personnelId:'P2',hoursOverride:'200',overtimeHours:'20'})]}));withSettings(ctx,{overtimeFactor:1.4,delayDeductionEnabled:1});
   const row=calc(ctx,'P2',1405,6);

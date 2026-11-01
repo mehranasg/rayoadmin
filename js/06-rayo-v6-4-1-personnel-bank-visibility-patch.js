@@ -71,11 +71,11 @@ function openPersonnelBankV641(id){
   (window.openPersonnelModalAtTopV64||(()=>$('modalBackdrop').classList.add('open')))();refreshSalaryContractV641();setTimeout(enhanceNumericUIV6,0);
 }
 async function savePersonnelBankV641(id){
-  const p=person(id);if(!p)return toast('پرسنل پیدا نشد',true);const selectedType=$('pb_contract_type').value,monthlySalary=n($('pb_monthly_salary').value),hourlyRate=n($('pb_hourly').value),type=selectedType==='fixedMonthly'||monthlySalary>0?'fixedMonthly':'hourly';
+  const p=person(id);if(!p)return toast('پرسنل پیدا نشد',true);const selectedType=$('pb_contract_type').value,monthlySalary=n($('pb_monthly_salary').value),hourlyRate=n($('pb_hourly').value),type=selectedType==='fixedMonthly'?'fixedMonthly':'hourly',beforeTerms=structuredClone(p);
   if(type==='fixedMonthly'&&monthlySalary<=0)return toast('مبلغ حقوق ثابت ماهانه باید بیشتر از صفر باشد',true);if(type==='hourly'&&hourlyRate<=0)return toast('نرخ ساعتی توافق‌شده باید بیشتر از صفر باشد',true);
   p.salaryContract={...(p.salaryContract||{}),type,monthlySalary:type==='fixedMonthly'?monthlySalary:0,updatedAt:new Date().toISOString()};p.hourlyRate=type==='hourly'?hourlyRate:n(p.hourlyRate);p.gradeId=$('pb_grade').value;p.experienceMonths=Math.max(0,n($('pb_exp').value));p.transportMonthly=n($('pb_transport').value);p.fixedAllowance=n($('pb_fixed').value);p.monthlyCredit=n($('pb_credit').value);p.mealCredit=n($('pb_meal').value);
   p.accountHolderName=String($('pb_account_holder').value||'').trim();p.bankName=String($('pb_bank_name').value||'').trim();p.cardNumber=String($('pb_card_number').value||'').trim();p.accountNumber=String($('pb_account_number').value||'').trim();p.iban=String($('pb_iban').value||'').trim();p.salaryProfile={schedule:{},...(p.salaryProfile||{}),position:p.mainPosition,grade:p.gradeId,experienceMonths:p.experienceMonths,updatedAt:new Date().toISOString()};
-  closeModal();await commit('ویرایش حساب و قرارداد حقوق پرسنل');renderView();toast('حساب حقوق پرسنل ذخیره شد');
+  /* Legacy form: the change applies from the current month (salary history keeps earlier months). */{const t=parseJDate(todayJ());window.recordSalaryTerms?.(p,beforeTerms,t.y,t.m)};closeModal();await commit('ویرایش حساب و قرارداد حقوق پرسنل');renderView();toast('حساب حقوق پرسنل ذخیره شد');
 }
 function userAccessSummaryV953(p){const has=Boolean(p?.username),enabled=p?.userAccess?.enabled===true;return has?`<span class="bank-status-v641"><b dir="ltr">${esc(p.username)}</b><small>${enabled?'پنل فعال':'پنل غیرفعال'}</small></span>`:'<span class="badge warn">ثبت نشده</span>'}
 function personnelPermissionsV954(p){return {cashReport:false,purchaseRequests:false,purchaseInvoices:false,tips:false,surveys:false,suppliersView:false,...(p?.userAccess?.permissions||{})}}
@@ -96,7 +96,7 @@ function bankSummaryV641(p){
   if(!has)return '<span class="badge warn">ثبت نشده</span>';
   return `<span class="bank-status-v641"><b>${esc(p.bankName||'بانک ثبت نشده')}</b><small>${esc(p.accountHolderName||'نام صاحب حساب ثبت نشده')}</small></span>`;
 }
-function salaryContractSummaryV641(p){normalizeSalaryContractV641(p);return p.salaryContract.type==='fixedMonthly'?`<span class="badge success">ثابت: ${tomanV6(p.salaryContract.monthlySalary)}${p.salaryContract.shiftBased&&n(p.salaryContract.weeklyShifts)?` / ${n(p.salaryContract.weeklyShifts).toLocaleString('fa-IR')} شیفت در هفته`:''}</span>`:`<span class="badge">ساعتی: ${tomanV6(p.hourlyRate)}</span>`}
+function salaryContractSummaryV641(p){normalizeSalaryContractV641(p);return `<span class="badge${p.salaryContract.type==='fixedMonthly'?' success':''}">${esc(salaryAgreementLabelV6(p))}</span>`}
 function viewsPersonnelV641(){
   const q=(ui.personnelSearch||'').toLowerCase();
   const items=state.personnel.filter(p=>(p.name+p.id+p.mainPosition+(p.section||'')+(p.subSection||'')+(p.personnelGroup||'')+(p.bankName||'')+(p.accountHolderName||'')+(p.cardNumber||'')+(p.accountNumber||'')+(p.iban||'')+(p.username||'')).toLowerCase().includes(q));

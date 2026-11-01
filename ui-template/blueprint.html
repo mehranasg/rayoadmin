@@ -1,0 +1,898 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>طرح محصول رایو — ساختار مینیمال و جامع</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..800&display=swap">
+<link rel="stylesheet" href="css/theme.css">
+<script>try{var t=localStorage.getItem('rt_theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<style>
+/* ---------- blueprint-only additions (same tokens as theme.css) ---------- */
+/* chart pair validated with dataviz/validate_palette.js (light + dark) */
+:root{--bp-s1:#b4532a;--bp-s2:#0a7d9e}
+:root[data-theme="dark"]{--bp-s1:#cf6f48;--bp-s2:#14a3a1}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bp-s1:#cf6f48;--bp-s2:#14a3a1}}
+
+[data-view][hidden]{display:none!important}
+.bp-note{display:flex;gap:var(--s3);align-items:flex-start;padding:var(--s3) var(--s4);border:1px dashed var(--border-strong);border-radius:var(--radius);color:var(--text-2);font-size:12.5px;background:var(--surface-2)}
+.bp-note [data-lucide]{color:var(--accent);margin-top:2px}
+
+/* domain map */
+.domain{display:flex;flex-direction:column}
+.domain .card-head .kpi-icon{flex:none}
+.domain-mods{display:flex;flex-direction:column;gap:2px;padding:var(--s3) var(--s4) var(--s4)}
+.mod{display:flex;align-items:center;gap:var(--s2);padding:8px var(--s2);border-radius:10px;cursor:pointer;color:var(--text);font-size:13px}
+.mod:hover{background:var(--surface-3)}
+.mod span.grow{flex:1;min-width:0}
+.mod small{color:var(--text-3);font-size:11.5px;display:block;line-height:1.5}
+
+/* principles */
+.principles{counter-reset:p;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3)}
+.principle{counter-increment:p;display:flex;gap:var(--s3);padding:var(--s3) var(--s4);border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+.principle::before{content:counter(p,persian);flex:none;width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-weight:800;font-size:13px}
+.principle b{display:block;font-size:13.5px}
+.principle p{color:var(--text-2);font-size:12.5px}
+
+/* flow (one event = one entry) */
+.flow{display:flex;align-items:stretch;gap:var(--s2);flex-wrap:wrap}
+.flow-step{flex:1 1 140px;padding:var(--s3);border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-2);font-size:12.5px}
+.flow-step b{display:block;font-size:13px;margin-bottom:2px}
+.flow-step small{color:var(--text-3)}
+.flow-arrow{display:grid;place-items:center;color:var(--text-3)}
+.flow-step.main{border-color:var(--accent);background:var(--accent-soft)}
+
+/* timeline (phases) */
+.phases{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--s3)}
+.phase{border:1px solid var(--border);border-radius:var(--radius);padding:var(--s4);background:var(--surface);position:relative}
+.phase .ph-n{font-size:11px;color:var(--text-3);font-weight:700}
+.phase h3{margin:2px 0 var(--s2)}
+.phase ul{margin:0;padding-inline-start:18px;color:var(--text-2);font-size:12.5px;line-height:1.9}
+.phase.now{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* stepper */
+.stepper{display:flex;gap:0;overflow-x:auto}
+.step{flex:1 1 0;min-width:120px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;position:relative;padding:0 var(--s2);font-size:12.5px}
+.step::before{content:"";position:absolute;top:15px;inset-inline-start:calc(-50% + 18px);width:calc(100% - 36px);height:2px;background:var(--border)}
+.step:first-child::before{display:none}
+.step .dotn{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--border-strong);background:var(--surface);color:var(--text-3);font-weight:700;z-index:1}
+.step .dotn [data-lucide]{width:16px;height:16px}
+.step.done .dotn{background:var(--success);border-color:var(--success);color:#fff}
+.step.done::before,.step.cur::before{background:var(--success)}
+.step.cur .dotn{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.step b{font-size:12.5px} .step small{color:var(--text-3);font-size:11.5px}
+
+/* tasks inbox */
+.task{display:grid;grid-template-columns:34px 1fr auto;gap:var(--s3);align-items:center;padding:var(--s3) 0;border-bottom:1px dashed var(--border)}
+.task:last-child{border-bottom:0}
+.task b{display:block;font-size:13px;font-weight:600}
+.task small{color:var(--text-3);font-size:12px}
+
+/* POS */
+.pos{display:grid;grid-template-columns:260px minmax(0,1fr) 320px;gap:var(--s4);align-items:start}
+.tables{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2)}
+.tbl{aspect-ratio:1;border-radius:12px;border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;cursor:pointer;background:var(--surface-2)}
+.tbl b{font-size:16px}
+.tbl.busy{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.tbl.bill{background:var(--warning-soft);border-color:var(--warning);color:var(--warning)}
+.tbl.sel{box-shadow:0 0 0 3px var(--accent)}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:var(--s2)}
+.item{border:1px solid var(--border);border-radius:12px;padding:var(--s3);background:var(--surface);cursor:pointer;text-align:start;display:flex;flex-direction:column;gap:4px}
+.item:hover{border-color:var(--accent)}
+.item b{font-size:13px} .item small{color:var(--text-3);font-size:12px}
+.order-line{display:grid;grid-template-columns:1fr auto auto;gap:var(--s2);align-items:center;padding:8px 0;border-bottom:1px dashed var(--border);font-size:13px}
+.order-line small{display:block;color:var(--text-3);font-size:11.5px}
+.qty{display:inline-flex;align-items:center;gap:6px}
+.qty button{width:24px;height:24px;border-radius:7px;border:1px solid var(--border);background:var(--surface);cursor:pointer;line-height:1}
+.kds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3)}
+.ticket{border:1px solid var(--border);border-radius:12px;padding:var(--s3);background:var(--surface);font-size:12.5px}
+.ticket header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.ticket ul{margin:0;padding-inline-start:16px;color:var(--text-2)}
+.ticket.late{border-color:var(--danger)}
+
+/* purchase */
+.price-src{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-3)}
+.price-src [data-lucide]{width:12px;height:12px}
+.drop{border:1.5px dashed var(--border-strong);border-radius:var(--radius);padding:var(--s5);text-align:center;color:var(--text-3);font-size:12.5px;display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--surface-2)}
+.drop [data-lucide]{width:24px;height:24px;color:var(--accent)}
+.table input.input{height:34px;min-width:90px}
+.prio{display:flex;flex-direction:column;gap:var(--s2)}
+.prio-row{display:grid;grid-template-columns:26px 1fr auto;gap:var(--s3);align-items:center;padding:var(--s2) var(--s3);border-radius:10px;background:var(--surface-2);font-size:12.5px}
+.prio-row .n{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--border);font-weight:700}
+
+/* ledger */
+.party-row{cursor:pointer}
+.party-row.sel td{background:var(--accent-soft)}
+.dir-out{color:var(--danger)} .dir-in{color:var(--success)}
+
+/* spec view */
+.spec-list{margin:0;padding-inline-start:18px;color:var(--text-2);line-height:2;font-size:13px}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:var(--s2) var(--s4);font-size:13px}
+.kv dt{color:var(--text-3)} .kv dd{margin:0}
+
+/* compare table */
+.cmp td,.cmp th{text-align:center}
+.cmp td:first-child,.cmp th:first-child{text-align:start}
+.yes{color:var(--success)} .part{color:var(--warning)} .no{color:var(--text-3)}
+.cmp [data-lucide]{width:16px;height:16px;vertical-align:-3px}
+
+@media (max-width:1200px){
+  .pos{grid-template-columns:minmax(0,1fr) 320px}
+  .pos>.pos-tables{grid-column:1/-1}
+  .phases{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kds{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:960px){
+  .pos{grid-template-columns:minmax(0,1fr)}
+  .principles{grid-template-columns:minmax(0,1fr)}
+  .phases{grid-template-columns:minmax(0,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+
+<!-- =====================================================================
+     نقشهٔ محصول
+     ===================================================================== -->
+<section data-view="map">
+  <div class="page-head">
+    <div>
+      <div class="crumbs"><span>طرح محصول</span></div>
+      <h1>نقشهٔ محصول رایو — مینیمال اما جامع</h1>
+      <p>۶ حوزه، ۲۸ ماژول؛ هر رویداد واقعی کسب‌وکار فقط یک بار ثبت می‌شود و بقیه از آن مشتق می‌شود.</p>
+    </div>
+    <div class="actions">
+      <span class="badge badge-neutral">موجود</span>
+      <span class="badge badge-info">ادغام / ساده‌سازی</span>
+      <span class="badge badge-accent">جدید</span>
+    </div>
+  </div>
+
+  <div class="bp-note"><i data-lucide="info"></i><div>این صفحه طرح پیشنهادی است و به دادهٔ واقعی وصل نیست. روی هر ماژول کلیک کنید تا هدف، صفحه‌ها، داده و آنچه جایگزین می‌کند را ببینید. ماژول‌هایی که نمونهٔ صفحه دارند با <i data-lucide="monitor" style="width:14px;height:14px;vertical-align:-2px"></i> مشخص شده‌اند.</div></div>
+
+  <div class="grid grid-3 mt" id="domains"></div>
+
+  <div class="card mt">
+    <div class="card-head"><div><h2>هشت اصل ساده‌سازی</h2><p>قاعده‌هایی که هر صفحهٔ جدید باید از آن عبور کند</p></div></div>
+    <div class="card-body"><div class="principles">
+      <div class="principle"><div><b>یک رویداد، یک ثبت</b><p>رسیدن بار، فروش، تردد، پرداخت؛ هر کدام فقط یک سند دارند و موجودی، بدهی، قیمت و گزارش از همان مشتق می‌شوند.</p></div></div>
+      <div class="principle"><div><b>ثبت ناقص مجاز، ثبت دیرهنگام ممنوع</b><p>سند می‌تواند «برآوردی» یا «منتظر تکمیل» ذخیره شود؛ تکمیل بعداً فقط اختلاف را اصلاح می‌کند.</p></div></div>
+      <div class="principle"><div><b>یک مرجع برای هر داده</b><p>قیمت فقط از تاریخچهٔ قیمت، فروش فقط از دفتر فروش، طرف حساب فقط از دفتر اشخاص.</p></div></div>
+      <div class="principle"><div><b>کارتابل به جای منو</b><p>هر نقش با فهرست کارهای امروزش وارد می‌شود؛ منوی عمیق برای کار روزانه لازم نیست.</p></div></div>
+      <div class="principle"><div><b>ماه بسته = عدد ثابت</b><p>یک دکمهٔ «بستن ماه» که شمارش، حقوق، تطبیق و سود و زیان را یک‌جا قفل و snapshot می‌کند.</p></div></div>
+      <div class="principle"><div><b>تنظیمات کنار کار، نه جدا</b><p>تنظیم هر ماژول در همان ماژول؛ هاب تنظیمات فقط کاربران، مراجع و دستگاه‌ها.</p></div></div>
+      <div class="principle"><div><b>برچسب کیفیت روی هر عدد</b><p>قطعی / برآوردی / دادهٔ ناکافی؛ به جای صفر یا عدد حدسی.</p></div></div>
+      <div class="principle"><div><b>اصلاح با ابطال و ثبت دوباره</b><p>هیچ سابقه‌ای حذف نمی‌شود؛ اما اصلاح باید یک کلیک باشد، نه چند فرم.</p></div></div>
+    </div></div>
+  </div>
+
+  <div class="card mt">
+    <div class="card-head"><div><h2>نمونه: «رسیدن بار» امروز و در طرح جدید</h2><p>ریشهٔ مشکل «ثبت جداگانهٔ قیمت آخرین خرید»</p></div></div>
+    <div class="card-body stack">
+      <div>
+        <div class="row" style="margin-bottom:var(--s2)"><span class="badge badge-danger plain">امروز: ۳ تا ۴ ثبت جدا</span></div>
+        <div class="flow">
+          <div class="flow-step"><b>ورود به انبار</b><small>مقدار، بدون قیمت (انباردار)</small></div>
+          <div class="flow-arrow"><i data-lucide="plus"></i></div>
+          <div class="flow-step"><b>فاکتور خرید</b><small>سریع یا تفصیلی، معمولاً چند روز بعد</small></div>
+          <div class="flow-arrow"><i data-lucide="plus"></i></div>
+          <div class="flow-step"><b>به‌روزرسانی قیمت</b><small>دستی در قیمت‌گذاری یا داشبورد</small></div>
+          <div class="flow-arrow"><i data-lucide="plus"></i></div>
+          <div class="flow-step"><b>پرداخت</b><small>جدا، با تطبیق دستی مانده</small></div>
+        </div>
+      </div>
+      <div>
+        <div class="row" style="margin-bottom:var(--s2)"><span class="badge badge-success plain">طرح جدید: ۱ سند + تکمیل اختیاری</span></div>
+        <div class="flow">
+          <div class="flow-step main"><b>دریافت کالا</b><small>مقدار + قیمت پیش‌فرض از آخرین قیمت + عکس فاکتور</small></div>
+          <div class="flow-arrow"><i data-lucide="arrow-left"></i></div>
+          <div class="flow-step"><b>خودکار</b><small>موجودی ↑، تاریخچهٔ قیمت (برآوردی)، بدهی تأمین‌کننده</small></div>
+          <div class="flow-arrow"><i data-lucide="arrow-left"></i></div>
+          <div class="flow-step"><b>تطبیق فاکتور (بعداً)</b><small>فقط اختلاف قیمت/مبلغ؛ قیمت «قطعی» می‌شود</small></div>
+          <div class="flow-arrow"><i data-lucide="arrow-left"></i></div>
+          <div class="flow-step"><b>پرداخت</b><small>از همان سند، با یک کلیک</small></div>
+        </div>
+      </div>
+      <a class="btn btn-secondary btn-sm" href="#purchase" style="align-self:flex-start"><i data-lucide="monitor"></i>دیدن نمونهٔ صفحهٔ دریافت کالا</a>
+    </div>
+  </div>
+
+  <div class="card mt flush">
+    <div class="card-head" style="padding-bottom:var(--s4)"><div><h2>جمع‌شدن صفحه‌ها و دفترهای تکراری</h2><p>آنچه امروز در چند جا ثبت یا دیده می‌شود</p></div></div>
+    <div class="card-body table-wrap"><table class="table">
+      <thead><tr><th>موضوع</th><th>امروز</th><th>طرح جدید</th></tr></thead>
+      <tbody>
+        <tr><td><b>قیمت خرید</b></td><td>کاتالوگ، قیمت دستی تأمین، فاکتور، اقدام سریع داشبورد</td><td>یک «تاریخچهٔ قیمت» با منبع و تاریخ؛ قیمت معتبر = آخرین رکورد با بالاترین اعتبار</td></tr>
+        <tr><td><b>فروش</b></td><td>گزارش صندوق، تحلیل فروش (salesAnalytics)، فروش انبار (salesPeriods)</td><td>یک «دفتر فروش» (از صندوق خودمان یا ورود سپیدز) که هر سه از آن می‌خوانند</td></tr>
+        <tr><td><b>بدهی و طلب</b></td><td>حساب تأمین‌کننده، تعهدات مالی، گردش اشخاص، تسویهٔ انعام، مساعده، بدهکار سپیدز</td><td>یک «دفتر طرف حساب» برای همه: تأمین‌کننده، پرسنل، مشتری اعتباری، شریک</td></tr>
+        <tr><td><b>حضور و کارکرد</b></td><td>ریز کارکرد قدیمی + ماژول جدید حضور و غیاب + ثبت دستی کارکرد</td><td>یک خط: تردد ← کارکرد تأییدشده ← حقوق</td></tr>
+        <tr><td><b>کنترل نوشیدنی</b></td><td>زیرسیستم جدا، بی‌اتصال به دفتر موجودی</td><td>«شمارش روزانهٔ اقلام حساس» داخل همان شمارش انبار</td></tr>
+        <tr><td><b>گزارش‌ها</b></td><td>گزارش‌ها، مالی، پنل مانیتورینگ، گزارش انبار، مدیریت مصرف، تحلیل فروش</td><td>۴ گزارش اصلی: سود و زیان، فروش و منو، هزینهٔ مواد، هزینه و عملکرد پرسنل</td></tr>
+        <tr><td><b>انبار</b></td><td>۱۰ تب</td><td>۵ تب: موجودی، دفتر ثبت‌ها، شمارش و مغایرت، مصرف، تنظیمات <span class="badge badge-warning plain">نیازمند تصمیم مالک</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="card mt">
+    <div class="card-head"><div><h2>فازبندی پیشنهادی</h2><p>از ساده‌سازی روی همین نسخه تا نرم‌افزار جامع</p></div></div>
+    <div class="card-body"><div class="phases">
+      <div class="phase now"><div class="ph-n">فاز ۰ · ۴ تا ۶ هفته</div><h3>یک ثبت برای خرید</h3><ul><li>دریافت کالا با قیمت پیش‌فرض</li><li>تاریخچهٔ قیمت واحد</li><li>تطبیق فاکتور بعدی</li><li>کارتابل مدیر</li></ul></div>
+      <div class="phase"><div class="ph-n">فاز ۱ · ۲ تا ۳ ماه</div><h3>پایهٔ داده</h3><ul><li>دیتابیس به جای JSON</li><li>دسترسی سروری (RBAC)</li><li>دفتر فروش واحد</li><li>دفتر طرف حساب واحد</li></ul></div>
+      <div class="phase"><div class="ph-n">فاز ۲ · ۲ ماه</div><h3>چرخهٔ ماه</h3><ul><li>تردد ← کارکرد ← حقوق</li><li>خزانه و تطبیق بانک</li><li>بستن ماه با snapshot</li><li>۴ گزارش اصلی</li></ul></div>
+      <div class="phase"><div class="ph-n">فاز ۳ · ۳ تا ۴ ماه</div><h3>فروش داخلی</h3><ul><li>سفارش‌گیر گارسون</li><li>صندوق و KDS</li><li>حالت آفلاین</li><li>کسر خودکار رسپی</li></ul></div>
+      <div class="phase"><div class="ph-n">فاز ۴ · تدریجی</div><h3>رشد</h3><ul><li>باشگاه مشتری و منوی QR</li><li>اسنپ‌فود و سامانهٔ مودیان</li><li>تحلیل هوشمند</li><li>چند شعبه</li></ul></div>
+    </div></div>
+  </div>
+
+  <div class="card mt flush">
+    <div class="card-head" style="padding-bottom:var(--s4)"><div><h2>مقایسه با نمونه‌های بازار</h2><p>بر اساس معرفی خود فروشندگان (بررسی مستقل نشده)</p></div></div>
+    <div class="card-body table-wrap"><table class="table cmp" id="cmp"></table></div>
+    <div class="card-foot">نتیجه: نرم‌افزارهای ایرانی (سپیدز، ماپرا، رستیار، سول، چاشنی) روی فروش، صندوق، باشگاه و انبار قوی‌اند؛ هیچ‌کدام کنترل عملیاتی عمیق رایو (مغایرت، پرتی، شیفت، حضور، حقوق، انعام) را در یک‌جا ندارند. نمونه‌های خارجی (Restaurant365، MarketMan، 7shifts) خرید را با عکس فاکتور و قیمت تمام‌شدهٔ روزانه حل کرده‌اند.</div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     میز کار
+     ===================================================================== -->
+<section data-view="home" hidden>
+  <div class="page-head">
+    <div>
+      <div class="crumbs"><span>میز کار</span></div>
+      <h1>میز کار مدیر</h1>
+      <p>کارهای امروز، وضعیت ماه و اعدادی که باید هر روز دیده شوند</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="location.hash='#purchase'"><i data-lucide="package-plus"></i>دریافت کالا</button>
+      <button class="btn btn-primary" onclick="location.hash='#pos'"><i data-lucide="receipt"></i>صندوق</button>
+    </div>
+  </div>
+
+  <div class="grid grid-4" id="homeKpis"></div>
+
+  <div class="grid grid-3 mt">
+    <div class="card span-2">
+      <div class="card-head"><div><h2>کارتابل امروز</h2><p>هر مورد مستقیم به همان سند می‌رود</p></div><span class="badge badge-accent plain" id="taskCount"></span></div>
+      <div class="card-body" id="tasks"></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>فروش امروز به تفکیک ساعت</h2><p>تومان، از دفتر فروش</p></div></div>
+      <div class="card-body"><div class="chart chart-sm" id="hourChart"></div></div>
+    </div>
+  </div>
+
+  <div class="card mt">
+    <div class="card-head"><div><h2>وضعیت بستن ماه مهر</h2><p>تا همهٔ مراحل کامل نشود سود و زیان ماه «برآوردی» است</p></div><a class="btn btn-ghost btn-sm" href="#close">جزئیات</a></div>
+    <div class="card-body"><div class="stepper" id="homeSteps"></div></div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     صندوق و سفارش
+     ===================================================================== -->
+<section data-view="pos" hidden>
+  <div class="page-head">
+    <div>
+      <div class="crumbs"><span>فروش</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>صندوق و سفارش</span></div>
+      <h1>صندوق و سفارش‌گیر</h1>
+      <p>یک صفحه برای گارسون (تبلت/موبایل) و صندوق؛ هر سفارش مستقیم به آشپزخانه و دفتر فروش می‌رود</p>
+    </div>
+    <div class="actions">
+      <div class="segmented" id="posMode"><button class="active">سالن</button><button>بیرون‌بر</button><button>اسنپ‌فود</button></div>
+      <button class="btn btn-secondary"><i data-lucide="lock"></i>بستن شیفت صندوق</button>
+    </div>
+  </div>
+  <div class="bp-note" style="margin-bottom:var(--s5)"><i data-lucide="info"></i><div>فاز ۳. تا آن زمان سپیدز صندوق اصلی می‌ماند و فروشش یک‌بار در «دفتر فروش» وارد می‌شود. صندوق داخلی باید آفلاین کار کند و به سامانهٔ مودیان وصل شود؛ این دو شرط ورود به این فاز است.</div></div>
+
+  <div class="pos">
+    <div class="card pos-tables">
+      <div class="card-head"><div><h3>میزها</h3><p>سالن اصلی</p></div></div>
+      <div class="card-body"><div class="tables" id="tables"></div>
+        <div class="legend" style="margin-top:var(--s3)"><span><i style="background:var(--surface-3)"></i>خالی</span><span><i style="background:var(--accent)"></i>سفارش باز</span><span><i style="background:var(--warning)"></i>درخواست صورتحساب</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="row" id="cats" style="flex-wrap:wrap"></div></div>
+      <div class="card-body"><div class="items" id="menuItems"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h3 id="orderTitle">میز ۴</h3><p>گارسون: سارا · ۲ نفر · ۱۸:۴۲</p></div><span class="badge badge-accent">باز</span></div>
+      <div class="card-body" style="padding-top:var(--s3)">
+        <div id="orderLines"></div>
+        <div class="stack" style="gap:var(--s2);margin-top:var(--s4);font-size:13px">
+          <div class="row between"><span class="muted">جمع</span><b class="num" id="oSub"></b></div>
+          <div class="row between"><span class="muted">مالیات (۱۰٪)</span><b class="num" id="oTax"></b></div>
+          <div class="row between" style="font-size:15px"><b>قابل پرداخت</b><b class="num" id="oTotal"></b></div>
+        </div>
+        <div class="grid grid-2" style="gap:var(--s2);margin-top:var(--s4)">
+          <button class="btn btn-secondary" onclick="RT.toast('به آشپزخانه ارسال شد','chef-hat')"><i data-lucide="chef-hat"></i>ارسال</button>
+          <button class="btn btn-primary" data-open="payModal"><i data-lucide="credit-card"></i>پرداخت</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt">
+    <div class="card-head"><div><h2>نمایشگر آشپزخانه و بار (KDS)</h2><p>زمان آماده‌سازی هر سفارش برای گزارش عملکرد ثبت می‌شود</p></div></div>
+    <div class="card-body"><div class="kds" id="kds"></div></div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     دریافت کالا و خرید
+     ===================================================================== -->
+<section data-view="purchase" hidden>
+  <div class="page-head">
+    <div>
+      <div class="crumbs"><span>کالا و انبار</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>دریافت کالا و خرید</span></div>
+      <h1>دریافت کالا و خرید</h1>
+      <p>یک سند برای رسیدن بار: موجودی، قیمت و بدهی تأمین‌کننده با هم ثبت می‌شوند</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary"><i data-lucide="list-checks"></i>سفارش‌های باز</button>
+      <button class="btn btn-primary"><i data-lucide="plus"></i>دریافت جدید</button>
+    </div>
+  </div>
+
+  <div class="grid grid-4" id="purKpis"></div>
+
+  <div class="grid grid-3 mt">
+    <div class="card span-2">
+      <div class="card-head"><div><h2>ثبت دریافت کالا</h2><p>انباردار هنگام تحویل؛ قیمت از آخرین قیمت معتبر پر می‌شود و قابل تغییر است</p></div></div>
+      <div class="card-body stack">
+        <div class="grid grid-3">
+          <div class="field"><label>تأمین‌کننده</label><select class="select"><option>لبنیات پگاه</option><option>رُست‌هاوس</option><option>فروشندهٔ خارج از فهرست…</option></select></div>
+          <div class="field"><label>تاریخ دریافت</label><input class="input" value="۱۴۰۵/۰۸/۰۷"></div>
+          <div class="field"><label>فاکتور</label>
+            <div class="segmented" id="invMode" style="height:40px;align-items:center"><button class="active" data-m="later">بعداً می‌رسد</button><button data-m="now">همراه بار است</button></div>
+          </div>
+        </div>
+        <div class="table-wrap" style="border:1px solid var(--border);border-radius:var(--radius)">
+          <table class="table" id="recvTable"></table>
+        </div>
+        <div class="grid grid-2">
+          <div class="drop"><i data-lucide="camera"></i><b style="color:var(--text)">عکس فاکتور یا برگهٔ تحویل</b><span>اختیاری؛ بعداً حسابدار از روی عکس تطبیق می‌دهد</span></div>
+          <div class="stack" style="gap:var(--s3)">
+            <div class="alert alert-info"><i data-lucide="info"></i><div><b>با ذخیره:</b><p>موجودی ۳ قلم بالا می‌رود، بدهی «برآوردی» ۱۴٫۲ میلیون برای تأمین‌کننده ثبت می‌شود و قیمت‌ها با برچسب «برآوردی» وارد تاریخچه می‌شوند.</p></div></div>
+            <div class="row"><label class="check"><input type="checkbox">پرداخت همین الان</label><span class="muted" style="font-size:12px">— از صندوق/کارت تنخواه</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-foot row between"><span>هیچ صفحهٔ دیگری برای ثبت قیمت لازم نیست</span><button class="btn btn-primary btn-sm" onclick="RT.toast('دریافت ثبت شد — منتظر فاکتور')"><i data-lucide="check"></i>ثبت دریافت</button></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div><h2>قیمت معتبر از کجا می‌آید؟</h2><p>یک تاریخچهٔ قیمت، با اولویت منبع</p></div></div>
+      <div class="card-body stack" style="gap:var(--s4)">
+        <div class="prio">
+          <div class="prio-row"><span class="n">۱</span><span><b>فاکتور تطبیق‌شده</b><br><small class="muted">قطعی</small></span><span class="badge badge-success plain">قطعی</span></div>
+          <div class="prio-row"><span class="n">۲</span><span><b>دریافت با قیمت واردشده</b><br><small class="muted">از انباردار یا برگهٔ تحویل</small></span><span class="badge badge-info plain">ثبت‌شده</span></div>
+          <div class="prio-row"><span class="n">۳</span><span><b>استعلام / لیست قیمت تأمین‌کننده</b><br><small class="muted">تلفنی، پیام، کاتالوگ</small></span><span class="badge badge-warning plain">استعلام</span></div>
+          <div class="prio-row"><span class="n">۴</span><span><b>کپی آخرین قیمت</b><br><small class="muted">پیش‌فرض خودکار هنگام دریافت</small></span><span class="badge badge-neutral plain">برآوردی</span></div>
+        </div>
+        <div class="alert alert-warning"><i data-lucide="clock"></i><div><b>کهنگی قیمت</b><p>قیمتی که بیش از ۳۰ روز تأیید نشده در قیمت تمام‌شده با علامت «کهنه» دیده می‌شود.</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt flush">
+    <div class="toolbar">
+      <div class="segmented" id="recvFilter"><button class="active" data-f="all">همه</button><button data-f="wait">منتظر فاکتور</button><button data-f="diff">اختلاف</button><button data-f="ok">تطبیق‌شده</button></div>
+      <div class="topbar-spacer"></div>
+      <span class="muted" style="font-size:12px">تطبیق فاکتور فقط اختلاف را اصلاح می‌کند؛ سند دریافت عوض نمی‌شود</span>
+    </div>
+    <div class="table-wrap"><table class="table" id="recvList"></table></div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     موجودی و شمارش
+     ===================================================================== -->
+<section data-view="stock" hidden>
+  <div class="page-head">
+    <div>
+      <div class="crumbs"><span>کالا و انبار</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>موجودی و شمارش</span></div>
+      <h1>موجودی، شمارش و مغایرت</h1>
+      <p>انبار واحد · ۵ تب به جای ۱۰ · شمارش روزانهٔ اقلام حساس (نوشیدنی) همین‌جاست</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary"><i data-lucide="trash-2"></i>ثبت پرتی</button>
+      <button class="btn btn-primary"><i data-lucide="clipboard-check"></i>شروع شمارش</button>
+    </div>
+  </div>
+  <div class="tabs" data-tabs="stk">
+    <button class="tab active" data-tab="stock"><i data-lucide="boxes"></i>موجودی</button>
+    <button class="tab" data-tab="ledger"><i data-lucide="list"></i>دفتر ثبت‌ها</button>
+    <button class="tab" data-tab="count"><i data-lucide="scale"></i>شمارش و مغایرت <span class="badge badge-danger">۴</span></button>
+    <button class="tab" data-tab="use"><i data-lucide="gauge"></i>مصرف</button>
+    <button class="tab" data-tab="set"><i data-lucide="sliders-horizontal"></i>تنظیمات</button>
+  </div>
+  <section data-panel="stk:stock">
+    <div class="card flush">
+      <div class="toolbar">
+        <label class="search"><i data-lucide="search"></i><input placeholder="نام یا کد سپیدز…"></label>
+        <span class="chip active">همه</span><span class="chip">زیر نقطهٔ سفارش <span class="count">۶</span></span><span class="chip">حساس (شمارش روزانه) <span class="count">۱۲</span></span><span class="chip">قیمت کهنه <span class="count">۹</span></span>
+      </div>
+      <div class="table-wrap"><table class="table" id="stockTbl"></table></div>
+    </div>
+  </section>
+  <section data-panel="stk:ledger" hidden><div class="card"><div class="card-body"><div class="empty"><div class="thumb"><i data-lucide="list"></i></div><h3>دفتر همهٔ ثبت‌ها</h3><p>دریافت، فروش (کسر رسپی)، پرتی، مصرف مجاز و شمارش در یک فهرست با ابطال/ویرایش از همان‌جا. «کنترل روزانهٔ نوشیدنی» و «گزارش‌ها»ی فعلی در این تب و تب مصرف ادغام می‌شوند.</p></div></div></div></section>
+  <section data-panel="stk:count" hidden><div class="card"><div class="card-body"><div class="empty"><div class="thumb"><i data-lucide="scale"></i></div><h3>شمارش و مغایرت</h3><p>سه برنامهٔ شمارش در یک فرم: روزانه (اقلام حساس)، هفتگی (مصرفی‌ها)، ماهانه (کامل، شرط بستن ماه). مغایرت هر قلم = شمارش − انتظار، با علت و تأیید مدیر.</p></div></div></div></section>
+  <section data-panel="stk:use" hidden><div class="card"><div class="card-body"><div class="empty"><div class="thumb"><i data-lucide="gauge"></i></div><h3>مصرف واقعی در برابر تئوریک</h3><p>همان «مدیریت مصرف» فعلی؛ خروجی آن مستقیم در گزارش «هزینهٔ مواد» استفاده می‌شود.</p></div></div></div></section>
+  <section data-panel="stk:set" hidden><div class="card"><div class="card-body"><div class="empty"><div class="thumb"><i data-lucide="sliders-horizontal"></i></div><h3>تنظیمات انبار</h3><p>سطح کنترل اقلام، نقطهٔ سفارش، فهرست اقلام حساس، آستانهٔ هشدار.</p></div></div></div></section>
+</section>
+
+<!-- =====================================================================
+     چرخهٔ ماه پرسنل
+     ===================================================================== -->
+<section data-view="people" hidden>
+  <div class="page-head">
+    <div>
+      <div class="crumbs"><span>پرسنل</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>چرخهٔ ماه</span></div>
+      <h1>چرخهٔ ماه پرسنل — مهر ۱۴۰۵</h1>
+      <p>شیفت ← تردد ← کارکرد تأییدشده ← حقوق ← پرداخت؛ هر مرحله ورودی مرحلهٔ بعد است و دوباره وارد نمی‌شود</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary"><i data-lucide="upload"></i>ورود فایل تردد</button>
+      <button class="btn btn-primary"><i data-lucide="file-text"></i>صدور فیش‌ها</button>
+    </div>
+  </div>
+  <div class="card"><div class="card-body"><div class="stepper" id="peopleSteps"></div></div></div>
+  <div class="card mt flush">
+    <div class="toolbar">
+      <label class="search"><i data-lucide="search"></i><input placeholder="نام پرسنل…"></label>
+      <span class="chip active">همه <span class="count">۲۴</span></span><span class="chip">نیازمند بررسی <span class="count">۵</span></span><span class="chip">آمادهٔ پرداخت <span class="count">۱۶</span></span>
+    </div>
+    <div class="table-wrap"><table class="table" id="peopleTbl"></table></div>
+    <div class="card-foot">جریمه (از پرتی یا تخلف)، انعام، مساعده و مصرف پرسنلی خودکار از دفتر طرف حساب همان نفر می‌آیند.</div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     طرف حساب‌ها
+     ===================================================================== -->
+<section data-view="parties" hidden>
+  <div class="page-head">
+    <div>
+      <div class="crumbs"><span>مالی</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>طرف حساب‌ها</span></div>
+      <h1>بدهی و مطالبات — یک دفتر برای همه</h1>
+      <p>تأمین‌کننده، پرسنل، مشتری اعتباری و شریک؛ مانده از اسناد اصلی ساخته می‌شود، نه از ثبت دستی</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary"><i data-lucide="arrow-down-left"></i>دریافت</button>
+      <button class="btn btn-primary"><i data-lucide="arrow-up-right"></i>پرداخت</button>
+    </div>
+  </div>
+  <div class="grid grid-4" id="partyKpis"></div>
+  <div class="grid grid-3 mt">
+    <div class="card flush">
+      <div class="toolbar"><div class="row" style="flex-wrap:wrap"><span class="chip active">همه</span><span class="chip">تأمین‌کننده</span><span class="chip">پرسنل</span><span class="chip">مشتری</span></div></div>
+      <div class="table-wrap"><table class="table" id="partyTbl"></table></div>
+    </div>
+    <div class="card span-2 flush">
+      <div class="card-head" style="padding-bottom:var(--s4)"><div><h2 id="partyName"></h2><p id="partyMeta"></p></div><button class="btn btn-secondary btn-sm"><i data-lucide="printer"></i>صورت‌حساب</button></div>
+      <div class="table-wrap"><table class="table" id="partyLedger"></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     بستن ماه
+     ===================================================================== -->
+<section data-view="close" hidden>
+  <div class="page-head">
+    <div>
+      <div class="crumbs"><span>مالی</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>بستن ماه</span></div>
+      <h1>بستن ماه مهر ۱۴۰۵</h1>
+      <p>یک چک‌لیست؛ با بستن، عددهای ماه snapshot و قفل می‌شوند و اصلاح بعدی فقط با سند اصلاحی ماه بعد</p>
+    </div>
+    <div class="actions"><button class="btn btn-primary" disabled><i data-lucide="lock"></i>بستن ماه (۲ مرحله باقی‌مانده)</button></div>
+  </div>
+  <div class="card"><div class="card-body" id="closeList"></div></div>
+</section>
+
+<!-- =====================================================================
+     سود و زیان
+     ===================================================================== -->
+<section data-view="pnl" hidden>
+  <div class="page-head">
+    <div>
+      <div class="crumbs"><span>گزارش‌ها</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>سود و زیان</span></div>
+      <h1>سود و زیان</h1>
+      <p>ماه‌های بسته قطعی‌اند؛ ماه جاری با برچسب برآوردی و درصد پوشش داده</p>
+    </div>
+    <div class="actions">
+      <div class="segmented"><button class="active">ماهانه</button><button>فصلی</button><button>پیش‌بینی ۳ ماه</button></div>
+    </div>
+  </div>
+  <div class="grid grid-3">
+    <div class="card span-2 flush">
+      <div class="card-head" style="padding-bottom:var(--s4)"><div><h2>صورت سود و زیان</h2><p>میلیون تومان</p></div></div>
+      <div class="table-wrap"><table class="table" id="pnlTbl"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>هزینهٔ مواد و پرسنل</h2><p>درصد از فروش خالص · ۶ ماه</p></div></div>
+      <div class="card-body">
+        <div class="legend" style="margin-bottom:var(--s2)"><span><i style="background:var(--bp-s1)"></i>هزینهٔ مواد</span><span><i style="background:var(--bp-s2)"></i>هزینهٔ پرسنل</span></div>
+        <div class="chart" id="primeChart"></div>
+      </div>
+      <div class="card-foot">هدف: مجموع (Prime cost) زیر ۶۰٪</div>
+    </div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     نمای عمومی ماژول (spec)
+     ===================================================================== -->
+<section data-view="spec" hidden>
+  <div class="page-head">
+    <div>
+      <div class="crumbs" id="specCrumb"></div>
+      <h1 id="specTitle"></h1>
+      <p id="specWhy"></p>
+    </div>
+    <div class="actions" id="specBadges"></div>
+  </div>
+  <div class="grid grid-3">
+    <div class="card span-2">
+      <div class="card-head"><div><h2>صفحه‌ها و کارها</h2><p>آنچه کاربر در این ماژول انجام می‌دهد</p></div></div>
+      <div class="card-body"><ul class="spec-list" id="specScreens"></ul></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>داده و ارتباط</h2></div></div>
+      <div class="card-body"><dl class="kv" id="specKv"></dl></div>
+    </div>
+  </div>
+</section>
+
+    </main>
+  </div>
+</div>
+
+<!-- Payment modal -->
+<div class="modal-backdrop" id="payModal">
+  <div class="modal" role="dialog" aria-labelledby="payTitle">
+    <div class="modal-head"><h3 id="payTitle">پرداخت میز ۴</h3><button class="btn btn-ghost btn-sm btn-icon" data-close aria-label="بستن"><i data-lucide="x"></i></button></div>
+    <div class="modal-body">
+      <div class="segmented"><button class="active">کارت</button><button>نقد</button><button>تقسیم</button><button>اعتباری (طرف حساب)</button></div>
+      <div class="field"><label>مبلغ</label><div class="input-group"><input class="input num" id="payAmt"><span class="suffix">تومان</span></div></div>
+      <div class="field"><label>شماره همراه مشتری (باشگاه)</label><input class="input" placeholder="اختیاری — امتیاز و سابقهٔ خرید"></div>
+      <div class="alert alert-info"><i data-lucide="info"></i><div><p>با تأیید: دفتر فروش، کسر رسپی از موجودی، صورتحساب مودیان و (در حالت اعتباری) بدهی مشتری ثبت می‌شود.</p></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-secondary" data-close>انصراف</button><button class="btn btn-primary" data-close onclick="RT.toast('پرداخت ثبت شد')">تأیید و چاپ</button></div>
+  </div>
+</div>
+
+<!-- Invoice match modal -->
+<div class="modal-backdrop" id="matchModal">
+  <div class="modal" role="dialog" aria-labelledby="matchTitle" style="width:min(640px,100%)">
+    <div class="modal-head"><div><h3 id="matchTitle">تطبیق فاکتور</h3><small class="muted" id="matchSub"></small></div><button class="btn btn-ghost btn-sm btn-icon" data-close aria-label="بستن"><i data-lucide="x"></i></button></div>
+    <div class="modal-body">
+      <div class="grid grid-2" style="gap:var(--s3)">
+        <div class="field"><label>شماره فاکتور</label><input class="input" value="۲۴۵۸"></div>
+        <div class="field"><label>مبلغ کل فاکتور</label><div class="input-group"><input class="input num" value="۱۴٬۶۵۰٬۰۰۰"><span class="suffix">تومان</span></div></div>
+      </div>
+      <div class="table-wrap" style="border:1px solid var(--border);border-radius:var(--radius)"><table class="table">
+        <thead><tr><th>کالا</th><th class="num">قیمت برآوردی</th><th class="num">قیمت فاکتور</th><th class="num">اختلاف</th></tr></thead>
+        <tbody>
+          <tr><td>شیر پرچرب</td><td class="num">۴۰٬۰۰۰</td><td class="num">۴۲٬۰۰۰</td><td class="num down">+۵٪</td></tr>
+          <tr><td>خامه صبحانه</td><td class="num">۱۰۰٬۰۰۰</td><td class="num">۱۰۰٬۰۰۰</td><td class="num muted">—</td></tr>
+          <tr><td>پنیر پیتزا</td><td class="num">۴۲۰٬۰۰۰</td><td class="num">۴۳۵٬۰۰۰</td><td class="num down">+۳٫۶٪</td></tr>
+        </tbody>
+      </table></div>
+      <div class="alert alert-success"><i data-lucide="check-circle"></i><div><p>با تأیید، قیمت‌ها «قطعی» می‌شوند، اختلاف ۴۵۰ هزار تومان به بدهی تأمین‌کننده اضافه می‌شود و قیمت تمام‌شدهٔ منوهای وابسته به‌روز می‌شود.</p></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-secondary" data-close>انصراف</button><button class="btn btn-primary" data-close onclick="RT.toast('فاکتور تطبیق شد')">تأیید تطبیق</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="js/app.js"></script>
+<script>
+(function(){
+'use strict';
+const n=RT.n, money=RT.money;
+const $=id=>document.getElementById(id);
+
+/* =====================================================================
+   Proposed product structure (single source for map, menu and spec view)
+   status: have = موجود · merge = ادغام/ساده‌سازی · new = جدید
+   ===================================================================== */
+const DOMAINS=[
+  {key:'sales',title:'فروش',icon:'receipt',desc:'از سفارش تا پول در صندوق',mods:[
+    {id:'pos',title:'صندوق و سفارش‌گیر',status:'new',phase:3,mock:true,
+      why:'سفارش گارسون، صندوق، پرداخت ترکیبی و بستن شیفت در یک صفحه.',
+      screens:['سفارش‌گیر گارسون روی موبایل/تبلت (میز، آیتم، توضیح)','صندوق: پرداخت کارت/نقد/تقسیم/اعتباری','بستن شیفت صندوق (جایگزین فرم گزارش صندوق)','حالت آفلاین و همگام‌سازی'],
+      data:'دفتر فروش، رسپی (کسر خودکار)، طرف حساب (فروش اعتباری)', replaces:'تا فاز ۳: سپیدز + گزارش صندوق فعلی'},
+    {id:'kds',title:'آشپزخانه و بار (KDS)',status:'new',phase:3,
+      why:'سفارش بدون کاغذ به ایستگاه درست می‌رسد و زمان آماده‌سازی اندازه‌گیری می‌شود.',
+      screens:['صف سفارش هر ایستگاه (آشپزخانه، بار، قهوه)','هشدار تأخیر','گزارش زمان آماده‌سازی'],data:'سفارش‌های صندوق',replaces:'چاپ فیش آشپزخانه'},
+    {id:'menu',title:'منو، رسپی و قیمت‌گذاری',status:'merge',phase:0,
+      why:'منو، رسپی، قیمت تمام‌شده و پیشنهاد قیمت فروش در یک ماژول.',
+      screens:['آیتم‌ها و دسته‌ها','رسپی با نسخه و تاریخ اجرا','قیمت تمام‌شده با برچسب «قیمت کهنه»','مهندسی منو (ستاره/اسب کاری/معما/سگ)'],
+      data:'کاتالوگ کالا، تاریخچهٔ قیمت، دفتر فروش',replaces:'مدیریت منو + قیمت‌گذاری (دو صفحه)'},
+    {id:'salesbook',title:'دفتر فروش',status:'merge',phase:1,
+      why:'یک منبع فروش برای صندوق، انبار و تحلیل؛ امروز فروش در سه جا جدا وارد می‌شود.',
+      screens:['ورود یک‌بارهٔ خروجی سپیدز (تا فاز ۳)','کانال‌ها: سالن، بیرون‌بر، اسنپ‌فود','ممیزی حذف/ویرایش سپیدز'],
+      data:'جایگزین salesAnalytics + salesPeriods + بخش فروش گزارش صندوق',replaces:'تحلیل گزارش فروش، فروش انبار، ممیزی سپیدز'},
+    {id:'crm',title:'مشتریان و باشگاه',status:'new',phase:4,
+      why:'مشتری با شماره همراه شناخته می‌شود؛ امتیاز، رزرو، نظرسنجی و اعتبار در یک پرونده.',
+      screens:['پروفایل مشتری و سابقه خرید','امتیاز/کش‌بک و پیامک','رزرو و بیعانه','نظرسنجی','منوی QR'],
+      data:'دفتر فروش، طرف حساب (مشتری اعتباری)',replaces:'رزرو و نظرسنجی فعلی'}
+  ]},
+  {key:'stock',title:'کالا و انبار',icon:'package',desc:'از سفارش به تأمین‌کننده تا مغایرت',mods:[
+    {id:'catalog',title:'کاتالوگ کالا',status:'have',phase:0,
+      why:'هر کالا یک بار تعریف می‌شود: واحدها، گروه، نوع، تأمین‌کننده‌ها، نقطهٔ سفارش.',
+      screens:['فهرست و جست‌وجو','واحدهای خرید/مصرف/شمارش','اقلام آماده‌سازی‌شده'],data:'pricing.ingredients (مرجع فعلی حفظ می‌شود)',replaces:'—'},
+    {id:'purchase',title:'دریافت کالا و خرید',status:'merge',phase:0,mock:true,
+      why:'رسیدن بار یک سند است: موجودی، قیمت و بدهی با هم؛ فاکتور هر وقت رسید فقط تطبیق می‌شود.',
+      screens:['درخواست و سفارش خرید (اختیاری)','دریافت کالا با قیمت پیش‌فرض','تطبیق فاکتور (با عکس)','تاریخچهٔ قیمت هر کالا'],
+      data:'جایگزین ورود به انبار + فاکتور سریع/تفصیلی + قیمت دستی',replaces:'۴ مسیر ثبت قیمت فعلی'},
+    {id:'suppliers',title:'تأمین‌کنندگان',status:'have',phase:0,
+      why:'مشخصات، روز سفارش، اقلام و مقایسهٔ قیمت؛ حساب مالی‌شان در دفتر طرف حساب است.',
+      screens:['پروفایل و روش سفارش','اقلام و آخرین قیمت','مقایسهٔ قیمت بین تأمین‌کنندگان'],data:'suppliers',replaces:'تب‌های حساب/پرداخت به مالی می‌روند'},
+    {id:'stock',title:'موجودی، شمارش و مغایرت',status:'merge',phase:0,mock:true,
+      why:'۵ تب به جای ۱۰؛ شمارش روزانهٔ نوشیدنی‌ها نوعی شمارش اقلام حساس است.',
+      screens:['موجودی و نیاز به سفارش','دفتر همهٔ ثبت‌ها','شمارش روزانه/هفتگی/ماهانه','مصرف واقعی و تئوریک'],data:'inventory',replaces:'کنترل روزانه نوشیدنی، گزارش‌های انبار، نیازمند سفارش'},
+    {id:'waste',title:'پرتی و مصرف مجاز',status:'have',phase:0,
+      why:'ثبت سریع از موبایل پرسنل با تأیید مدیر؛ جریمهٔ اختیاری مستقیم به حقوق می‌رود.',
+      screens:['ثبت پرتی (ماده، آیتم منو، ظروف)','تأیید/رد مدیر','مصرف پرسنلی'],data:'inventory + assets + طرف حساب پرسنل',replaces:'—'},
+    {id:'assets',title:'اموال و تجهیزات',status:'have',phase:2,
+      why:'ظروف و تجهیزات، تعمیر و شکستگی.',screens:['فهرست اموال','شمارش هفتگی ظروف','تعمیرات'],data:'assets',replaces:'—'}
+  ]},
+  {key:'people',title:'پرسنل',icon:'users',desc:'از برنامهٔ شیفت تا فیش حقوق',mods:[
+    {id:'staff',title:'پرونده و قرارداد',status:'have',phase:0,why:'اطلاعات فرد، قرارداد، حساب بانکی، دسترسی پنل.',screens:['فهرست و پروفایل','قرارداد و نرخ','وسایل تحویلی'],data:'hr.personnel',replaces:'—'},
+    {id:'shifts',title:'شیفت و نیاز نیرو',status:'have',phase:0,why:'برنامه هفتگی بر اساس نیاز نیروی هر روز و پیش‌بینی فروش.',screens:['برنامه هفتگی/ماهانه','نیاز نیرو و کمبود','درخواست جابه‌جایی شیفت از پنل پرسنل'],data:'hr.shiftPlans',replaces:'۸ زیرمنوی شیفت → ۳ صفحه'},
+    {id:'attendance',title:'حضور و غیاب',status:'merge',phase:2,why:'فقط ماژول جدید تردد؛ «ریز کارکرد» قدیمی بازنشسته می‌شود.',screens:['ورود فایل دستگاه','موارد نیازمند بررسی','کارکرد ماهانهٔ تأییدشده'],data:'attendance',replaces:'ریز کارکرد + درخواست اصلاح کارکرد قدیمی'},
+    {id:'people',title:'چرخهٔ ماه و حقوق',status:'merge',phase:2,mock:true,why:'کارکرد تأییدشده مستقیم وارد حقوق می‌شود؛ انعام، جریمه، مساعده و مصرف از دفتر طرف حساب.',screens:['وضعیت ماه هر نفر','فیش حقوق','پرداخت گروهی','انعام و تسویه'],data:'attendance + hr + طرف حساب',replaces:'۱۴ زیرمنوی حقوق → ۴ صفحه'},
+    {id:'training',title:'آموزش و چک‌لیست',status:'have',phase:0,why:'پروتکل‌ها و چک‌لیست شیفت.',screens:['پروتکل‌ها','چک‌لیست هر سکشن/شیفت','گزارش اجرا'],data:'hr',replaces:'—'},
+    {id:'staffapp',title:'پنل پرسنل',status:'have',phase:0,why:'هر نفر کارتابل خودش را دارد: شیفت، کارکرد، فیش، انعام، ثبت‌های سکشن.',screens:['کاشی‌های کار امروز','درخواست مرخصی/مساعده/اصلاح تردد','ثبت پرتی، شمارش و گزارش صندوق'],data:'همهٔ ماژول‌ها با مجوز',replaces:'—'}
+  ]},
+  {key:'finance',title:'مالی',icon:'wallet',desc:'پول کجاست، به چه کسی بدهکاریم، ماه چطور بسته شد',mods:[
+    {id:'treasury',title:'خزانه: صندوق، بانک، تنخواه',status:'merge',phase:2,why:'موجودی هر حساب پول و گردش آن؛ تطبیق با صورت‌حساب بانک.',screens:['حساب‌ها و مانده','انتقال بین حساب‌ها','ورود صورت‌حساب بانک و تطبیق','چک‌ها'],data:'جایگزین مقاصد وجه + گردش اشخاص',replaces:'گردش وجوه گزارش صندوق'},
+    {id:'parties',title:'طرف حساب‌ها (بدهی و طلب)',status:'merge',phase:1,mock:true,why:'یک دفتر برای تأمین‌کننده، پرسنل، مشتری و شریک.',screens:['فهرست با مانده و سررسید','صورت‌حساب هر طرف','دریافت/پرداخت'],data:'دفتر واحد مشتق از اسناد',replaces:'حساب تأمین‌کننده، تعهدات، بدهی/طلب، تسویه انعام'},
+    {id:'expenses',title:'هزینه‌ها و بودجه',status:'merge',phase:2,why:'هزینه‌های ثابت (اجاره، قبوض، اشتراک) با تکرار ماهانه و بودجهٔ ماه.',screens:['هزینه‌های تکرارشونده','بودجه در برابر واقعی','پیش‌بینی هزینه و سود ۳ ماه آینده'],data:'finance',replaces:'پیش‌بینی هزینهٔ ماه + محاسبه‌گر سود'},
+    {id:'close',title:'بستن ماه',status:'new',phase:2,mock:true,why:'یک چک‌لیست برای ثابت‌کردن عددهای ماه.',screens:['چک‌لیست مراحل','snapshot و قفل','سند اصلاحی ماه بعد'],data:'همهٔ ماژول‌ها',replaces:'بستن جداگانهٔ دورهٔ انبار و حقوق'},
+    {id:'tax',title:'مالیات و سامانهٔ مودیان',status:'new',phase:4,why:'ارسال صورتحساب فروش و نگهداری مالیات ارزش افزوده.',screens:['تنظیم شناسهٔ حافظهٔ مالیاتی','وضعیت ارسال صورتحساب‌ها','گزارش فصلی'],data:'دفتر فروش',replaces:'—'}
+  ]},
+  {key:'reports',title:'گزارش‌ها',icon:'chart-line',desc:'چهار پرسش اصلی مدیر',mods:[
+    {id:'pnl',title:'سود و زیان',status:'merge',phase:2,mock:true,why:'ماه بسته قطعی، ماه جاری برآوردی با پوشش داده.',screens:['صورت سود و زیان','مقایسه با بودجه','پیش‌بینی'],data:'همهٔ دفترها',replaces:'سود و زیان مالی + پنل مانیتورینگ + گزارش‌های مدیریتی'},
+    {id:'salesrep',title:'فروش و منو',status:'merge',phase:1,why:'روند فروش، ساعت اوج، کانال، مهندسی منو.',screens:['روند و مقایسه','نقشهٔ حرارتی ساعات','مهندسی منو'],data:'دفتر فروش',replaces:'تحلیل فروش + تحلیل سود و فروش'},
+    {id:'foodcost',title:'هزینهٔ مواد',status:'merge',phase:1,why:'مصرف واقعی/تئوریک، پرتی، مغایرت و اثر تغییر قیمت خرید.',screens:['Food cost هفتگی','اقلام پرمغایرت','اثر قیمت خرید بر منو'],data:'انبار + تاریخچهٔ قیمت',replaces:'مدیریت مصرف + گزارش انبار'},
+    {id:'labor',title:'هزینه و عملکرد پرسنل',status:'merge',phase:2,why:'هزینهٔ پرسنل به فروش، ساعت کار هر شیفت، تأخیر و تخلف.',screens:['Labor cost به تفکیک روز/شیفت','فروش به ازای ساعت کار','تأخیر و تخلف'],data:'حضور + حقوق + فروش',replaces:'گزارشات پرسنل + گزارش شیفت'}
+  ]},
+  {key:'system',title:'سیستم',icon:'settings',desc:'فقط آنچه به همهٔ ماژول‌ها مربوط است',mods:[
+    {id:'users',title:'کاربران و نقش‌ها',status:'merge',phase:1,why:'نقش (مدیر، صندوقدار، انباردار، حسابدار، پرسنل) با مجوز سروری.',screens:['کاربران','نقش‌ها و مجوزها','سابقهٔ تغییرات (audit)'],data:'سرور',replaces:'دسترسی مدیر + مدیریت دسترسی پرسنل'},
+    {id:'refs',title:'مراجع و ورود داده',status:'have',phase:0,why:'واحدها، سکشن‌ها، دسته‌ها، ورود Excel، پشتیبان.',screens:['مراجع پایه','ورود Excel','پشتیبان و بازگردانی'],data:'—',replaces:'تنظیمات پنل، اطلاعات پایه'}
+  ]}
+];
+const ALL=DOMAINS.flatMap(d=>d.mods.map(m=>Object.assign({domain:d},m)));
+const byId=Object.fromEntries(ALL.map(m=>[m.id,m]));
+const STATUS={have:['badge-neutral','موجود'],merge:['badge-info','ادغام / ساده‌سازی'],new:['badge-accent','جدید']};
+const PH=['۰','۱','۲','۳','۴'];
+const sBadge=s=>`<span class="badge ${STATUS[s][0]} plain">${STATUS[s][1]}</span>`;
+
+/* ---------- Sidebar menu: replace template menu before app.js renders it ---------- */
+const link=m=>[m.title,'#'+m.id];
+RT.MENU.splice(0,RT.MENU.length,
+  {label:'میز کار',icon:'layout-dashboard',href:'#home'},
+  {label:'نقشهٔ محصول',icon:'map',href:'#map'},
+  ...DOMAINS.flatMap(d=>[{section:d.title},...d.mods.filter(m=>m.mock||['menu','salesbook','catalog','suppliers','shifts','attendance','treasury','expenses','salesrep','foodcost'].includes(m.id)).map(m=>({label:m.title,icon:modIcon(m.id),href:'#'+m.id}))]),
+  {label:'سایر ماژول‌ها',icon:'ellipsis',key:'more',items:ALL.filter(m=>!m.mock&&!['menu','salesbook','catalog','suppliers','shifts','attendance','treasury','expenses','salesrep','foodcost'].includes(m.id)).map(link)}
+);
+function modIcon(id){return({pos:'receipt',menu:'utensils-crossed',salesbook:'book-open',catalog:'tags',purchase:'package-plus',suppliers:'truck',stock:'boxes',shifts:'calendar-days',attendance:'fingerprint',people:'wallet',treasury:'landmark',parties:'hand-coins',expenses:'piggy-bank',close:'lock',pnl:'chart-line',salesrep:'chart-pie',foodcost:'gauge'})[id]||'circle'}
+
+/* ---------- Map view ---------- */
+function renderMap(){
+  $('domains').innerHTML=DOMAINS.map(d=>`<div class="card domain">
+    <div class="card-head"><div class="row" style="gap:var(--s3)"><div class="kpi-icon"><i data-lucide="${d.icon}"></i></div><div><h2>${d.title}</h2><p>${d.desc}</p></div></div><span class="badge badge-neutral plain">${n(d.mods.length)} ماژول</span></div>
+    <div class="domain-mods">${d.mods.map(m=>`<a class="mod" href="#${m.id}"><span class="grow">${m.title}${m.mock?' <i data-lucide="monitor" style="width:13px;height:13px;vertical-align:-2px;color:var(--text-3)"></i>':''}<small>فاز ${PH[m.phase]} · ${m.why.length>58?m.why.slice(0,56)+'…':m.why}</small></span>${sBadge(m.status)}</a>`).join('')}</div>
+  </div>`).join('');
+  const Y='<i data-lucide="check" class="yes" aria-label="دارد"></i>',P='<i data-lucide="circle-dot" class="part" aria-label="محدود"></i>',N='<i data-lucide="minus" class="no" aria-label="ندارد/نامشخص"></i>';
+  const rows=[
+    ['صندوق و سفارش‌گیر',N,Y,Y,Y,Y,P],
+    ['KDS آشپزخانه',N,P,Y,N,N,N],
+    ['باشگاه مشتری / منوی QR',N,P,Y,Y,N,N],
+    ['انبار و رسپی',Y,Y,Y,Y,Y,Y],
+    ['مغایرت واقعی/تئوریک',Y,N,N,N,Y,Y],
+    ['خرید با عکس فاکتور',N,N,N,N,Y,Y],
+    ['شیفت و حضور',Y,N,N,N,Y,N],
+    ['حقوق و انعام',Y,P,N,N,Y,N],
+    ['حسابداری / بدهی و طلب',P,Y,Y,Y,Y,P],
+    ['کنترل پرتی و جریمه',Y,N,N,N,P,P]
+  ];
+  $('cmp').innerHTML=`<thead><tr><th>قابلیت</th><th>رایو امروز</th><th>سپیدز</th><th>ماپرا</th><th>رستیار</th><th>Restaurant365</th><th>MarketMan</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td>${r[0]}</td>${r.slice(1).map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody>
+    <tfoot><tr><td colspan="7" style="font-weight:500;color:var(--text-3)">${Y} دارد · ${P} محدود یا افزونه · ${N} ندارد یا در معرفی فروشنده ذکر نشده</td></tr></tfoot>`;
+}
+
+/* ---------- Home ---------- */
+function kpi(icon,label,value,unit,foot){return`<div class="card kpi"><div class="kpi-top"><span class="kpi-label"><span class="kpi-icon"><i data-lucide="${icon}"></i></span>${label}</span></div><div class="kpi-value">${value}<small>${unit||''}</small></div><div class="kpi-foot">${foot}</div></div>`}
+function renderHome(){
+  $('homeKpis').innerHTML=[
+    kpi('receipt','فروش امروز تا این لحظه',money(48_600_000),'تومان',`${RT.delta(8.2)}<span>نسبت به پنجشنبهٔ قبل</span>`),
+    kpi('banknote','صندوق شیفت عصر',money(6_200_000),'تومان','<span class="badge badge-success">باز · بدون مغایرت</span>'),
+    kpi('gauge','هزینهٔ مواد ۷ روز',RT.pct(31.4),'',`${RT.delta(-1.2)}<span>هدف ۳۰٪</span>`),
+    kpi('users','هزینهٔ پرسنل مهر',RT.pct(27.9),'','<span class="badge badge-neutral plain">برآوردی · کارکرد تأیید نشده</span>')
+  ].join('');
+  const tasks=[
+    ['package-search','badge-warning','۵ دریافت منتظر فاکتور','قدیمی‌ترین: لبنیات پگاه، ۴ روز پیش','#purchase','تطبیق'],
+    ['trash-2','badge-info','۳ پرتی منتظر تأیید','بار و آشپزخانه · مجموع ۸۴۰ هزار تومان','#stock','بررسی'],
+    ['fingerprint','badge-danger','۷ روز تردد نیازمند بررسی','۴ نفر · تردد ناقص یا اضافه‌کار تأییدنشده','#attendance','بررسی'],
+    ['scale','badge-warning','۴ مغایرت شمارش امروز','بیشترین: شیر پرچرب −۶ لیتر','#stock','بررسی'],
+    ['calendar-x','badge-neutral','۲ درخواست مرخصی','سارا ح. (۹ آبان)، علی ر. (۱۲ آبان)','#shifts','تصمیم'],
+    ['hand-coins','badge-danger','۲ پرداخت سررسید این هفته','رُست‌هاوس ۱۸٫۵ میلیون · اجاره ۹۵ میلیون','#parties','پرداخت']
+  ];
+  $('taskCount').textContent=n(tasks.length)+' کار';
+  $('tasks').innerHTML=tasks.map(([i,b,t,s,h,a])=>`<div class="task"><span class="thumb"><i data-lucide="${i}"></i></span><div><b>${t}</b><small>${s}</small></div><a class="btn btn-secondary btn-sm" href="${h}">${a}</a></div>`).join('');
+  steps($('homeSteps'),[['done','شمارش کامل','۱ مهر و ۳۰ مهر'],['done','دریافت‌ها','همه ثبت شد'],['cur','تطبیق فاکتورها','۵ مورد باقی'],['','کارکرد و حقوق','۷ روز بررسی'],['','تطبیق بانک','—'],['','بستن ماه','—']]);
+}
+function steps(el,list){el.innerHTML=list.map(([s,t,sub],i)=>`<div class="step ${s}"><div class="dotn">${s==='done'?'<i data-lucide="check"></i>':n(i+1)}</div><b>${t}</b><small>${sub}</small></div>`).join('')}
+function homeChart(){
+  const hours=[];for(let h=10;h<=23;h++)hours.push(h);
+  const v=[1.2,1.8,3.1,4.6,3.9,2.4,1.9,2.6,3.8,5.6,7.1,6.4,3.2,1.6].map(x=>x*1e6);
+  RT.chart('hourChart',t=>{const s1=getComputedStyle(document.documentElement).getPropertyValue('--bp-s1').trim();return Object.assign(RT.base(t),{
+    grid:{left:4,right:4,top:12,bottom:4,containLabel:true},
+    tooltip:Object.assign(RT.base(t).tooltip,{formatter:p=>`<b>ساعت ${n(p[0].name)}</b>${RT.tipRow(s1,'فروش',money(p[0].value)+' تومان')}`}),
+    xAxis:RT.axis(t,{type:'category',data:hours,axisLabel:{color:t.text3,fontFamily:t.font,fontSize:11,formatter:x=>n(x)}}),
+    yAxis:RT.axis(t,{type:'value',splitNumber:3,axisLabel:{color:t.text3,fontFamily:t.font,fontSize:11,formatter:RT.short}}),
+    series:[{type:'bar',data:v,barMaxWidth:14,itemStyle:{color:s1,borderRadius:[4,4,0,0]},emphasis:{itemStyle:{opacity:.85}}}]
+  })});
+}
+
+/* ---------- POS ---------- */
+const MENU_ITEMS={'قهوه':[['اسپرسو',95e3],['کاپوچینو',145e3],['لاته',155e3],['آمریکانو',110e3],['موکا',170e3],['کلدبرو',160e3]],'غذا':[['پاستا آلفردو',420e3],['برگر رایو',480e3],['سالاد سزار',360e3],['پیتزا مارگاریتا',450e3]],'نوشیدنی سرد':[['لیموناد',140e3],['اسموتی',190e3],['نوشابه',45e3],['آب معدنی',25e3]],'دسر':[['چیزکیک',210e3],['براونی',180e3]]};
+let cat='قهوه';
+const order=[['کاپوچینو',145e3,2,'شیر بدون لاکتوز'],['برگر رایو',480e3,1,'بدون پیاز'],['لیموناد',140e3,1,'']];
+function renderPos(){
+  const st=['','busy','','bill','busy','','','busy','',''];
+  $('tables').innerHTML=st.map((s,i)=>`<div class="tbl ${s} ${i===4?'sel':''}"><b>${n(i+1)}</b>${s==='busy'?money([0,820e3,0,0,1.06e6,0,0,540e3][i]||0):s==='bill'?'صورتحساب':'خالی'}</div>`).join('');
+  $('cats').innerHTML=Object.keys(MENU_ITEMS).map(c=>`<button class="chip ${c===cat?'active':''}" data-cat="${c}">${c}</button>`).join('');
+  $('cats').querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{cat=b.dataset.cat;renderPos()});
+  $('menuItems').innerHTML=MENU_ITEMS[cat].map(([nm,p])=>`<button class="item" data-add="${nm}" data-p="${p}"><b>${nm}</b><small class="num">${n(p/1000)} هزار</small></button>`).join('');
+  $('menuItems').querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const l=order.find(o=>o[0]===b.dataset.add);l?l[2]++:order.push([b.dataset.add,+b.dataset.p,1,'']);renderOrder()});
+  renderOrder();
+  const tk=[['میز ۴','۰۴:۱۲',['۲ کاپوچینو','۱ لیموناد'],'بار',false],['میز ۸','۱۱:۴۰',['۱ برگر رایو','۱ پاستا آلفردو'],'آشپزخانه',false],['بیرون‌بر #۱۸','۱۹:۰۵',['۲ پیتزا مارگاریتا'],'آشپزخانه',true],['اسنپ #۹۲۳','۰۲:۳۰',['۱ سالاد سزار','۲ نوشابه'],'آشپزخانه',false]];
+  $('kds').innerHTML=tk.map(([o,t,it,stn,late])=>`<div class="ticket ${late?'late':''}"><header><b>${o}</b><span class="badge ${late?'badge-danger':'badge-neutral'} plain num">${t}</span></header><ul>${it.map(x=>`<li>${x}</li>`).join('')}</ul><div class="row between" style="margin-top:8px"><small class="muted">${stn}</small><button class="btn btn-ghost btn-sm" onclick="this.closest('.ticket').style.opacity=.4">آماده شد</button></div></div>`).join('');
+  RT.icons();
+}
+function renderOrder(){
+  $('orderLines').innerHTML=order.map(([nm,p,q,note],i)=>`<div class="order-line"><div><b>${nm}</b>${note?`<small>${note}</small>`:''}</div><span class="qty"><button data-q="${i}" data-d="-1" aria-label="کم">−</button><b class="num">${n(q)}</b><button data-q="${i}" data-d="1" aria-label="زیاد">+</button></span><b class="num">${n(p*q/1000)}</b></div>`).join('');
+  $('orderLines').querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{const l=order[+b.dataset.q];l[2]+=+b.dataset.d;if(l[2]<=0)order.splice(+b.dataset.q,1);renderOrder()});
+  const sub=order.reduce((s,l)=>s+l[1]*l[2],0);
+  $('oSub').textContent=n(sub)+' تومان';$('oTax').textContent=n(sub*.1)+' تومان';$('oTotal').textContent=n(sub*1.1)+' تومان';
+  $('payAmt').value=n(sub*1.1);
+}
+
+/* ---------- Purchase ---------- */
+const RECV=[['شیر پرچرب',40,'لیتر',40e3,'فاکتور · ۱ آبان'],['خامه صبحانه',24,'عدد',100e3,'فاکتور · ۱ آبان'],['پنیر پیتزا',18,'کیلو',420e3,'استعلام · ۲۲ مهر']];
+function renderPurchase(){
+  $('purKpis').innerHTML=[
+    kpi('package-search','منتظر فاکتور',n(5),'دریافت','<span>۲۱٫۸ میلیون تومان برآوردی</span>'),
+    kpi('triangle-alert','اختلاف قیمت این ماه',RT.pct(2.4),'',`<span>میانگین فاکتور در برابر برآورد</span>`),
+    kpi('clock','قیمت کهنه (بیش از ۳۰ روز)',n(9),'کالا','<span>روی ۱۴ آیتم منو اثر دارد</span>'),
+    kpi('hand-coins','بدهی به تأمین‌کنندگان',money(86_400_000),'تومان','<span>۲ سررسید این هفته</span>')
+  ].join('');
+  $('recvTable').innerHTML=`<thead><tr><th>کالا</th><th class="num">مقدار</th><th>واحد</th><th class="num">فی (تومان)</th><th class="num">جمع</th></tr></thead><tbody>${RECV.map(([nm,q,u,p,src])=>`<tr><td>${nm}</td><td class="num">${n(q)}</td><td>${u}</td><td><input class="input num" value="${n(p)}"><div class="price-src"><i data-lucide="history"></i>آخرین قیمت: ${src}</div></td><td class="num">${n(q*p)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4">جمع برآوردی</td><td class="num">${n(RECV.reduce((s,r)=>s+r[1]*r[3],0))}</td></tr></tfoot>`;
+  const L=[['۷ آبان','لبنیات پگاه','۳ قلم',14.2e6,'wait'],['۶ آبان','رُست‌هاوس','قهوه ۱۰ کیلو',18.5e6,'diff'],['۵ آبان','میوه‌فروشی امید','۸ قلم',3.4e6,'wait'],['۴ آبان','بستنی میهن','۲ قلم',6.1e6,'ok'],['۳ آبان','نان سحر','۱ قلم',0.9e6,'ok'],['۲ آبان','لبنیات پگاه','۴ قلم',12.8e6,'wait']];
+  const S={wait:['badge-warning','منتظر فاکتور'],diff:['badge-danger','اختلاف ۳٪'],ok:['badge-success','تطبیق‌شده']};
+  const draw=f=>{$('recvList').innerHTML=`<thead><tr><th>تاریخ</th><th>تأمین‌کننده</th><th>اقلام</th><th class="num">مبلغ</th><th>وضعیت قیمت</th><th></th></tr></thead><tbody>${L.filter(r=>f==='all'||r[4]===f).map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td class="muted">${r[2]}</td><td class="num">${n(r[3])}</td><td><span class="badge ${S[r[4]][0]}">${S[r[4]][1]}</span></td><td>${r[4]==='ok'?'<button class="btn btn-ghost btn-sm">مشاهده</button>':`<button class="btn btn-secondary btn-sm" data-open="matchModal" data-sub="${r[1]} · ${r[0]}"><i data-lucide="file-check"></i>تطبیق فاکتور</button>`}</td></tr>`).join('')}</tbody>`;RT.icons()};
+  draw('all');
+  segmented($('recvFilter'),b=>draw(b.dataset.f));
+  segmented($('invMode'),()=>{});
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-open="matchModal"]');if(b)$('matchSub').textContent=b.dataset.sub||''});
+}
+function segmented(el,cb){el.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{el.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));cb&&cb(b)}))}
+
+/* ---------- Stock ---------- */
+function renderStock(){
+  const R=[['شیر پرچرب','۱۰۲۴','لیتر',38,60,'روزانه',42e3,'ok'],['دانه قهوه اسپرسو','۲۰۱۱','کیلو',6.5,8,'روزانه',1.85e6,'ok'],['نوشابه قوطی','۳۱۰۲','عدد',46,48,'روزانه',38e3,'old'],['پنیر پیتزا','۱۰۵۸','کیلو',4,6,'هفتگی',435e3,'ok'],['دستمال کاغذی','۵۰۰۴','بسته',22,10,'ماهانه',95e3,'old'],['خامه صبحانه','۱۰۳۱','عدد',9,12,'هفتگی',100e3,'ok']];
+  $('stockTbl').innerHTML=`<thead><tr><th>کالا</th><th class="num">موجودی</th><th>نسبت به نقطهٔ سفارش</th><th>شمارش</th><th class="num">قیمت معتبر</th><th class="num">ارزش</th></tr></thead><tbody>${R.map(([nm,c,u,q,rp,cnt,p,s])=>{const r=Math.min(q/(rp*2),1);return`<tr><td><div class="cell-main"><span class="thumb"><i data-lucide="package"></i></span><div><b>${nm}</b><small>کد ${c}</small></div></div></td><td class="num">${RT.n1(q)} ${u}</td><td><div class="meter ${q<rp?'bad':q<rp*1.3?'warn':'ok'}"><i style="width:${r*100}%"></i></div></td><td><span class="badge badge-neutral plain">${cnt}</span></td><td class="num">${n(p)} ${s==='old'?'<span class="badge badge-warning plain">کهنه</span>':''}</td><td class="num">${money(q*p)}</td></tr>`}).join('')}</tbody>`;
+}
+
+/* ---------- People ---------- */
+function renderPeople(){
+  steps($('peopleSteps'),[['done','برنامهٔ شیفت','منتشر شد'],['done','ورود تردد','تا ۳۰ مهر'],['cur','تأیید کارکرد','۱۹ از ۲۴ نفر'],['','محاسبهٔ حقوق','خودکار'],['','فیش و پرداخت','—']]);
+  const P=[['سارا حسینی','باریستا',176,4,0,1.4e6,0.15e6,'ready'],['علی رضایی','آشپز',192,12,2,0.9e6,0,'review'],['مریم کاظمی','سالن',150,0,0,1.8e6,0.3e6,'ready'],['رضا موسوی','صندوقدار',168,6,1,1.1e6,0.5e6,'review'],['نگار احمدی','بار',184,8,0,1.6e6,0,'ready']];
+  $('peopleTbl').innerHTML=`<thead><tr><th>پرسنل</th><th class="num">کارکرد (ساعت)</th><th class="num">اضافه‌کار</th><th class="num">روز نیازمند بررسی</th><th class="num">انعام</th><th class="num">جریمه</th><th>وضعیت</th></tr></thead><tbody>${P.map(([nm,r,h,o,rv,tip,pen,s])=>`<tr><td><div class="cell-main"><span class="avatar">${nm[0]}</span><div><b>${nm}</b><small>${r}</small></div></div></td><td class="num">${n(h)}</td><td class="num">${n(o)}</td><td class="num">${rv?`<span class="badge badge-danger">${n(rv)}</span>`:'—'}</td><td class="num">${money(tip)}</td><td class="num">${pen?money(pen):'—'}</td><td>${s==='ready'?'<span class="badge badge-success">آمادهٔ پرداخت</span>':'<span class="badge badge-warning">نیازمند بررسی</span>'}</td></tr>`).join('')}</tbody>`;
+}
+
+/* ---------- Parties ---------- */
+const PARTIES=[
+  ['رُست‌هاوس','تأمین‌کننده',-42.5e6,'سررسید ۹ آبان',[['۲ مهر','فاکتور خرید #۱۱۲۰','دریافت کالا',-24e6],['۱۰ مهر','پرداخت کارت به کارت','خزانه: بانک ملت',24e6],['۶ آبان','دریافت کالا (برآوردی)','دریافت کالا',-18.5e6],['۶ آبان','فاکتور خرید #۱۱۸۴','اختلاف تطبیق',-0.55e6]]],
+  ['لبنیات پگاه','تأمین‌کننده',-27e6,'۲ دریافت منتظر فاکتور',[['۲ آبان','دریافت کالا','دریافت کالا',-12.8e6],['۷ آبان','دریافت کالا','دریافت کالا',-14.2e6]]],
+  ['علی رضایی','پرسنل',3.2e6,'مساعده و مصرف',[['۵ مهر','مساعده','پرداخت',2.5e6],['۱۸ مهر','مصرف پرسنلی','صندوق',0.4e6],['۲۵ مهر','جریمهٔ پرتی','پرتی #۳۱۲',0.3e6]]],
+  ['شرکت آریا (ناهار سازمانی)','مشتری',18.6e6,'فروش اعتباری',[['۱ مهر','فروش اعتباری مهر','دفتر فروش',18.6e6]]],
+  ['مالک ملک','سایر',-95e6,'اجاره آبان',[['۱ آبان','اجارهٔ آبان','هزینهٔ تکرارشونده',-95e6]]]
+];
+let selParty=0;
+function renderParties(){
+  $('partyKpis').innerHTML=[
+    kpi('arrow-up-right','بدهی ما',money(164.5e6),'تومان','<span>۴ طرف</span>'),
+    kpi('arrow-down-left','طلب ما',money(21.8e6),'تومان','<span>۲ طرف</span>'),
+    kpi('calendar-clock','سررسید ۷ روز آینده',money(137.5e6),'تومان','<span class="badge badge-warning plain">۲ مورد</span>'),
+    kpi('landmark','موجودی خزانه',money(212e6),'تومان','<span>صندوق، ۲ بانک، تنخواه</span>')
+  ].join('');
+  $('partyTbl').innerHTML=`<thead><tr><th>طرف حساب</th><th class="num">مانده</th></tr></thead><tbody>${PARTIES.map((p,i)=>`<tr class="party-row ${i===selParty?'sel':''}" data-i="${i}"><td><b>${p[0]}</b><br><small class="muted">${p[1]} · ${p[3]}</small></td><td class="num ${p[2]<0?'dir-out':'dir-in'}">${money(Math.abs(p[2]))}<br><small class="muted">${p[2]<0?'بدهکاریم':'طلبکاریم'}</small></td></tr>`).join('')}</tbody>`;
+  $('partyTbl').querySelectorAll('[data-i]').forEach(r=>r.onclick=()=>{selParty=+r.dataset.i;renderParties()});
+  const p=PARTIES[selParty];let bal=0;
+  $('partyName').textContent=p[0];$('partyMeta').textContent=`${p[1]} · همهٔ ردیف‌ها از سند اصلی ساخته شده‌اند`;
+  $('partyLedger').innerHTML=`<thead><tr><th>تاریخ</th><th>شرح</th><th>سند مبدأ</th><th class="num">مبلغ</th><th class="num">مانده</th></tr></thead><tbody>${p[4].map(([d,t,src,a])=>{bal+=a;return`<tr><td>${d}</td><td>${t}</td><td><span class="badge badge-neutral plain">${src}</span></td><td class="num ${a<0?'dir-out':'dir-in'}">${n(a)}</td><td class="num">${n(bal)}</td></tr>`}).join('')}</tbody>`;
+}
+
+/* ---------- Close month ---------- */
+function renderClose(){
+  const C=[
+    ['done','شمارش کامل پایان ماه','۳۰ مهر · ۱۸۴ قلم · پوشش ۹۸٪','#stock'],
+    ['done','همهٔ دریافت‌ها و پرتی‌ها تأیید شده','۰ مورد باز','#stock'],
+    ['cur','تطبیق فاکتورهای خرید','۵ دریافت منتظر فاکتور؛ می‌توان با قیمت برآوردی بست و اختلاف را به ماه بعد برد','#purchase'],
+    ['cur','تأیید کارکرد و محاسبهٔ حقوق','۵ نفر نیازمند بررسی','#people'],
+    ['done','تطبیق صندوق و بانک','مغایرت ۱۲۰ هزار تومان ثبت و توضیح داده شد','#treasury'],
+    ['','snapshot سود و زیان و قفل','بعد از مراحل بالا','#pnl']
+  ];
+  $('closeList').innerHTML=C.map(([s,t,sub,h],i)=>`<div class="task"><span class="thumb" style="${s==='done'?'background:var(--success-soft);color:var(--success)':s==='cur'?'background:var(--accent-soft);color:var(--accent)':''}"><i data-lucide="${s==='done'?'check':s==='cur'?'loader':'lock'}"></i></span><div><b>${n(i+1)}. ${t}</b><small>${sub}</small></div>${s==='done'?'<span class="badge badge-success">انجام شد</span>':`<a class="btn btn-secondary btn-sm" href="${h}">رفتن</a>`}</div>`).join('');
+}
+
+/* ---------- P&L ---------- */
+function renderPnl(){
+  const rows=[['فروش خالص',1840,1760,'b'],['بهای مواد مصرفی (از شمارش)',-578,-546,''],['هزینهٔ پرسنل (حقوق + انعام سهم کارفرما)',-513,-475,''],['Prime cost',-1091,-1021,'sub'],['اجاره',-95,-95,''],['قبوض و انرژی',-48,-44,''],['سایر هزینه‌های عملیاتی',-62,-58,''],['سود عملیاتی',544,542,'b']];
+  $('pnlTbl').innerHTML=`<thead><tr><th>سرفصل</th><th class="num">مهر <span class="badge badge-warning plain">برآوردی · پوشش ۸۶٪</span></th><th class="num">شهریور <span class="badge badge-success plain">قطعی</span></th><th class="num">٪ فروش (مهر)</th></tr></thead><tbody>${rows.map(([t,a,b,k])=>`<tr style="${k==='b'?'font-weight:700':k==='sub'?'background:var(--surface-2)':''}"><td>${t}</td><td class="num">${n(a)}</td><td class="num">${n(b)}</td><td class="num muted">${RT.pct(Math.abs(a)/1840*100)}</td></tr>`).join('')}</tbody>`;
+}
+function pnlChart(){
+  const m=['اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر'];
+  const food=[33.8,32.9,32.1,31.6,31.0,31.4],labor=[24.6,25.2,26.4,27.1,27.0,27.9];
+  RT.chart('primeChart',t=>{
+    const cs=getComputedStyle(document.documentElement),s1=cs.getPropertyValue('--bp-s1').trim(),s2=cs.getPropertyValue('--bp-s2').trim();
+    const line=(name,data,c)=>({name,type:'line',data,smooth:false,symbol:'circle',symbolSize:8,lineStyle:{width:2,color:c},itemStyle:{color:c,borderColor:t.surface,borderWidth:2},
+      endLabel:{show:true,color:t.text2,fontFamily:t.font,fontSize:11,formatter:p=>RT.pct(p.value)}});
+    return Object.assign(RT.base(t),{
+      grid:{left:44,right:4,top:16,bottom:4,containLabel:true},
+      tooltip:Object.assign(RT.base(t).tooltip,{formatter:p=>`<b>${p[0].name}</b>`+p.map(x=>RT.tipRow(x.color,x.seriesName,RT.pct(x.value))).join('')}),
+      xAxis:RT.axis(t,{type:'category',data:m,boundaryGap:false,inverse:true}),
+      yAxis:RT.axis(t,{type:'value',min:20,max:40,splitNumber:4,position:'right',axisLabel:{color:t.text3,fontFamily:t.font,fontSize:11,formatter:v=>n(v)+'٪'}}),
+      series:[line('هزینهٔ مواد',food,s1),line('هزینهٔ پرسنل',labor,s2)]
+    });
+  });
+}
+
+/* ---------- Spec view ---------- */
+function renderSpec(m){
+  $('specCrumb').innerHTML=`<span>${m.domain.title}</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>${m.title}</span>`;
+  $('specTitle').textContent=m.title;$('specWhy').textContent=m.why;
+  $('specBadges').innerHTML=`${sBadge(m.status)}<span class="badge badge-neutral plain">فاز ${PH[m.phase]}</span>`;
+  $('specScreens').innerHTML=m.screens.map(s=>`<li>${s}</li>`).join('');
+  $('specKv').innerHTML=`<dt>داده</dt><dd>${m.data}</dd><dt>جایگزین</dt><dd>${m.replaces}</dd><dt>حوزه</dt><dd>${m.domain.title}</dd>`;
+}
+
+/* ---------- Router ---------- */
+const VIEWS=new Set([...document.querySelectorAll('[data-view]')].map(s=>s.dataset.view));
+const lazy={home:homeChart,pnl:pnlChart},mounted={};
+function route(){
+  const id=(location.hash||'#map').slice(1);
+  const view=VIEWS.has(id)&&id!=='spec'?id:(byId[id]?'spec':'map');
+  document.querySelectorAll('[data-view]').forEach(s=>s.hidden=s.dataset.view!==view);
+  if(view==='spec')renderSpec(byId[id]);
+  if(lazy[view]&&!mounted[view]){mounted[view]=1;requestAnimationFrame(lazy[view])}
+  document.querySelectorAll('#sidebar a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+id));
+  document.getElementById('sidebar')?.classList.remove('open');document.getElementById('backdrop')?.classList.remove('open');
+  window.scrollTo(0,0);RT.icons();
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  renderMap();renderHome();renderPos();renderPurchase();renderStock();renderPeople();renderParties();renderClose();renderPnl();
+  RT.tabs(document.querySelector('[data-tabs="stk"]'));
+  segmented($('posMode'));
+  window.addEventListener('hashchange',route);
+  route();
+});
+})();
+</script>
+</body>
+</html>

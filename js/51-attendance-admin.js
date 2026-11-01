@@ -22,6 +22,9 @@ async function ensureLoaded(force=false){
  catch(e){att=null;load={state:missingError(e)?'missing':'error',error:S(e?.message||e)}}
  if(VIEWS.includes(typeof currentView!=='undefined'?currentView:''))renderView();
 }
+/* Payroll (کارکرد ماه) reads a month's lateness only from the active month save; a live, unsaved preview is never used for pay. Read-only. */
+function ensureForPayroll(){if(load.state==='idle')ensureLoaded();return new Promise(done=>{const wait=()=>load.state==='loading'?setTimeout(wait,150):done();wait()})}
+function payrollLate(pid,y,m){if(load.state!=='ready')return{state:load.state,saved:false,minutes:0,savedAt:''};const save=C().activeMonthSave(att?.monthSaves,pid,y,m);return{state:'ready',saved:!!save,minutes:save?Math.round(C().monthTotals(save.days).late||0):0,savedAt:S(save?.savedAt)}}
 function statusCard(){
  if(load.state==='idle'||load.state==='loading')return '<div class="card"><div class="empty">در حال دریافت اطلاعات حضور و غیاب از سرور…</div></div>';
  const init='<a class="btn" href="settings.html?view=dataManagement">مدیریت اطلاعات و بکاپ</a>';
@@ -326,7 +329,7 @@ function install(){
  window.addEventListener('beforeunload',e=>{if(dirty()||busy||monthDirty()){e.preventDefault();e.returnValue=''}});
  if(VIEWS.includes(typeof currentView!=='undefined'?currentView:''))renderView();
 }
-window.RayoAttendanceAdmin={reload:()=>ensureLoaded(true),edit,saveSettings,discardSettings,chooseFile,setMapping,confirmImport,cancelImport,
+window.RayoAttendanceAdmin={reload:()=>ensureLoaded(true),ensureForPayroll,payrollLate,edit,saveSettings,discardSettings,chooseFile,setMapping,confirmImport,cancelImport,
  setMonthFilter,setUseCurrent,openDay,addPunch,removeAdded,applyDay,resetDay,discardMonth,saveMonth,setAttention,setReport,exportSummary,exportReport,exportMonthList,printReport,_state:()=>({att,load,draft,imp,mv,av,rv})};
 install();
 })();
