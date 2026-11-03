@@ -54,6 +54,6 @@ check('فهرست پرداخت‌ها بدون واحد در خانه‌ها و 
  check('پرسنل غیرفعال تا ۳۰ روز پس از تاریخ اتمام همکاری در فرم‌های ثبت می‌ماند',ctx.out==='A,B,E'&&ctx.keep==='A,B,D,E'&&ctx.edge==='true,false,true,false,true,false');
  check('فرم‌های ثبت از فهرست قابل‌ثبت استفاده می‌کنند',(base.match(/recordablePersonnel\(x\.personnelId\)\.map\(recordablePersonOption\)/g)||[]).length===5&&base.includes('people=recordablePersonnel(v.personnelId)')&&fs.readFileSync('js/34-final-operational-review-v10-1.js','utf8').includes("p.status==='فعال'||window.recentlyExitedPersonnel?.(p)||p.id===x.personnelId"));
 }
-check('لیست‌های پرسنل: انتخاب ستون و خروجی Excel',polish.includes("file()==='personnel.html'&&!table.closest('#modalBody')")&&polish.includes('listTools(table,meta)')&&polish.includes('applyListColumns(table)')&&polish.includes('window.RayoExcel.exportRows(data,')&&css.includes('.rayo-col-hidden-v10101{display:none!important}'));
+check('لیست‌های همه صفحات: انتخاب ستون و خروجی Excel',polish.includes("table.dataset.listTools!=='off'&&!table.closest('#modalBody')")&&polish.includes("(table.dataset.pagination!=='native'||!!table.dataset.listExport)")&&polish.includes('window.RayoListExport?.[name]')&&polish.includes('listTools(table,meta)')&&polish.includes('applyListColumns(table)')&&polish.includes('window.RayoExcel.exportRows(data,')&&css.includes('.rayo-col-hidden-v10101{display:none!important}'));
 
 console.log(`PASS ${passed}`);

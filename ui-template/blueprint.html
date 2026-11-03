@@ -93,7 +93,8 @@
 .ticket.late{border-color:var(--danger)}
 
 /* purchase */
-.price-src{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-3)}
+.price-src{display:flex;align-items:center;gap:4px;margin-top:4px;font-size:11px;color:var(--text-3);white-space:nowrap}
+.price-cell{min-width:220px}
 .price-src [data-lucide]{width:12px;height:12px}
 .drop{border:1.5px dashed var(--border-strong);border-radius:var(--radius);padding:var(--s5);text-align:center;color:var(--text-3);font-size:12.5px;display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--surface-2)}
 .drop [data-lucide]{width:24px;height:24px;color:var(--accent)}
@@ -101,6 +102,21 @@
 .prio{display:flex;flex-direction:column;gap:var(--s2)}
 .prio-row{display:grid;grid-template-columns:26px 1fr auto;gap:var(--s3);align-items:center;padding:var(--s2) var(--s3);border-radius:10px;background:var(--surface-2);font-size:12.5px}
 .prio-row .n{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--border);font-weight:700}
+
+/* club */
+.seg-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--s3)}
+.seg{border:1px solid var(--border);border-radius:var(--radius);padding:var(--s4);display:flex;flex-direction:column;gap:6px;background:var(--surface)}
+.seg .seg-n{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.3}
+.seg p{color:var(--text-2);font-size:12px}
+.seg .act{margin-top:auto;padding-top:var(--s2);border-top:1px dashed var(--border);font-size:12px;color:var(--text-2);display:flex;gap:6px;align-items:flex-start}
+.seg .act [data-lucide]{width:14px;height:14px;color:var(--accent);margin-top:3px}
+.mini{border:1px solid var(--border);border-radius:10px;padding:var(--s2) var(--s3)}
+.mini small{display:block;color:var(--text-3);font-size:11.5px}
+.mini b{font-variant-numeric:tabular-nums}
+.cust-row{cursor:pointer}
+.cust-row.sel td{background:var(--accent-soft)}
+.pos-cust{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);padding:var(--s2) var(--s3);border-radius:10px;background:var(--surface-2);border:1px solid var(--border);font-size:12.5px;margin-bottom:var(--s2)}
+.pos-cust .row{gap:6px;white-space:nowrap}
 
 /* ledger */
 .party-row{cursor:pointer}
@@ -119,6 +135,7 @@
 .cmp [data-lucide]{width:16px;height:16px;vertical-align:-3px}
 
 @media (max-width:1200px){
+  .seg-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .pos{grid-template-columns:minmax(0,1fr) 320px}
   .pos>.pos-tables{grid-column:1/-1}
   .phases{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -127,6 +144,7 @@
 @media (max-width:960px){
   .pos{grid-template-columns:minmax(0,1fr)}
   .principles{grid-template-columns:minmax(0,1fr)}
+  .seg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .phases{grid-template-columns:minmax(0,1fr)}
 }
 </style>
@@ -224,10 +242,10 @@
     <div class="card-head"><div><h2>فازبندی پیشنهادی</h2><p>از ساده‌سازی روی همین نسخه تا نرم‌افزار جامع</p></div></div>
     <div class="card-body"><div class="phases">
       <div class="phase now"><div class="ph-n">فاز ۰ · ۴ تا ۶ هفته</div><h3>یک ثبت برای خرید</h3><ul><li>دریافت کالا با قیمت پیش‌فرض</li><li>تاریخچهٔ قیمت واحد</li><li>تطبیق فاکتور بعدی</li><li>کارتابل مدیر</li></ul></div>
-      <div class="phase"><div class="ph-n">فاز ۱ · ۲ تا ۳ ماه</div><h3>پایهٔ داده</h3><ul><li>دیتابیس به جای JSON</li><li>دسترسی سروری (RBAC)</li><li>دفتر فروش واحد</li><li>دفتر طرف حساب واحد</li></ul></div>
+      <div class="phase"><div class="ph-n">فاز ۱ · ۲ تا ۳ ماه</div><h3>پایهٔ داده</h3><ul><li>دیتابیس به جای JSON</li><li>پروندهٔ سادهٔ مشتری (رزرو، نظرسنجی، اعتباری)</li><li>دسترسی سروری (RBAC)</li><li>دفتر فروش واحد</li><li>دفتر طرف حساب واحد</li></ul></div>
       <div class="phase"><div class="ph-n">فاز ۲ · ۲ ماه</div><h3>چرخهٔ ماه</h3><ul><li>تردد ← کارکرد ← حقوق</li><li>خزانه و تطبیق بانک</li><li>بستن ماه با snapshot</li><li>۴ گزارش اصلی</li></ul></div>
-      <div class="phase"><div class="ph-n">فاز ۳ · ۳ تا ۴ ماه</div><h3>فروش داخلی</h3><ul><li>سفارش‌گیر گارسون</li><li>صندوق و KDS</li><li>حالت آفلاین</li><li>کسر خودکار رسپی</li></ul></div>
-      <div class="phase"><div class="ph-n">فاز ۴ · تدریجی</div><h3>رشد</h3><ul><li>باشگاه مشتری و منوی QR</li><li>اسنپ‌فود و سامانهٔ مودیان</li><li>تحلیل هوشمند</li><li>چند شعبه</li></ul></div>
+      <div class="phase"><div class="ph-n">فاز ۳ · ۳ تا ۴ ماه</div><h3>فروش داخلی</h3><ul><li>سفارش‌گیر گارسون</li><li>صندوق و KDS</li><li>حالت آفلاین</li><li>کسر خودکار رسپی</li><li>باشگاه مشتریان (همراه صندوق)</li></ul></div>
+      <div class="phase"><div class="ph-n">فاز ۴ · تدریجی</div><h3>رشد</h3><ul><li>منوی QR و سفارش آنلاین</li><li>اسنپ‌فود و سامانهٔ مودیان</li><li>تحلیل هوشمند</li><li>چند شعبه</li></ul></div>
     </div></div>
   </div>
 
@@ -304,6 +322,7 @@
     <div class="card">
       <div class="card-head"><div><h3 id="orderTitle">میز ۴</h3><p>گارسون: سارا · ۲ نفر · ۱۸:۴۲</p></div><span class="badge badge-accent">باز</span></div>
       <div class="card-body" style="padding-top:var(--s3)">
+        <a class="pos-cust" href="#crm"><span class="row"><i data-lucide="user-round"></i><b>مهسا کریمی</b><span class="muted">طلایی · ۴۲۰ امتیاز</span></span><span class="badge badge-accent plain">قهوهٔ دهم رایگان</span></a>
         <div id="orderLines"></div>
         <div class="stack" style="gap:var(--s2);margin-top:var(--s4);font-size:13px">
           <div class="row between"><span class="muted">جمع</span><b class="num" id="oSub"></b></div>
@@ -321,6 +340,61 @@
   <div class="card mt">
     <div class="card-head"><div><h2>نمایشگر آشپزخانه و بار (KDS)</h2><p>زمان آماده‌سازی هر سفارش برای گزارش عملکرد ثبت می‌شود</p></div></div>
     <div class="card-body"><div class="kds" id="kds"></div></div>
+  </div>
+</section>
+
+<!-- =====================================================================
+     مشتریان و باشگاه
+     ===================================================================== -->
+<section data-view="crm" hidden>
+  <div class="page-head">
+    <div>
+      <div class="crumbs"><span>فروش</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>مشتریان و باشگاه</span></div>
+      <h1>مشتریان و باشگاه</h1>
+      <p>مشتری با شمارهٔ همراه شناخته می‌شود؛ خرید، امتیاز، کیف پول، رزرو، نظرسنجی و بدهی اعتباری‌اش در یک پرونده است</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary"><i data-lucide="sliders-horizontal"></i>قوانین باشگاه</button>
+      <button class="btn btn-primary"><i data-lucide="send"></i>کمپین جدید</button>
+    </div>
+  </div>
+  <div class="bp-note" style="margin-bottom:var(--s5)"><i data-lucide="info"></i><div>نسخهٔ کامل همراه صندوق داخلی (فاز ۳) می‌آید، چون مشتری باید هنگام پرداخت شناسایی شود. از فاز ۱، شماره‌هایی که از رزرو، نظرسنجی و فروش اعتباری داریم در همین پرونده جمع می‌شوند تا باشگاه از روز اول خالی نباشد.</div></div>
+
+  <div class="grid grid-4" id="crmKpis"></div>
+
+  <div class="card mt">
+    <div class="card-head"><div><h2>گروه‌های مشتری</h2><p>خودکار از تعداد دفعات، آخرین مراجعه و مبلغ خرید (RFM)؛ هر گروه یک اقدام پیشنهادی دارد</p></div></div>
+    <div class="card-body"><div class="seg-grid" id="segments"></div></div>
+  </div>
+
+  <div class="grid grid-3 mt">
+    <div class="card span-2 flush">
+      <div class="toolbar">
+        <label class="search"><i data-lucide="search"></i><input placeholder="نام یا شمارهٔ همراه…"></label>
+        <span class="chip active">همه</span><span class="chip">طلایی</span><span class="chip">در خطر ریزش</span><span class="chip">تولد این هفته <span class="count">۱۴</span></span>
+      </div>
+      <div class="table-wrap"><table class="table" id="custTbl"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="row" style="gap:var(--s3)"><span class="avatar" id="cAv"></span><div><h2 id="cName"></h2><p id="cMeta"></p></div></div><span class="badge" id="cTier"></span></div>
+      <div class="card-body stack" style="gap:var(--s4)">
+        <div class="grid grid-2" style="gap:var(--s3)" id="cStats"></div>
+        <div><small class="muted">بیشترین سفارش</small><div class="row" style="flex-wrap:wrap;margin-top:6px" id="cFav"></div></div>
+        <div><small class="muted">سابقه</small><div class="list" id="cTimeline"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-3 mt">
+    <div class="card">
+      <div class="card-head"><div><h2>قوانین باشگاه</h2><p>یک صفحه، بدون تنظیمات پراکنده</p></div></div>
+      <div class="card-body"><dl class="kv" id="clubRules"></dl></div>
+    </div>
+    <div class="card span-2 flush">
+      <div class="card-head" style="padding-bottom:var(--s4)"><div><h2>کمپین‌ها و نتیجهٔ واقعی</h2><p>نتیجه از دفتر فروش سنجیده می‌شود: مشتری پیام‌گرفته تا ۱۴ روز بعد خرید کرد یا نه</p></div></div>
+      <div class="table-wrap"><table class="table" id="campTbl"></table></div>
+      <div class="card-foot">هزینهٔ تخفیف و امتیاز در سود و زیان به‌صورت «کسر از فروش» دیده می‌شود، تا سود باشگاه واقعی سنجیده شود. پیامک فقط برای مشتری با رضایت ثبت‌شده ارسال می‌شود و لغو با «۱۱» پذیرفته است.</div>
+    </div>
   </div>
 </section>
 
@@ -359,7 +433,7 @@
         <div class="grid grid-2">
           <div class="drop"><i data-lucide="camera"></i><b style="color:var(--text)">عکس فاکتور یا برگهٔ تحویل</b><span>اختیاری؛ بعداً حسابدار از روی عکس تطبیق می‌دهد</span></div>
           <div class="stack" style="gap:var(--s3)">
-            <div class="alert alert-info"><i data-lucide="info"></i><div><b>با ذخیره:</b><p>موجودی ۳ قلم بالا می‌رود، بدهی «برآوردی» ۱۴٫۲ میلیون برای تأمین‌کننده ثبت می‌شود و قیمت‌ها با برچسب «برآوردی» وارد تاریخچه می‌شوند.</p></div></div>
+            <div class="alert alert-info"><i data-lucide="info"></i><div><b>با ذخیره:</b><p>موجودی ۳ قلم بالا می‌رود، بدهی «برآوردی» ۱۱٫۶ میلیون برای تأمین‌کننده ثبت می‌شود و قیمت‌ها با برچسب «برآوردی» وارد تاریخچه می‌شوند.</p></div></div>
             <div class="row"><label class="check"><input type="checkbox">پرداخت همین الان</label><span class="muted" style="font-size:12px">— از صندوق/کارت تنخواه</span></div>
           </div>
         </div>
@@ -622,9 +696,9 @@ const DOMAINS=[
       why:'یک منبع فروش برای صندوق، انبار و تحلیل؛ امروز فروش در سه جا جدا وارد می‌شود.',
       screens:['ورود یک‌بارهٔ خروجی سپیدز (تا فاز ۳)','کانال‌ها: سالن، بیرون‌بر، اسنپ‌فود','ممیزی حذف/ویرایش سپیدز'],
       data:'جایگزین salesAnalytics + salesPeriods + بخش فروش گزارش صندوق',replaces:'تحلیل گزارش فروش، فروش انبار، ممیزی سپیدز'},
-    {id:'crm',title:'مشتریان و باشگاه',status:'new',phase:4,
+    {id:'crm',title:'مشتریان و باشگاه',status:'new',phase:3,mock:true,
       why:'مشتری با شماره همراه شناخته می‌شود؛ امتیاز، رزرو، نظرسنجی و اعتبار در یک پرونده.',
-      screens:['پروفایل مشتری و سابقه خرید','امتیاز/کش‌بک و پیامک','رزرو و بیعانه','نظرسنجی','منوی QR'],
+      screens:['شناسایی مشتری در صندوق با شمارهٔ همراه','پروفایل: سابقه خرید، آیتم محبوب، تولد، رزرو، نظرسنجی','امتیاز، سطح، کش‌بک و کیف پول','کارت مهر (قهوهٔ دهم) و کد معرف','گروه‌بندی خودکار RFM و کمپین پیامکی با سنجش نتیجه','منوی QR با ورود مشتری (فاز ۴)'],
       data:'دفتر فروش، طرف حساب (مشتری اعتباری)',replaces:'رزرو و نظرسنجی فعلی'}
   ]},
   {key:'stock',title:'کالا و انبار',icon:'package',desc:'از سفارش به تأمین‌کننده تا مغایرت',mods:[
@@ -687,7 +761,7 @@ RT.MENU.splice(0,RT.MENU.length,
   ...DOMAINS.flatMap(d=>[{section:d.title},...d.mods.filter(m=>m.mock||['menu','salesbook','catalog','suppliers','shifts','attendance','treasury','expenses','salesrep','foodcost'].includes(m.id)).map(m=>({label:m.title,icon:modIcon(m.id),href:'#'+m.id}))]),
   {label:'سایر ماژول‌ها',icon:'ellipsis',key:'more',items:ALL.filter(m=>!m.mock&&!['menu','salesbook','catalog','suppliers','shifts','attendance','treasury','expenses','salesrep','foodcost'].includes(m.id)).map(link)}
 );
-function modIcon(id){return({pos:'receipt',menu:'utensils-crossed',salesbook:'book-open',catalog:'tags',purchase:'package-plus',suppliers:'truck',stock:'boxes',shifts:'calendar-days',attendance:'fingerprint',people:'wallet',treasury:'landmark',parties:'hand-coins',expenses:'piggy-bank',close:'lock',pnl:'chart-line',salesrep:'chart-pie',foodcost:'gauge'})[id]||'circle'}
+function modIcon(id){return({pos:'receipt',menu:'utensils-crossed',salesbook:'book-open',catalog:'tags',purchase:'package-plus',suppliers:'truck',stock:'boxes',shifts:'calendar-days',attendance:'fingerprint',people:'wallet',treasury:'landmark',parties:'hand-coins',expenses:'piggy-bank',close:'lock',pnl:'chart-line',crm:'heart-handshake',salesrep:'chart-pie',foodcost:'gauge'})[id]||'circle'}
 
 /* ---------- Map view ---------- */
 function renderMap(){
@@ -728,6 +802,7 @@ function renderHome(){
     ['fingerprint','badge-danger','۷ روز تردد نیازمند بررسی','۴ نفر · تردد ناقص یا اضافه‌کار تأییدنشده','#attendance','بررسی'],
     ['scale','badge-warning','۴ مغایرت شمارش امروز','بیشترین: شیر پرچرب −۶ لیتر','#stock','بررسی'],
     ['calendar-x','badge-neutral','۲ درخواست مرخصی','سارا ح. (۹ آبان)، علی ر. (۱۲ آبان)','#shifts','تصمیم'],
+    ['heart-handshake','badge-accent','۱۲ مشتری طلایی در خطر ریزش','بیش از ۲۱ روز مراجعه نکرده‌اند · کمپین بازگشت آماده است','#crm','ارسال'],
     ['hand-coins','badge-danger','۲ پرداخت سررسید این هفته','رُست‌هاوس ۱۸٫۵ میلیون · اجاره ۹۵ میلیون','#parties','پرداخت']
   ];
   $('taskCount').textContent=n(tasks.length)+' کار';
@@ -771,6 +846,51 @@ function renderOrder(){
   $('payAmt').value=n(sub*1.1);
 }
 
+/* ---------- Club ---------- */
+const TIERS={gold:['badge-accent','طلایی'],silver:['badge-info','نقره‌ای'],bronze:['badge-neutral','برنزی']};
+const CUSTOMERS=[
+  ['مهسا کریمی','۰۹۱۲•••۴۸۲۱','gold',38,'۲ روز پیش',41.6e6,420,0.35e6,['کاپوچینو','چیزکیک','برگر رایو'],'۲۴ آبان',[['امروز','در صندوق شناسایی شد · کارت مهر کامل'],['۲ آبان','خرید ۱٫۲ میلیون · ۱۲ امتیاز'],['۲۸ مهر','نظرسنجی: ۵ از ۵'],['۱۵ مهر','رزرو ۶ نفره با بیعانه']]],
+  ['امیر نوری','۰۹۳۵•••۱۱۰۷','gold',22,'۲۶ روز پیش',28.4e6,180,0,['لاته','پاستا آلفردو'],'۳ دی',[['۴ مهر','آخرین خرید ۹۵۰ هزار'],['۲ مهر','نظرسنجی: ۳ از ۵ · «زمان انتظار زیاد»'],['۱۰ مهر','گروه «در خطر ریزش»']]],
+  ['شرکت آریا','۰۲۱•••۸۸۴۰','silver',30,'۱ روز پیش',18.6e6,0,0,['ناهار سازمانی'],'—',[['۱ مهر','فروش اعتباری مهر · طرف حساب'],['۱ آبان','فاکتور ماهانه صادر شد']]],
+  ['نیلوفر صادقی','۰۹۱۹•••۳۰۵۶','silver',9,'۵ روز پیش',6.8e6,65,0.12e6,['آمریکانو','براونی'],'۱۱ آبان',[['۲ آبان','کد معرف استفاده شد · ۲ دوست جدید'],['۲۰ مهر','عضویت']]],
+  ['حامد یوسفی','۰۹۰۱•••۷۲۴۹','bronze',1,'۳ روز پیش',0.45e6,4,0,['اسپرسو'],'—',[['۴ آبان','اولین خرید · پیامک خوش‌آمد']]]
+];
+let selCust=0;
+function renderCrm(){
+  $('crmKpis').innerHTML=[
+    kpi('users','اعضای فعال (۹۰ روز)',n(2840),'نفر',`${RT.delta(6.4)}<span>نسبت به فصل قبل</span>`),
+    kpi('receipt','سهم فروش اعضا',RT.pct(46.2),'','<span>بقیه: مشتری ناشناس و اسنپ‌فود</span>'),
+    kpi('repeat','بازگشت در ۳۰ روز',RT.pct(38.5),'',`${RT.delta(2.1)}<span>از اعضای جدید</span>`),
+    kpi('user-x','در خطر ریزش',n(214),'نفر','<span class="badge badge-warning plain">۱۲ نفر طلایی</span>')
+  ].join('');
+  const SEG=[
+    ['crown','وفادار',n(312),'دست‌کم هفته‌ای یک بار؛ ۲۴٪ فروش','هدیهٔ تولد و دسترسی زودتر به منوی جدید'],
+    ['sparkles','تازه‌وارد',n(486),'عضو ۳۰ روز اخیر','پیشنهاد خرید دوم در ۱۰ روز'],
+    ['trending-up','رو به رشد',n(1020),'دفعات خرید رو به افزایش','کارت مهر و ارتقای سطح'],
+    ['triangle-alert','در خطر ریزش',n(214),'بیش از ۲۱ روز بدون مراجعه، قبلاً منظم','کمپین بازگشت با اعتبار محدود‌زمان'],
+    ['moon','غیرفعال',n(808),'بیش از ۹۰ روز بدون مراجعه','فقط مناسبت‌ها؛ پیامک پرهزینه نفرستید']
+  ];
+  $('segments').innerHTML=SEG.map(([i,t,c,d,a])=>`<div class="seg"><div class="row between"><b>${t}</b><span class="kpi-icon"><i data-lucide="${i}"></i></span></div><div class="seg-n">${c}</div><p>${d}</p><div class="act"><i data-lucide="lightbulb"></i><span>${a}</span></div></div>`).join('');
+  $('custTbl').innerHTML=`<thead><tr><th>مشتری</th><th>سطح</th><th class="num">مراجعه</th><th>آخرین</th><th class="num">مجموع خرید</th><th class="num">امتیاز</th></tr></thead><tbody>${CUSTOMERS.map((c,i)=>`<tr class="cust-row ${i===selCust?'sel':''}" data-i="${i}"><td><div class="cell-main"><span class="avatar">${c[0][0]}</span><div><b>${c[0]}</b><small class="num" style="direction:ltr;text-align:right">${c[1]}</small></div></div></td><td><span class="badge ${TIERS[c[2]][0]} plain">${TIERS[c[2]][1]}</span></td><td class="num">${n(c[3])}</td><td>${c[4]}</td><td class="num">${money(c[5])}</td><td class="num">${c[6]?n(c[6]):'—'}</td></tr>`).join('')}</tbody>`;
+  $('custTbl').querySelectorAll('[data-i]').forEach(r=>r.onclick=()=>{selCust=+r.dataset.i;renderCrm();RT.icons()});
+  const c=CUSTOMERS[selCust];
+  $('cAv').textContent=c[0][0];$('cName').textContent=c[0];$('cMeta').textContent=`${c[1]} · تولد: ${c[9]}`;
+  $('cTier').className=`badge ${TIERS[c[2]][0]} plain`;$('cTier').textContent=TIERS[c[2]][1];
+  const mini=(l,v)=>`<div class="mini"><small>${l}</small><b>${v}</b></div>`;
+  $('cStats').innerHTML=mini('میانگین هر خرید',money(c[5]/c[3]))+mini('امتیاز',c[6]?n(c[6]):'—')+mini('کیف پول',c[7]?money(c[7]):'—')+mini('آخرین مراجعه',c[4]);
+  $('cFav').innerHTML=c[8].map(x=>`<span class="chip">${x}</span>`).join('');
+  $('cTimeline').innerHTML=c[10].map(([d,t])=>`<div class="list-item"><div class="grow"><b>${t}</b><small>${d}</small></div></div>`).join('');
+  $('clubRules').innerHTML=`<dt>امتیاز</dt><dd>هر ۱۰۰ هزار تومان = ۱ امتیاز؛ ۱۰۰ امتیاز = ۱۰۰ هزار تومان اعتبار</dd>
+    <dt>سطح‌ها</dt><dd>برنزی از اولین خرید · نقره‌ای ۸ مراجعه در ۹۰ روز · طلایی ۲۰ مراجعه</dd>
+    <dt>کش‌بک</dt><dd>نقره‌ای ۳٪ · طلایی ۵٪ به کیف پول؛ اعتبار ۶۰ روز</dd>
+    <dt>کارت مهر</dt><dd>هر ۹ قهوه، دهمی رایگان</dd>
+    <dt>معرف</dt><dd>کد اختصاصی؛ ۵۰ هزار تومان برای هر دو طرف پس از اولین خرید دوست</dd>
+    <dt>تولد</dt><dd>پیامک خودکار ۳ روز قبل + یک دسر هدیه</dd>
+    <dt>حدود</dt><dd>تخفیف باشگاه روی اقلام قیمت‌درج (نوشیدنی شرکتی) اعمال نمی‌شود</dd>`;
+  const camp=[['بازگشت مشتریان در خطر','خودکار هفتگی',214,RT.pct(18.7),money(9.4e6),money(1.1e6),'run'],['تولد','خودکار روزانه',96,RT.pct(61.5),money(7.2e6),money(1.7e6),'run'],['منوی پاییزه برای وفادارها','یک‌باره · ۲۰ مهر',312,RT.pct(34.0),money(14.8e6),money(0.6e6),'done'],['خرید دوم تازه‌واردها','خودکار',486,RT.pct(27.2),money(11.3e6),money(2.4e6),'run']];
+  $('campTbl').innerHTML=`<thead><tr><th>کمپین</th><th>اجرا</th><th class="num">گیرنده</th><th class="num">پاسخ</th><th class="num">فروش ایجادشده</th><th class="num">هزینهٔ تخفیف + پیامک</th><th>وضعیت</th></tr></thead><tbody>${camp.map(([t,k,r,p,s,c,st])=>`<tr><td><b>${t}</b></td><td class="muted">${k}</td><td class="num">${n(r)}</td><td class="num">${p}</td><td class="num">${s}</td><td class="num">${c}</td><td>${st==='run'?'<span class="badge badge-success">فعال</span>':'<span class="badge badge-neutral">تمام‌شده</span>'}</td></tr>`).join('')}</tbody>`;
+}
+
 /* ---------- Purchase ---------- */
 const RECV=[['شیر پرچرب',40,'لیتر',40e3,'فاکتور · ۱ آبان'],['خامه صبحانه',24,'عدد',100e3,'فاکتور · ۱ آبان'],['پنیر پیتزا',18,'کیلو',420e3,'استعلام · ۲۲ مهر']];
 function renderPurchase(){
@@ -780,7 +900,7 @@ function renderPurchase(){
     kpi('clock','قیمت کهنه (بیش از ۳۰ روز)',n(9),'کالا','<span>روی ۱۴ آیتم منو اثر دارد</span>'),
     kpi('hand-coins','بدهی به تأمین‌کنندگان',money(86_400_000),'تومان','<span>۲ سررسید این هفته</span>')
   ].join('');
-  $('recvTable').innerHTML=`<thead><tr><th>کالا</th><th class="num">مقدار</th><th>واحد</th><th class="num">فی (تومان)</th><th class="num">جمع</th></tr></thead><tbody>${RECV.map(([nm,q,u,p,src])=>`<tr><td>${nm}</td><td class="num">${n(q)}</td><td>${u}</td><td><input class="input num" value="${n(p)}"><div class="price-src"><i data-lucide="history"></i>آخرین قیمت: ${src}</div></td><td class="num">${n(q*p)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4">جمع برآوردی</td><td class="num">${n(RECV.reduce((s,r)=>s+r[1]*r[3],0))}</td></tr></tfoot>`;
+  $('recvTable').innerHTML=`<thead><tr><th>کالا</th><th class="num">مقدار</th><th>واحد</th><th class="num">فی (تومان)</th><th class="num">جمع</th></tr></thead><tbody>${RECV.map(([nm,q,u,p,src])=>`<tr><td>${nm}</td><td class="num">${n(q)}</td><td>${u}</td><td class="price-cell"><input class="input num" value="${n(p)}"><div class="price-src"><i data-lucide="history"></i>آخرین قیمت: ${src}</div></td><td class="num">${n(q*p)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="4">جمع برآوردی</td><td class="num">${n(RECV.reduce((s,r)=>s+r[1]*r[3],0))}</td></tr></tfoot>`;
   const L=[['۷ آبان','لبنیات پگاه','۳ قلم',14.2e6,'wait'],['۶ آبان','رُست‌هاوس','قهوه ۱۰ کیلو',18.5e6,'diff'],['۵ آبان','میوه‌فروشی امید','۸ قلم',3.4e6,'wait'],['۴ آبان','بستنی میهن','۲ قلم',6.1e6,'ok'],['۳ آبان','نان سحر','۱ قلم',0.9e6,'ok'],['۲ آبان','لبنیات پگاه','۴ قلم',12.8e6,'wait']];
   const S={wait:['badge-warning','منتظر فاکتور'],diff:['badge-danger','اختلاف ۳٪'],ok:['badge-success','تطبیق‌شده']};
   const draw=f=>{$('recvList').innerHTML=`<thead><tr><th>تاریخ</th><th>تأمین‌کننده</th><th>اقلام</th><th class="num">مبلغ</th><th>وضعیت قیمت</th><th></th></tr></thead><tbody>${L.filter(r=>f==='all'||r[4]===f).map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td class="muted">${r[2]}</td><td class="num">${n(r[3])}</td><td><span class="badge ${S[r[4]][0]}">${S[r[4]][1]}</span></td><td>${r[4]==='ok'?'<button class="btn btn-ghost btn-sm">مشاهده</button>':`<button class="btn btn-secondary btn-sm" data-open="matchModal" data-sub="${r[1]} · ${r[0]}"><i data-lucide="file-check"></i>تطبیق فاکتور</button>`}</td></tr>`).join('')}</tbody>`;RT.icons()};
@@ -842,7 +962,7 @@ function renderClose(){
 
 /* ---------- P&L ---------- */
 function renderPnl(){
-  const rows=[['فروش خالص',1840,1760,'b'],['بهای مواد مصرفی (از شمارش)',-578,-546,''],['هزینهٔ پرسنل (حقوق + انعام سهم کارفرما)',-513,-475,''],['Prime cost',-1091,-1021,'sub'],['اجاره',-95,-95,''],['قبوض و انرژی',-48,-44,''],['سایر هزینه‌های عملیاتی',-62,-58,''],['سود عملیاتی',544,542,'b']];
+  const rows=[['فروش ناخالص',1878,1795,''],['تخفیف و امتیاز باشگاه (کسر از فروش)',-38,-35,''],['فروش خالص',1840,1760,'b'],['بهای مواد مصرفی (از شمارش)',-578,-546,''],['هزینهٔ پرسنل (حقوق + انعام سهم کارفرما)',-513,-475,''],['Prime cost',-1091,-1021,'sub'],['اجاره',-95,-95,''],['قبوض و انرژی',-48,-44,''],['سایر هزینه‌های عملیاتی',-62,-58,''],['سود عملیاتی',544,542,'b']];
   $('pnlTbl').innerHTML=`<thead><tr><th>سرفصل</th><th class="num">مهر <span class="badge badge-warning plain">برآوردی · پوشش ۸۶٪</span></th><th class="num">شهریور <span class="badge badge-success plain">قطعی</span></th><th class="num">٪ فروش (مهر)</th></tr></thead><tbody>${rows.map(([t,a,b,k])=>`<tr style="${k==='b'?'font-weight:700':k==='sub'?'background:var(--surface-2)':''}"><td>${t}</td><td class="num">${n(a)}</td><td class="num">${n(b)}</td><td class="num muted">${RT.pct(Math.abs(a)/1840*100)}</td></tr>`).join('')}</tbody>`;
 }
 function pnlChart(){
@@ -886,7 +1006,7 @@ function route(){
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
-  renderMap();renderHome();renderPos();renderPurchase();renderStock();renderPeople();renderParties();renderClose();renderPnl();
+  renderMap();renderHome();renderPos();renderCrm();renderPurchase();renderStock();renderPeople();renderParties();renderClose();renderPnl();
   RT.tabs(document.querySelector('[data-tabs="stk"]'));
   segmented($('posMode'));
   window.addEventListener('hashchange',route);
