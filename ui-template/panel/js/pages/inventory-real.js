@@ -64,14 +64,15 @@ const io={
  load:async()=>{const r=await fetch(E.API_ROOT+'Load?module=inventory&_='+Date.now(),{cache:'no-store',credentials:'omit',headers:{Accept:'application/json'}});if(!r.ok)throw Error(`دریافت انبار از سرور: HTTP ${r.status}`);return E.unwrap(await r.json())},
  save:async doc=>{const r=await fetch(E.API_ROOT+'Save?module=inventory',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json; charset=utf-8',Accept:'application/json, text/plain, */*'},body:JSON.stringify(doc)});if(!r.ok)throw Error(`ذخیره روی سرور: HTTP ${r.status} ${(await r.text()).slice(0,200)}`)},
  actor:()=>ses('rayo_admin_user'),pricing:()=>raw().pricing};
-async function run(btn,{action,details,mutate,done}){const label=btn.innerHTML;btn.disabled=true;btn.innerHTML=P.ic('loader')+'ذخیره و تأیید روی سرور…';RT.icons();
- try{const {out,doc}=await W.edit(io,{action,details,mutate});IC.attach({...raw(),inventory:doc,source:'live'});P.close();P.render();P.toast(done(out),'check')}
+// shared by menu-real.js: io (module) and apply(doc) default to the inventory module
+async function run(btn,{action,details,mutate,done,io:mio=io,apply=doc=>IC.attach({...raw(),inventory:doc,source:'live'})}){const label=btn.innerHTML;btn.disabled=true;btn.innerHTML=P.ic('loader')+'ذخیره و تأیید روی سرور…';RT.icons();
+ try{const {out,doc}=await W.edit(mio,{action,details,mutate});apply(doc);P.close();P.render();P.toast(done(out),'check')}
  catch(e){const el=document.getElementById('iwErr');if(el)el.textContent=e.message||String(e);P.toast(e.message||String(e),'alert-triangle');if(W.state.uncertain){P.close();P.render()}}
  finally{if(document.body.contains(btn)){btn.disabled=false;btn.innerHTML=label;RT.icons()}}}
-function formModal({title,body,ok='ذخیره',size='',onMount,onSave}){
+function formModal({title,body,ok='ذخیره',size='',onMount,onSave,can=canWrite,why=whyLocked}){
  P.modal({title,size,body:`<form id="iwForm" class="stack" style="gap:var(--s4)" onsubmit="return false">${body}<div id="iwErr" class="neg" role="alert" style="font-size:13px"></div></form>`,
   foot:`<button class="btn btn-ghost" data-close>انصراف</button><button class="btn btn-primary" id="iwOk">${P.ic('check')}${ok}</button>`,
-  onMount:m=>{onMount&&onMount(m);const b=P.$('#iwOk',m);b.onclick=e=>{e.preventDefault();P.$('#iwErr',m).textContent='';if(!canWrite())return P.$('#iwErr',m).textContent=whyLocked();try{onSave(m,b)}catch(err){P.$('#iwErr',m).textContent=err.message}}}})}
+  onMount:m=>{onMount&&onMount(m);const b=P.$('#iwOk',m);b.onclick=e=>{e.preventDefault();P.$('#iwErr',m).textContent='';if(!can())return P.$('#iwErr',m).textContent=why();try{onSave(m,b)}catch(err){P.$('#iwErr',m).textContent=err.message}}}})}
 const val=(m,n)=>P.$(`[name=${n}]`,m)?.value??'';
 const dateField=(label='تاریخ')=>P.field(label,`<input class="input num" name="date" value="${fa(E.CAL.today)}" placeholder="۱۴۰۵/۰۸/۱۷">`);
 const shiftField=()=>P.field('شیفت',`<select class="select" name="shift">${W.SHIFTS.map(s=>`<option>${s}</option>`).join('')}</select>`);
@@ -125,7 +126,9 @@ function voidForm(kind,id){const doc=raw().inventory,r=kind==='receipt'?A(doc.st
  formModal({title:kind==='receipt'?'ابطال ورود انبار':'ابطال ثبت پرتی / مصرف',ok:'ابطال روی سرور',body:`<div class="sum-box"><span>${esc(i?.name||r.itemNameSnapshot||'—')} · ${fa(r.date)}${r.eventType?' · '+esc(W.EVENT_LABELS[r.eventType]||r.eventType):''}</span><b>${q(Number(r.quantity),3)} ${esc(r.unitSnapshot||(r.type==='menu'?'عدد':i?.recipeUnit)||'')}</b></div>${P.field('علت ابطال *','<textarea class="textarea" name="reason" rows="2"></textarea>')}${P.note('رکورد حذف نمی‌شود: وضعیتش «باطل» می‌شود و نسخهٔ قبل از ابطال با نام شما در سابقه می‌ماند. مغایرت شمارش‌های بعدی در ذخیرهٔ بعدی پنل فعلی یا با «بازمحاسبه همه» به‌روز می‌شود.','info')}`,
   onSave:(m,btn)=>{const reason=val(m,'reason');if(!canVoid())throw Error('ابطال فقط برای کاربر دارای دسترسی «ویرایش، ابطال و بازگردانی ثبت‌های انبار» مجاز است');
    run(btn,{action:kind==='receipt'?'RECEIPT_VOIDED':'INVENTORY_EVENT_VOIDED',details:{entityId:id,reason},mutate:(d,c)=>kind==='receipt'?W.voidReceipt(d,c,{id,reason}):W.voidEvent(d,c,{id,reason}),done:()=>'ابطال ثبت و روی سرور تأیید شد'})}})}
-window.InvEntry={receipt:receiptForm,event:eventForm,oil:oilForm,count:countForm,void:voidForm,canWrite,canVoid};
+window.InvEntry={receipt:receiptForm,event:eventForm,oil:oilForm,count:countForm,void:voidForm,canWrite,canVoid,
+ // shared with menu-real.js
+ formModal,run,allowed,live,ses,dataList,latin};
 
 /* ---------- wiring: real view when connected, sample + hint otherwise ---------- */
 const hint=()=>P.note(`این صفحه <b>دادهٔ نمونه</b> است. برای دیدن دادهٔ واقعی، در «داشبورد کنترل» به دادهٔ انبار وصل شوید. <a href="#/inventory/control">اتصال</a>`,'database');

@@ -43,7 +43,9 @@ const unitName=i=>S(i?.recipeUnit||i?.unit||i?.stockUnit||'واحد');
 // entry units: the stock (recipe) unit, plus the purchase unit when it is a different unit with a package size
 function unitsOf(i){const out=[{name:unitName(i),factor:1}],pk=Number(i?.packageQuantity);if(S(i?.purchaseUnit)&&pk>1&&E().UK(i.purchaseUnit)!==E().UK(unitName(i)))out.push({name:S(i.purchaseUnit),factor:pk});return out}
 function mainLocation(doc){const id=S(doc.settings?.mainLocationId);return A(doc.locations).find(l=>l.id===id)||A(doc.locations)[0]||(id?{id,name:''}:null)}
-function audit(doc,action,details,ctx){doc.changeLog=A(doc.changeLog);const row={id:`ICT-${ctx.reqId}`,action,at:ctx.at,actor:ctx.actor,via:'ui-template',...details};doc.changeLog.push(row);return row}
+function audit(doc,action,details,ctx){doc.changeLog=A(doc.changeLog);const row={id:`${ctx.module==='pricing'?'PLOG':'ICT'}-${ctx.reqId}`,action,at:ctx.at,actor:ctx.actor,via:'ui-template',...details};
+ // pricing.changeLog is newest-first and the current panel keeps its first 500 rows, so pricing rows go to the front
+ if(ctx.module==='pricing')doc.changeLog.unshift(row);else doc.changeLog.push(row);return row}
 function checkDate(doc,date,label='تاریخ'){if(!validDate(date))throw Error(`${label} معتبر نیست (مثال ۱۴۰۵/۰۸/۱۷)`);if(date>E().CAL.today)throw Error(`${label} نمی‌تواند در آینده باشد`);const c=closedPeriod(doc,date);if(c)throw Error(`دورهٔ ${c.from||''} تا ${c.to} بسته است`)}
 
 /* ---------- receipt (js/46 saveReceiptBatch, DIRECT_ENTRY) ---------- */
@@ -121,19 +123,20 @@ function addCount(doc,ctx,{date,entries,note}){date=D(date);checkDate(doc,date,'
 const state={busy:false,uncertain:false};
 function validDoc(doc){return !!doc&&typeof doc==='object'&&Array.isArray(doc.stocktakes)&&Array.isArray(doc.inventoryMovements)}
 async function verify(io,after){let last=null;for(const wait of [0,700,2000]){if(wait)await new Promise(r=>setTimeout(r,wait));try{const c=await io.load();if(S(c?.meta?.serverSaveToken)===after.meta.serverSaveToken&&content(c)===content(after))return c;last=Error('بازخوانی سرور با سند ارسالی یکسان نیست؛ ذخیره تأیید نشد')}catch(e){last=e}}throw last}
-// io: {load():Promise<doc>, save(doc):Promise, actor():string, pricing():object}
+// io: {load():Promise<doc>, save(doc):Promise, actor():string, pricing():object, module?:'inventory'|'pricing', validate?(doc):bool}
+// The same protocol serves the pricing module (menu-write.js) through io.module and io.validate.
 async function edit(io,{action,details={},mutate}){
  if(state.uncertain)throw Error('نتیجهٔ ذخیرهٔ قبلی نامشخص است؛ صفحه را بازخوانی کنید و ثبت قبلی را در فهرست بررسی کنید');
  if(state.busy)throw Error('ذخیرهٔ دیگری در حال انجام است؛ کمی بعد دوباره تلاش کنید');
  const actor=S(io.actor());if(!actor)throw Error('این عملیات فقط در نشست مدیریت مجاز است');
  state.busy=true;
  try{
-  const before=await io.load();if(!validDoc(before))throw Error('Load کامل و معتبر انبار لازم است؛ چیزی ذخیره نشد');
+  const before=await io.load();if(!(io.validate||validDoc)(before))throw Error(`Load کامل و معتبر ${io.module==='pricing'?'منو و قیمت':'انبار'} لازم است؛ چیزی ذخیره نشد`);
   const after=clone(before);after.settings=after.settings&&typeof after.settings==='object'?after.settings:{};
-  const ctx={actor,at:now(),reqId:requestId(),pricing:io.pricing()};
+  const ctx={actor,at:now(),reqId:requestId(),pricing:io.pricing(),module:io.module||'inventory'};
   // one audit row per save; a void adds the record as it was before the change (ctx.auditExtra)
   const out=mutate(after,ctx);audit(after,action,{...details,...(ctx.auditExtra||{})},ctx);
-  after.meta=after.meta&&typeof after.meta==='object'?after.meta:{};after.meta.serverSaveToken=`INVENTORY-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;after.meta.updatedAt=now();
+  after.meta=after.meta&&typeof after.meta==='object'?after.meta:{};after.meta.serverSaveToken=`${String(io.module||'inventory').toUpperCase()}-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;after.meta.updatedAt=now();
   let sent=false;
   try{sent=true;await io.save(after);const doc=await verify(io,after);return{out,doc}}
   catch(e){if(sent){try{const c=await io.load();if(S(c?.meta?.serverSaveToken)===after.meta.serverSaveToken&&content(c)===content(after))return{out,doc:c}}catch(_){}state.uncertain=true}throw e}
