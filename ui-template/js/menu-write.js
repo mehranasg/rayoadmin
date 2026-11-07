@@ -23,11 +23,16 @@ const pcUid=(prefix,rows)=>{let m=0;A(rows).forEach(x=>{const q=S(x.id).match(/(
 const uid6=(prefix,rows)=>{let m=0;A(rows).forEach(x=>{const q=S(x.id).match(/(\d+)$/);if(q)m=Math.max(m,+q[1])});return `${prefix}-${String(m+1).padStart(6,'0')}`};
 
 /* ---------- cost model ---------- */
-function unitCost(i){if(!i)return{v:NaN,why:'ماده در کاتالوگ نیست'};const pk=Number(i.packageQuantity),price=Number(i.lastPurchasePriceToman),pu=E().UK(i.purchaseUnit),ru=E().UK(i.recipeUnit),w=Number(i.wastePercent)||0,y=1-w/100;
+// js/08 pcGrossCatalogCost: when the last price came from a supplier invoice, that invoice's own package and unit are used
+let historyIndex={src:null,map:null};
+function invoiceHistory(doc,i){if(!doc)return null;if(historyIndex.src!==doc.ingredientPriceHistory){historyIndex={src:doc.ingredientPriceHistory,map:new Map};for(const h of A(doc.ingredientPriceHistory)){if(h.isVoided===true||!h.invoiceId)continue;const k=h.ingredientId+'|'+h.invoiceId,o=historyIndex.map.get(k);if(!o||S(h.date)>S(o.date)||(S(h.date)===S(o.date)&&S(h.createdAt)>S(o.createdAt)))historyIndex.map.set(k,h)}}return historyIndex.map.get(i.id+'|'+i.lastPurchaseInvoiceId)||null}
+function unitCost(i,doc){if(!i)return{v:NaN,why:'ماده در کاتالوگ نیست'};
+ if(i.lastPurchaseSource==='supplierInvoice'&&i.lastPurchaseInvoiceId&&doc){const h=invoiceHistory(doc,i);if(!h)return{v:NaN,why:'قیمت فاکتور آخر پیدا نشد'};if(E().UK(h.recipeUnit||i.recipeUnit)!==E().UK(i.recipeUnit))return{v:NaN,why:'واحد فاکتور با واحد مصرف فرق دارد'};i={...i,...h,lastPurchasePriceToman:h.priceToman,purchaseUnit:h.purchaseUnit||i.purchaseUnit,packageQuantity:h.packageQuantity,wastePercent:i.wastePercent}}
+ const pk=Number(i.packageQuantity),price=Number(i.lastPurchasePriceToman),pu=E().UK(i.purchaseUnit),ru=E().UK(i.recipeUnit),w=Number(i.wastePercent)||0,y=1-w/100;
  if(!pu||!ru||(FAM[pu]&&FAM[ru]&&FAM[pu]!==FAM[ru]))return{v:NaN,why:'واحد خرید و مصرف ناسازگار'};if(!(pk>0))return{v:NaN,why:'مقدار بسته نامعتبر'};if(!(price>0))return{v:NaN,why:'بدون قیمت خرید'};if(!(y>0))return{v:NaN,why:'افت نامعتبر'};return{v:price/pk/y,why:''}}
 const recipeLines=(doc,menuId)=>A(doc.recipes).filter(r=>r.menuItemId===menuId);
 function metrics(doc,m,ingMap){const ing=ingMap||new Map(A(doc.ingredients).map(i=>[i.id,i])),lines=recipeLines(doc,m.id);
- const rows=lines.map(l=>{const i=ing.get(l.ingredientId),u=unitCost(i),qty=Z(l.quantity),ok=Number.isFinite(u.v)&&u.v>0&&qty>0;return{l,i,qty,unit:u.v,cost:ok?u.v*qty:null,why:ok?'':qty<=0?'مقدار صفر یا خالی':u.why}});
+ const rows=lines.map(l=>{const i=ing.get(l.ingredientId),u=unitCost(i,doc),qty=Z(l.quantity),ok=Number.isFinite(u.v)&&u.v>0&&qty>0;return{l,i,qty,unit:u.v,cost:ok?u.v*qty:null,why:ok?'':qty<=0?'مقدار صفر یا خالی':u.why}});
  let cost=rows.reduce((a,r)=>a+(r.cost||0),0),manual=false;const missing=rows.filter(r=>r.cost===null).length;
  if(!lines.length&&m.manualCostEnabled!==false&&Z(m.manualCostToman)>0){cost=Z(m.manualCostToman);manual=true}
  const s=doc.settings||{},price=Z(m.currentPriceToman),target=Z(m.customTargetCostPercent)||Z(s.categoryTargets?.[m.category])||35,complete=cost>0&&missing===0,step=priceStep(doc);
