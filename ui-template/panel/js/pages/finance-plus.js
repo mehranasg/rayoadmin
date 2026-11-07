@@ -1,0 +1,29 @@
+/* Rayo Panel prototype — مالی: پیش‌بینی هزینه و نقدینگی، محاسبه‌گر سود، مانده‌های اول دوره (sample data) */
+(function(){
+'use strict';
+const fin=P.mods.finance;
+const M=['آذر','دی','بهمن'],SALES=[4150,4300,4520].map(x=>x*1e6),FIX={rent:120e6,energy:38e6,internet:1.9e6,depr:14.8e6};
+const PAY=[612e6,618e6,640e6],FOOD=0.31,CHQ=[[ 'چک تأمین پروتئین','1405/09/05',85e6],['چک لبنیات','1405/09/18',42e6],['اقساط وام تجهیزات','1405/10/01',35e6]];
+function rows(){return M.map((m,i)=>{const food=SALES[i]*FOOD,fixed=FIX.rent+FIX.energy+FIX.internet,cost=food+PAY[i]+fixed+FIX.depr,profit=SALES[i]-cost,cashOut=food+PAY[i]+fixed;return{m,sales:SALES[i],food,pay:PAY[i],fixed,depr:FIX.depr,cost,profit,cashOut}})}
+function forecast(){const R=rows(),bank=980e6;let bal=bank;const cash=R.map(r=>{bal+=r.sales-r.cashOut;return bal});
+ return`<div class="grid grid-4">${P.kpi({label:'فروش پیش‌بینی‌شدهٔ ۳ ماه',icon:'trending-up',value:RT.money(R.reduce((a,r)=>a+r.sales,0)),unit:'تومان',foot:'روند ۳ ماه گذشته + فصل'})}${P.kpi({label:'هزینهٔ حقوق ۳ ماه',icon:'users',value:RT.money(R.reduce((a,r)=>a+r.pay,0)),unit:'تومان',foot:'از برنامهٔ نیرو و نرخ‌ها',tone:'warning'})}${P.kpi({label:'سود پیش‌بینی‌شده',icon:'piggy-bank',value:RT.money(R.reduce((a,r)=>a+r.profit,0)),unit:'تومان',tone:'success'})}${P.kpi({label:'کمترین موجودی نقد',icon:'landmark',value:RT.money(Math.min(...cash)),unit:'تومان',foot:'با چک‌ها و اقساط سررسید'})}</div>
+ <div class="split mt">${P.card({title:'پیش‌بینی ماه‌های آینده',sub:'سود (تعهدی) و جریان نقد',body:'<div class="chart" id="fpChart"></div>'})}
+ ${P.card({title:'تعهدات سررسید',sub:'چک‌ها و اقساطی که نقد لازم دارند',flush:1,body:P.table(['شرح','سررسید',{t:'مبلغ',n:1}],CHQ.map(([t,d,a])=>[t,P.dd(d),P.t(a)]))})}</div>
+ ${P.card({title:'جدول پیش‌بینی',flush:1,body:P.table(['ماه',{t:'فروش',n:1},{t:'بهای مواد (۳۱٪)',n:1},{t:'حقوق',n:1},{t:'هزینهٔ ثابت',n:1},{t:'استهلاک',n:1},{t:'سود',n:1},{t:'موجودی نقد پایان ماه',n:1}],R.map((r,i)=>[r.m,P.t(r.sales),P.t(r.food),P.t(r.pay),P.t(r.fixed),P.t(r.depr),`<b class="${r.profit<0?'neg':''}">${P.t(r.profit)}</b>`,P.t(cash[i])])),actions:`<button class="btn btn-secondary btn-sm" onclick="P.toast('فرض‌ها: درصد رشد فروش، درصد بهای مواد، افزایش حقوق — در محاسبه‌گر سود')">${P.ic('sliders-horizontal')}فرض‌ها</button>`})}`}
+function mountForecast(){const R=rows();RT.chart('fpChart',t=>Object.assign(RT.base(t),{legend:{top:0,textStyle:{color:t.text2,fontFamily:t.font}},grid:{left:8,right:8,top:36,bottom:4,containLabel:true},tooltip:{...RT.base(t).tooltip,valueFormatter:v=>RT.money(v)},xAxis:{type:'category',data:R.map(r=>r.m),...RT.axis(t)},yAxis:{type:'value',...RT.axis(t,{axisLabel:{color:t.text3,formatter:v=>RT.short(v)}})},
+ series:[{name:'فروش',type:'bar',data:R.map(r=>r.sales),itemStyle:{color:t.palette[1],borderRadius:[6,6,0,0]}},{name:'هزینه',type:'bar',data:R.map(r=>r.cost),itemStyle:{color:t.palette[4],borderRadius:[6,6,0,0]}},{name:'سود',type:'line',data:R.map(r=>r.profit),itemStyle:{color:t.accent}}]}))}
+/* profit calculator: what-if on one month */
+function calculator(){return`<div class="split">${P.card({title:'محاسبه‌گر سود ماه',sub:'«اگر…» — اثر تغییر فروش، بهای مواد، حقوق و اجاره بر سود',body:`<div class="form-grid">${P.field('فروش ماه',P.money('cs',4150e6))}${P.field('درصد بهای مواد',`<input class="input num" name="cf" value="${P.fa(31)}">`)}${P.field('حقوق و دستمزد',P.money('cp',612e6))}${P.field('اجاره و هزینهٔ ثابت',P.money('cx',160e6))}${P.field('کارمزد پلتفرم/بانک (٪ فروش)',`<input class="input num" name="cc" value="${P.fa(3)}">`)}${P.field('مالیات بر ارزش افزوده (٪)',`<input class="input num" name="cv" value="${P.fa(0)}">`)}</div>`})}
+ ${P.card({title:'نتیجه',body:'<div id="fcOut"></div>'})}</div>`}
+const pct=v=>P.fa(v.toFixed(1)).replace('.','٫');
+function mountCalc(root){const f=n=>P.num(P.$(`[name=${n}]`,root).value);const up=()=>{const s=f('cs'),food=s*f('cf')/100,fee=s*f('cc')/100,vat=s*f('cv')/100,cost=food+f('cp')+f('cx')+fee+vat,profit=s-cost,be=(f('cp')+f('cx'))/Math.max(0.01,1-(f('cf')+f('cc')+f('cv'))/100);
+ P.$('#fcOut',root).innerHTML=P.table(['شرح',{t:'مبلغ',n:1},{t:'٪ فروش',n:1}],[['بهای مواد',P.t(food),pct(food/s*100)],['حقوق',P.t(f('cp')),pct(f('cp')/s*100)],['ثابت',P.t(f('cx')),pct(f('cx')/s*100)],['کارمزد و مالیات',P.t(fee+vat),pct((fee+vat)/s*100)],['<b>سود</b>',`<b class="${profit<0?'neg':''}">${P.t(profit)}</b>`,pct(profit/s*100)]])+`<div class="sum-box mt"><span>نقطهٔ سربه‌سر فروش</span><b>${P.T(Math.round(be))}</b></div>`};P.$$('input',root).forEach(i=>i.addEventListener('input',up));up()}
+const ci=fin.tabs.findIndex(t=>t.id==='reports');
+fin.tabs.splice(ci,0,{id:'forecast',label:'پیش‌بینی',icon:'trending-up',title:'پیش‌بینی هزینه، سود و نقدینگی',desc:'۳ ماه آینده بر اساس روند فروش، برنامهٔ نیرو، هزینه‌های ثابت و تعهدات',render:forecast,mount:mountForecast},
+ {id:'calculator',label:'محاسبه‌گر سود',icon:'calculator',desc:'اثر تغییر فروش، بهای مواد و هزینه‌ها بر سود و نقطهٔ سربه‌سر',render:calculator,mount:mountCalc});
+/* opening balances: part of finance settings (one-time setup when starting the system) */
+const st=fin.tabs.find(t=>t.id==='settings'),stRender=st.render;
+st.render=r=>stRender(r)+P.card({title:'مانده‌های اول دوره (شروع کار با سیستم)',sub:'یک بار: ماندهٔ حساب‌ها، بدهی/طلب هر طرف حساب و چک‌های در جریان در تاریخ شروع',flush:1,
+ body:P.table(['طرف حساب / حساب','نوع',{t:'مانده',n:1},'تاریخ'],[['بانک ملت — جاری','حساب',P.t(980e6),P.d('1405/06/01')],['صندوق نقد','حساب',P.t(12e6),P.d('1405/06/01')],['پروتئین زیاران','بدهی ما',P.t(64e6),P.d('1405/06/01')],['بازار مرکزی','بدهی ما',P.t(18e6),P.d('1405/06/01')],['اسنپ‌فود','طلب ما',P.t(22e6),P.d('1405/06/01')]]),
+ actions:`<button class="btn btn-secondary btn-sm" onclick="P.toast('ورود از Excel با پیش‌نمایش (نمونه)')">${P.ic('file-spreadsheet')}ورود از Excel</button>`,foot:P.note('پس از بستن اولین ماه، مانده‌های اول دوره قفل می‌شوند؛ اصلاح بعدی فقط با سند اصلاحی.','lock')});
+})();

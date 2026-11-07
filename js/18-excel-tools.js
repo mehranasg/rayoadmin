@@ -6,6 +6,9 @@ const en=s=>String(s??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d
 const num=v=>{const n=Number(en(v).replace(/[٬,،\s]/g,'').replace(/[^\d.-]/g,''));return Number.isFinite(n)?n:0};
 const norm=v=>txt(v).replace(/\u200c/g,' ').replace(/ي/g,'ی').replace(/ك/g,'ک').replace(/[\sـ_\-\/\\()\[\]،,:؛.؟?!]/g,'').toLowerCase();
 const uniq=a=>[...new Set((a||[]).map(txt).filter(Boolean))];
+// A host that answers a missing js/xlsx.full.min.js with an HTML page (200) makes the injected script throw
+// "Unexpected token '<'" into the error log; check the local copy first and go to the CDN when it is not JavaScript.
+async function localScriptAvailable(src){try{const r=await fetch(src,{method:'HEAD',cache:'no-cache'});if(r.status===405||r.status===501)return true;return r.ok&&!/html/i.test(r.headers.get('content-type')||'')}catch(_){return false}}
 async function loadXLSX(){
   if(window.XLSX)return window.XLSX;
   if(xlsxPromise)return xlsxPromise;
@@ -13,6 +16,7 @@ async function loadXLSX(){
   xlsxPromise=new Promise(async(resolve,reject)=>{
     for(const src of sources){
       try{
+        if(!/^https?:/i.test(src)&&!await localScriptAvailable(src))continue;
         await new Promise((ok,fail)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=fail;document.head.appendChild(s)});
         if(window.XLSX)return resolve(window.XLSX);
       }catch(_){ }
@@ -21,7 +25,7 @@ async function loadXLSX(){
   });
   return xlsxPromise;
 }
-function findCol(headers,aliases){const hs=headers.map(norm),as=aliases.map(norm);return hs.findIndex(h=>as.some(a=>h===a||h.includes(a)||a.includes(h)))}
+function findCol(headers,aliases){const hs=headers.map(norm),as=aliases.map(norm);return hs.findIndex(h=>h&&as.some(a=>a&&(h===a||h.includes(a)||a.includes(h))))}/* empty header cells (title rows, merged cells) must not match every alias */
 function bestTable(wb,spec,scan=30){let best=null;for(const sheetName of wb.SheetNames){const rows=window.XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,raw:false,defval:'',blankrows:false});for(let r=0;r<Math.min(scan,rows.length);r++){const headers=(rows[r]||[]).map(txt),map={},missing=[];let score=0;for(const [key,cfg] of Object.entries(spec)){const aliases=Array.isArray(cfg)?cfg:(cfg.aliases||[]),idx=findCol(headers,aliases);map[key]=idx;const required=Array.isArray(cfg)?false:!!cfg.required,weight=Array.isArray(cfg)?1:(cfg.weight||1);if(idx>=0)score+=weight;else if(required)missing.push(key)}const candidate={sheetName,rows,headerRow:r,headers,map,score,missing};if(!best||(!candidate.missing.length&&best.missing.length)||candidate.score>best.score)best=candidate}}return best}
 async function readFile(file){const XLSX=await loadXLSX();const wb=XLSX.read(await file.arrayBuffer(),{type:'array',raw:false,cellDates:false});return wb}
 async function readBest(file,spec,opts={}){const wb=await readFile(file),best=bestTable(wb,spec,opts.scan||30);if(!best||best.missing.length)throw new Error(`ستون‌های الزامی Excel پیدا نشد${best?.missing?.length?`: ${best.missing.join('، ')}`:''}`);const data=best.rows.slice(best.headerRow+1).filter(r=>r.some(v=>txt(v)!==''));return{...best,data,get:(row,key)=>best.map[key]>=0?row[best.map[key]]:''}}

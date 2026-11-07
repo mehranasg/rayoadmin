@@ -4,8 +4,8 @@ const BUILD='10.5.2';
 const TABS=['workflow','overview','valuation','receipts','sales','locations','transfer','waste','stock','cost','history','varianceReports'];
 const MOVEMENT_OUT=new Set(['WASTE','SPILL','EXPIRY','BREAKAGE','MISSING','STAFF_CONSUMPTION','MANAGEMENT_GUEST','TEST_CONSUMPTION','OTHER_AUTHORIZED']);
 const WASTE_TYPES=new Set(['WASTE','SPILL','EXPIRY','BREAKAGE']);
-const AUTH_TYPES=new Set(['STAFF_CONSUMPTION','MANAGEMENT_GUEST','TEST_CONSUMPTION','OTHER_AUTHORIZED']);
-const EVENT_LABELS={WASTE:'ضایعات/پرتی',SPILL:'ریزش اتفاقی',EXPIRY:'فساد/انقضا',BREAKAGE:'شکستگی/خرابی مصرفی',MISSING:'مفقودی',STAFF_CONSUMPTION:'مصرف پرسنلی',MANAGEMENT_GUEST:'مهمان مدیریت',TEST_CONSUMPTION:'تست محصول',OTHER_AUTHORIZED:'سایر مصرف مجاز'};
+const AUTH_TYPES=new Set(['STAFF_CONSUMPTION','MANAGEMENT_GUEST','TEST_CONSUMPTION','OTHER_AUTHORIZED','FRYER_OIL_CHANGE','TABLE_SERVICE']);
+const EVENT_LABELS={WASTE:'ضایعات/پرتی',SPILL:'ریزش اتفاقی',EXPIRY:'فساد/انقضا',BREAKAGE:'شکستگی/خرابی مصرفی',MISSING:'مفقودی',STAFF_CONSUMPTION:'مصرف پرسنلی',MANAGEMENT_GUEST:'مهمان مدیریت',TEST_CONSUMPTION:'تست محصول',OTHER_AUTHORIZED:'سایر مصرف مجاز',FRYER_OIL_CHANGE:'تعویض روغن سرخ‌کن',TABLE_SERVICE:'مصرف سر میز'};
 const LEVEL_LABELS={LIGHT:'سبک — از آخرین شمارش خودش ادامه می‌دهد (پیش‌فرض)',PRECISE:'دقیق — در هر مبنای کل شمرده شود',PARKED:'کنارگذاشته — خارج از شمارش و هشدارها'};
 const MOVEMENT_TYPE_LABELS={...EVENT_LABELS,PURCHASE_RECEIPT:'ورود خرید',TRANSFER:'انتقال بین محل‌ها',RETURN_TO_WAREHOUSE:'برگشت به انبار',ADJUSTMENT:'اصلاح شمارش'};
 const SPOT_LABELS={none:'شمارش دوم لازم است',nodata:'سابقه کافی نیست',ok:'عادی',high:'مصرف بالاتر از معمول',low:'مصرف کمتر از معمول',negative:'شمارش بیشتر از انتظار',invalid:'گردش نامعتبر'};
@@ -185,7 +185,10 @@ const M=x=>x===null||Number.isNaN(x)?'ناقص':`${F(Math.round(N(x)))} توما
 const now=()=>new Date().toISOString();
 const actor=()=>sessionStorage.getItem('rayo_admin_user')||'admin';
 const uid=(prefix,rows=[])=>{let m=0;A(rows).forEach(x=>{const q=S(x.id).match(/(\d+)$/);if(q)m=Math.max(m,+q[1])});return `${prefix}-${String(m+1).padStart(6,'0')}`};
-function D(v){let s=S(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/-/g,'/');const z=s.replace(/\D/g,'');if(z.length===8)return `${z.slice(0,4)}/${z.slice(4,6)}/${z.slice(6,8)}`;const m=s.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);return m?`${m[1]}/${String(+m[2]).padStart(2,'0')}/${String(+m[3]).padStart(2,'0')}`:s}
+// D is pure and runs millions of times in the stock calculations (items × sales lines × days), so results are memoized.
+const D_MEMO=new Map;
+function D(v){const k=S(v);let r=D_MEMO.get(k);if(r===undefined){r=parseDate(k);if(D_MEMO.size>20000)D_MEMO.clear();D_MEMO.set(k,r)}return r}
+function parseDate(v){let s=S(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/-/g,'/');const z=s.replace(/\D/g,'');if(z.length===8)return `${z.slice(0,4)}/${z.slice(4,6)}/${z.slice(6,8)}`;const m=s.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);return m?`${m[1]}/${String(+m[2]).padStart(2,'0')}/${String(+m[3]).padStart(2,'0')}`:s}
 const today=()=>window.RayoJalali?.today?.()||'';
 const cmp=(a,b)=>D(a).localeCompare(D(b));
 const inRange=(d,from,to)=>{d=D(d);return !!d&&(!from||cmp(d,from)>=0)&&(!to||cmp(d,to)<=0)};
@@ -365,6 +368,25 @@ function recipeAt(menuId,date){
  if(versions.length)return A(versions[0].lines);
  return A(pricing?.recipes).filter(r=>r.menuItemId===menuId);
 }
+// Recipe effective for a sold menu item on one day (no lines when its versions all start later), as unifiedSales needs it.
+// unifiedSales runs per item × sales line × covered day, so lookups are cached until the recipe data changes or the
+// current task ends, and the same recipe always returns the same array (days are grouped by array identity).
+const NO_LINES=Object.freeze([]);
+let SALES_RECIPES=null;
+function salesCache(){
+ const rv=pricing?.recipeVersions,rc=pricing?.recipes,mi=pricing?.menuItems,c=SALES_RECIPES;
+ if(!c||c.rv!==rv||c.rc!==rc||c.mi!==mi||c.rvLen!==A(rv).length||c.rcLen!==A(rc).length||c.miLen!==A(mi).length){SALES_RECIPES={rv,rc,mi,rvLen:A(rv).length,rcLen:A(rc).length,miLen:A(mi).length,days:new Map,menus:new Map,items:null};if(!c)setTimeout(()=>{SALES_RECIPES=null},0)}
+ return SALES_RECIPES;
+}
+// Same result as menuItem (first match), indexed for the sales loops.
+function salesMenuItem(id){const c=salesCache();if(!c.items){c.items=new Map;for(const x of A(c.mi))if(!c.items.has(x.id))c.items.set(x.id,x)}return c.items.get(id)}
+function salesRecipe(menuId,dt){
+ const cache=salesCache(),day=D(dt),key=`${menuId}|${day}`;if(cache.days.has(key))return cache.days.get(key);
+ let m=cache.menus.get(menuId);
+ if(!m){const versions=A(cache.rv).filter(v=>v.menuItemId===menuId).map(v=>({v,from:D(v.effectiveFrom||'0000/00/00')})).sort((a,b)=>b.from.localeCompare(a.from)||S(b.v.createdAt).localeCompare(S(a.v.createdAt))),legacy=A(cache.rc).filter(r=>r.menuItemId===menuId);m={versions,legacy:legacy.length?legacy:NO_LINES};cache.menus.set(menuId,m)}
+ const hit=m.versions.find(x=>x.from.localeCompare(day)<=0),out=m.versions.length?(hit&&Array.isArray(hit.v.lines)&&hit.v.lines.length?hit.v.lines:NO_LINES):m.legacy;
+ cache.days.set(key,out);return out;
+}
 function sameRecipe(a,b){const norm=rows=>A(rows).map(x=>`${x.ingredientId}|${N(x.quantity)}|${x.locationId||''}|${S(x.notes)}|${x.wastePercent??''}|${x.recipeUnit||''}`).sort();const x=norm(a),y=norm(b);return x.length===y.length&&x.every((v,i)=>v===y[i])}
 async function snapshotRecipe(menuId,effectiveFrom=today(),source='manual-change'){
  pricing=window.getPricingState?.()||pricing;if(!pricing)return;
@@ -372,6 +394,8 @@ async function snapshotRecipe(menuId,effectiveFrom=today(),source='manual-change
  const lines=RayoIngredientMath.snapshotLines(pricing,menuId).map(r=>({...r,id:r.id||uid('RVL',[]),quantity:N(r.quantity),notes:r.notes||'',locationId:r.locationId||''}));
  const latest=A(pricing.recipeVersions).filter(v=>v.menuItemId===menuId).sort((a,b)=>cmp(b.effectiveFrom||'',a.effectiveFrom||'')||S(b.createdAt).localeCompare(S(a.createdAt)))[0];
  if(latest&&sameRecipe(latest.lines,lines))return;
+ // An item's first version applies from the start (like legacy-recipes), so sales posted before its recipe existed (e.g. items added from a sales file) consume stock once the recipe is defined. An explicit manual snapshot date is kept.
+ if(!latest&&source!=='manual-snapshot'&&lines.length)effectiveFrom='0000/00/00';
  const beforeVersions=pricing.recipeVersions.slice(),beforeLog=A(pricing.changeLog).slice();
  pricing.recipeVersions.push({id:uid('RV',pricing.recipeVersions),menuItemId:menuId,effectiveFrom:D(effectiveFrom)||today(),createdAt:now(),createdBy:actor(),source,lines});
  pricing.changeLog.push({at:now(),action:'RECIPE_VERSION_CREATED',entityId:menuId,effectiveFrom:D(effectiveFrom)||today(),createdBy:actor()});
@@ -420,13 +444,13 @@ function movementActive(m){if(['void','pending','rejected'].includes(S(m?.status
 function movementImpact(m,locationId){if(!movementActive(m))return 0;const q=N(m.quantity);if(m.movementType==='ADJUSTMENT')return m.locationId===locationId?N(m.quantityDelta??m.quantity):0;let v=0;if(m.toLocationId===locationId)v+=q;if(m.fromLocationId===locationId)v-=q;return v}
 function productionLocation(menu){return menu?.productionLocationId||inv?.settings?.defaultSalesLocationId||inv?.settings?.mainLocationId}
 function saleDate(sp,line){return D(line?.date||sp?.to||sp?.date||sp?.from||'')}
-function salesQtyForIngredientLocation(ingredientId,locationId,fromExclusive,toInclusive,includeFrom=false){let q=0;for(const sp of A(inv?.salesPeriods)){if(sp.status==='void'||sp.isArchived===true)continue;for(const l of A(sp.lines)){const dt=saleDate(sp,l);if(!dt||!(includeFrom?cmp(dt,fromExclusive)>=0:after(dt,fromExclusive))||!beforeOrEq(dt,toInclusive))continue;const mi=menuItem(l.menuItemId);if(productionLocation(mi)!==locationId)continue;for(const r of recipeAt(l.menuItemId,dt))if(r.ingredientId===ingredientId)q+=RayoIngredientMath.grossQuantity(ingredient(ingredientId),r,N(l.quantity))}}return q}
+function salesQtyForIngredientLocation(ingredientId,locationId,fromExclusive,toInclusive,includeFrom=false){let q=0;for(const sp of A(inv?.salesPeriods)){if(sp.status==='void'||sp.isArchived===true)continue;for(const l of A(sp.lines)){const days=saleDays(sp,l),inside=days.filter(dt=>dt&&(includeFrom?cmp(dt,fromExclusive)>=0:after(dt,fromExclusive))&&beforeOrEq(dt,toInclusive));if(!inside.length)continue;const dt=inside[inside.length-1],mi=menuItem(l.menuItemId);if(productionLocation(mi)!==locationId)continue;const kept=inside.filter(d=>recipeDeducts(ingredientId,d)).length;if(!kept)continue;for(const r of recipeAt(l.menuItemId,dt))if(r.ingredientId===ingredientId)q+=RayoIngredientMath.grossQuantity(ingredient(ingredientId),r,N(l.quantity))*kept/days.length}}return q}
 function positionAtLocation(ingredientId,locationId,target=today()){
  const base=openingFor(ingredientId,locationId,target),manual=A(inv?.inventoryMovements).filter(m=>m.ingredientId===ingredientId&&D(m.date)&&after(m.date,base.date)&&beforeOrEq(m.date,target)).reduce((a,m)=>a+movementImpact(m,locationId),0),sales=salesQtyForIngredientLocation(ingredientId,locationId,base.date,target),quantity=base.quantity+manual-sales;
  return{ingredientId,locationId,date:target,baseDate:base.date,baseQuantity:base.quantity,baseSource:base.source,movementNet:manual,salesConsumption:sales,quantity,unitCost:costAtDate(ingredientId,target),value:quantity*costAtDate(ingredientId,target)}
 }
 function positionBeforeDate(ingredientId,locationId,target){const base=openingBefore(ingredientId,locationId,target),manual=A(inv?.inventoryMovements).filter(m=>m.ingredientId===ingredientId&&D(m.date)&&after(m.date,base.date)&&strictBefore(m.date,target)).reduce((a,m)=>a+movementImpact(m,locationId),0),sales=salesQtyForIngredientLocationBefore(ingredientId,locationId,base.date,target),quantity=base.quantity+manual-sales;return{ingredientId,locationId,date:target,baseDate:base.date,baseQuantity:base.quantity,baseSource:base.source,movementNet:manual,salesConsumption:sales,quantity,unitCost:costAtDate(ingredientId,target),value:quantity*costAtDate(ingredientId,target)}}
-function salesQtyForIngredientLocationBefore(ingredientId,locationId,fromExclusive,toExclusive){let q=0;for(const sp of A(inv?.salesPeriods)){if(sp.status==='void'||sp.isArchived===true)continue;for(const l of A(sp.lines)){const dt=saleDate(sp,l);if(!dt||!after(dt,fromExclusive)||!strictBefore(dt,toExclusive))continue;const mi=menuItem(l.menuItemId);if(productionLocation(mi)!==locationId)continue;for(const r of recipeAt(l.menuItemId,dt))if(r.ingredientId===ingredientId)q+=RayoIngredientMath.grossQuantity(ingredient(ingredientId),r,N(l.quantity))}}return q}
+function salesQtyForIngredientLocationBefore(ingredientId,locationId,fromExclusive,toExclusive){let q=0;for(const sp of A(inv?.salesPeriods)){if(sp.status==='void'||sp.isArchived===true)continue;for(const l of A(sp.lines)){const days=saleDays(sp,l),inside=days.filter(dt=>dt&&after(dt,fromExclusive)&&strictBefore(dt,toExclusive));if(!inside.length)continue;const dt=inside[inside.length-1],mi=menuItem(l.menuItemId);if(productionLocation(mi)!==locationId)continue;const kept=inside.filter(d=>recipeDeducts(ingredientId,d)).length;if(!kept)continue;for(const r of recipeAt(l.menuItemId,dt))if(r.ingredientId===ingredientId)q+=RayoIngredientMath.grossQuantity(ingredient(ingredientId),r,N(l.quantity))*kept/days.length}}return q}
 function allLocationPositions(ingredientId,target=today()){return activeLocations().map(l=>positionAtLocation(ingredientId,l.id,target))}
 function currentTotalPosition(ingredientId,target=today()){if(unifiedMode())return unifiedPosition(ingredientId,target);const rows=allLocationPositions(ingredientId,target),quantity=rows.reduce((a,p)=>a+p.quantity,0),unitCost=costAtDate(ingredientId,target);return{ingredientId,date:target,current:quantity,quantity,unitCost,value:quantity*unitCost,locations:rows,lastCount:null}}
 // Whole-restaurant scope is a baseline domain, never a physical location.
@@ -436,7 +460,9 @@ function unifiedMode(){return true}
 function wholeScope(record){return record?.inventoryScope==='RAYO'}
 function controlItems(){return A(pricing?.ingredients).filter(i=>i.status!=='غیرفعال'&&i.itemType!=='NON_STOCK'&&i.inventoryTracked!==false&&controlLevel(i.id)!=='PARKED')}
 function controlNumber(value){return RayoIngredientMath.parse(value)}
-function controlDate(value){const m=D(value).match(/^(1[34]\d{2})\/(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])$/);if(!m)return false;const limit=typeof jMonthLength==='function'?jMonthLength(+m[1],+m[2]):+m[2]<=6?31:30;return +m[3]<=limit}
+const CONTROL_DATE_MEMO=new Map;
+function controlDate(value){const k=S(value);let r=CONTROL_DATE_MEMO.get(k);if(r===undefined){r=checkControlDate(k);if(CONTROL_DATE_MEMO.size>20000)CONTROL_DATE_MEMO.clear();CONTROL_DATE_MEMO.set(k,r)}return r}
+function checkControlDate(value){const m=D(value).match(/^(1[34]\d{2})\/(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])$/);if(!m)return false;const limit=typeof jMonthLength==='function'?jMonthLength(+m[1],+m[2]):+m[2]<=6?31:30;return +m[3]<=limit}
 function controlBoundary(record){return record?.baselineBoundary==='START'?'START':'END'}
 function controlRank(record){return `${D(record.date)}|${controlBoundary(record)==='START'?'0':'1'}`}
 function unifiedBaseline(ingredientId,target,{before=false,excludeId=''}={}){
@@ -456,26 +482,38 @@ function unifiedBaseline(ingredientId,target,{before=false,excludeId=''}={}){
  const fellBack=controlRank(counted[0].record)!==controlRank(records[0].record),gap=fellBack?controlDayGap(base.date,target):0,maxGap=N(inv?.settings?.lightMaxGapDays)||90;
  return {...base,source:x.source,quantity:qty,ids:[x.record.id],issues:gap>maxGap?[`آخرین شمارش این قلم ${F(gap,0)} روز قبل است`]:[]};
 }
+function nextJalaliDay(v){const m=D(v).match(/^(\d{4})\/(\d\d)\/(\d\d)$/);if(!m)return '';let y=+m[1],mo=+m[2],d=+m[3]+1;const len=typeof jMonthLength==='function'?jMonthLength(y,mo):mo<=6?31:mo<=11?30:29;if(d>len){d=1;mo++;if(mo>12){mo=1;y++}}return `${y}/${String(mo).padStart(2,'0')}/${String(d).padStart(2,'0')}`}
+// Days a sales line covers. A line without its own date in a multi-day period (weekly/monthly file) is spread evenly over
+// from..to, so a count dated inside the range takes only its share; a single-day or dated line keeps one day (saleDate).
+const SALE_DAYS=new WeakMap;
+function saleDays(sp,l){if(l?.date||!controlDate(sp?.from)||!controlDate(sp?.to)||D(sp.from)===D(sp.to)||cmp(sp.from,sp.to)>0)return [saleDate(sp,l)];if(SALE_DAYS.has(sp))return SALE_DAYS.get(sp);const out=[];for(let d=D(sp.from),i=0;d&&i<400&&cmp(d,sp.to)<=0;i++,d=nextJalaliDay(d))out.push(d);const days=out.length?out:[saleDate(sp,l)];SALE_DAYS.set(sp,days);return days}
+// Standard consumption of one ingredient (or only item sales when ingredientId is empty).
+// issues block the quantity only when they concern this ingredient; a sold menu item without any recipe is a warning,
+// because it cannot be known which ingredients it would have used (it is listed once in the data-quality reports).
 function unifiedSales(ingredientId,from,to,{includeFrom=true,before=false,collect}={}){
- let quantity=0,itemSales=0,lineCount=0;const issues=[],eligible=d=>(!from||(includeFrom?cmp(d,from)>=0:after(d,from)))&&(before?strictBefore(d,to):beforeOrEq(d,to));
+ let quantity=0,itemSales=0,lineCount=0;const issues=[],warnings=[],inRangeMemo=new Map,eligible=d=>{let r=inRangeMemo.get(d);if(r===undefined){r=(!from||(includeFrom?cmp(d,from)>=0:after(d,from)))&&(before?strictBefore(d,to):beforeOrEq(d,to));inRangeMemo.set(d,r)}return r};
  for(const sp of A(inv?.salesPeriods)){
   // Existing sales contract: void and isArchived remove the imported period's effect.
   if(sp.status==='void'||sp.isArchived===true)continue;
-  if(!A(sp.lines).length&&eligible(saleDate(sp)))issues.push(`فروش ${sp.id||''}: ریز آیتم موجود نیست`);
+  if(!A(sp.lines).length&&eligible(saleDate(sp)))(ingredientId?warnings:issues).push(`فروش ${sp.id||''}: ریز آیتم موجود نیست`);
   for(const l of A(sp.lines)){
-   const dt=saleDate(sp,l);if(!controlDate(dt)){issues.push(`فروش ${sp.id||''}: تاریخ نامعتبر`);continue}if(!eligible(dt))continue;
-   const mi=menuItem(l.menuItemId),sold=controlNumber(l.quantity);lineCount++;
+   const days=saleDays(sp,l);if(!days.every(controlDate)){issues.push(`فروش ${sp.id||''}: تاریخ نامعتبر`);continue}
+   const inside=days.filter(eligible);if(!inside.length)continue;
+   const mi=salesMenuItem(l.menuItemId),sold=controlNumber(l.quantity);lineCount++;
    if(!mi||sold===null){issues.push(`فروش ${sp.id||''}: اتصال منو یا تعداد نامعتبر`);continue}
-   itemSales+=sold*N(l.salePriceToman||mi.currentPriceToman);
-   const versions=A(pricing?.recipeVersions).filter(v=>v.menuItemId===l.menuItemId),lines=versions.length&&!versions.some(v=>beforeOrEq(v.effectiveFrom,dt))?[]:recipeAt(l.menuItemId,dt);
-   if(!lines.length){issues.push(`رسپی معتبر موجود نیست: ${mi.name||mi.id} (${dt})`);continue}
-   // Aggregated undated sales retain the existing end-date convention, but cannot straddle a baseline/version.
-   if(!l.date&&D(sp.from)&&D(sp.from)!==D(sp.to)&&(from&&cmp(sp.from,from)<(includeFrom?0:1)||versions.some(v=>after(v.effectiveFrom,sp.from)&&beforeOrEq(v.effectiveFrom,sp.to))))issues.push(`فروش تجمیعی ${sp.id||''}: برای مرز مبنا/رسپی، ریز روزانه لازم است`);
-   for(const r of lines){const material=ingredient(r.ingredientId),gross=material?RayoIngredientMath.grossQuantity(material,r,Math.abs(sold)):NaN;if(!Number.isFinite(gross)){issues.push(`رسپی ${mi.name||mi.id}: ماده، واحد یا افت نامعتبر`);continue}if(r.ingredientId===ingredientId){const signed=gross*(sold<0?-1:1);quantity+=signed;collect?.(dt,signed,mi)}}
+   const share=inside.length/days.length;itemSales+=sold*share*N(l.salePriceToman||mi.currentPriceToman);
+   const recipeFor=dt=>salesRecipe(l.menuItemId,dt);
+   // Group the covered days by the recipe effective on them (a version can start inside a long period).
+   const first=recipeFor(inside[0]),last=recipeFor(inside[inside.length-1]),groups=first===last?[[first,inside]]:[...inside.reduce((m,d)=>{const r=recipeFor(d);if(!m.has(r))m.set(r,[]);m.get(r).push(d);return m},new Map)];
+   for(const [lines,dts] of groups){
+    if(!lines.length){(ingredientId?warnings:issues).push(`رسپی معتبر موجود نیست: ${mi.name||mi.id} (${dts[dts.length-1]})`);continue}
+    for(const r of lines){if(ingredientId&&r.ingredientId!==ingredientId)continue;const material=ingredient(r.ingredientId),gross=material?RayoIngredientMath.grossQuantity(material,r,Math.abs(sold)):NaN;if(!Number.isFinite(gross)){issues.push(`رسپی ${mi.name||mi.id}: ماده، واحد یا افت نامعتبر`);continue}
+     const perDay=gross*(sold<0?-1:1)/days.length;for(const dt of dts){if(!recipeDeducts(r.ingredientId,dt))continue;quantity+=perDay;collect?.(dt,perDay,mi)}}
+   }
   }
  }
  // Cash reports are independent of item sales; item sales may be entered daily, weekly or in one batch later.
- return {quantity:issues.length?null:quantity,itemSales,lineCount,issues:[...new Set(issues)]};
+ return {quantity:issues.length?null:quantity,itemSales,lineCount,issues:[...new Set(issues)],warnings:[...new Set(warnings)]};
 }
 // `movements` (optional) is a pre-grouped subset of inventoryMovements for this item; the item filter still applies.
 function unifiedMovements(ingredientId,from,to,{includeFrom=true,before=false,movements=null}={}){
@@ -503,7 +541,7 @@ function unifiedMovements(ingredientId,from,to,{includeFrom=true,before=false,mo
 }
 function unifiedPosition(ingredientId,target=today(),options={}){
  const base=unifiedBaseline(ingredientId,target,options),opts={includeFrom:base.boundary==='START',before:!!options.before},sales=unifiedSales(ingredientId,base.date,target,opts),moves=unifiedMovements(ingredientId,base.date,target,opts),issues=[...base.issues,...sales.issues,...moves.issues],quantity=base.quantity===null||sales.quantity===null||!moves.quantityKnown?null:base.quantity+moves.net-sales.quantity,unitCost=costAtDate(ingredientId,target);
- return {ingredientId,date:target,scope:'RAYO',current:quantity,quantity,baseDate:base.date,baseQuantity:base.quantity,baseSource:base.source,baselineIds:base.ids,baselineBoundary:base.boundary,movementNet:moves.net,purchaseQty:moves.purchaseQty,wasteQty:moves.wasteQty,otherOutQty:moves.missingQty+moves.authQty-moves.otherNet,salesConsumption:sales.quantity,unitCost,value:quantity===null?null:quantity*unitCost,issues:[...new Set(issues)],complete:quantity!==null,lastCount:base.source==='stocktake'?base.date:null,locations:[]};
+ return {ingredientId,date:target,scope:'RAYO',current:quantity,quantity,baseDate:base.date,baseQuantity:base.quantity,baseSource:base.source,baselineIds:base.ids,baselineBoundary:base.boundary,movementNet:moves.net,purchaseQty:moves.purchaseQty,wasteQty:moves.wasteQty,otherOutQty:moves.missingQty+moves.authQty-moves.otherNet,salesConsumption:sales.quantity,unitCost,value:quantity===null?null:quantity*unitCost,issues:[...new Set(issues)],warnings:A(sales.warnings),complete:quantity!==null,lastCount:base.source==='stocktake'?base.date:null,locations:[]};
 }
 function unifiedPeriodMetrics(from,to){
  const lines=[],issues=[];let covered=0;const items=A(pricing?.ingredients).filter(i=>i.itemType!=='NON_STOCK'&&i.inventoryTracked!==false);
@@ -640,7 +678,8 @@ function consumptionReport(from,to,{history=true}={}){
  for(const sp of A(inv.salesPeriods)){
   if(sp.status==='void'||sp.isArchived===true)continue;
   if(!A(sp.lines).length&&controlDate(saleDate(sp))&&inRange(saleDate(sp),from,to))addQ('salesNoLines','فروش ثبت‌شده بدون ریز آیتم',sp.reference||sp.id);
-  for(const l of A(sp.lines)){
+  // Undated multi-day lines are spread evenly over their days (same rule as unifiedSales), so the period takes only its share.
+  for(const l0 of A(sp.lines))for(const dt0 of saleDays(sp,l0)){const n0=saleDays(sp,l0).length,l=n0>1?{...l0,quantity:N(l0.quantity)/n0,saleAmountToman:Number(l0.saleAmountToman)/n0,date:dt0}:l0;
    const dt=saleDate(sp,l);if(!controlDate(dt)){addQ('salesBadDate','ردیف فروش بدون تاریخ معتبر',sp.reference||sp.id,'error');continue}
    const inPeriod=inRange(dt,from,to),beforePeriod=!!carryMin&&cmp(dt,from)<0&&cmp(dt,carryMin)>=0;if(!inPeriod&&!beforePeriod)continue;
    const mi=menus.get(l.menuItemId),sold=controlNumber(l.quantity);
@@ -650,9 +689,9 @@ function consumptionReport(from,to,{history=true}={}){
     const amount=Number(l.saleAmountToman),price=Number(l.salePriceToman);let rev;if(Number.isFinite(amount)&&amount!==0)rev=amount;else if(Number.isFinite(price)&&price>0)rev=sold*price;else{rev=sold*N(mi.currentPriceToman);row.revenueEstimated=true;itemRevenueEstimated=true}row.revenue+=rev;itemRevenue+=rev}
    const recipe=recipeFor(mi.id,dt);
    if(!recipe.lines.length){if(inPeriod){row.noRecipe=true;addQ('salesNoRecipe','فروش آیتم منو بدون رسپی معتبر در تاریخ فروش',row.name,'error')}else for(const id of carry.keys())carryIssue.add(id);continue}
-   if(inPeriod&&!l.date&&D(sp.from)&&D(sp.from)!==D(sp.to)&&(cmp(sp.from,from)<0||A(versionsBy.get(mi.id)).some(v=>after(v.effectiveFrom,sp.from)&&beforeOrEq(v.effectiveFrom,sp.to))))addQ('salesAggregated','فروش تجمیعی چندروزه که مرز بازه یا تغییر رسپی را قطع می‌کند (ریز روزانه لازم است)',sp.reference||sp.id);
    for(const r of recipe.lines){
     const material=byId.get(r.ingredientId);
+    if(material&&!recipeDeducts(material.id,dt))continue;
     if(!material){if(inPeriod)addQ('recipeNoCatalog','ماده رسپی بدون شناسه کالای مرکزی',`${row.name}: ${S(r.ingredientId)||'—'}`,'error');continue}
     const gross=RayoIngredientMath.grossQuantity(material,r,Math.abs(sold));
     if(!Number.isFinite(gross)){if(inPeriod){if(!ingIssue.has(material.id))ingIssue.set(material.id,[]);ingIssue.get(material.id).push(`${row.name}: واحد، مقدار یا افت خط رسپی نامعتبر است`);addQ('recipeInvalid','خط رسپی با واحد، مقدار یا افت نامعتبر',`${row.name} ← ${material.name}`,'error')}else carryIssue.add(material.id);continue}
@@ -760,9 +799,53 @@ async function saveConsumptionAlerts(input){
   after.settings.consumptionAlerts={...previous,...checked.value,updatedAt:now(),updatedBy:actor()};controlAudit(after,'CONSUMPTION_ALERTS_CHANGED',{before:controlClone(previous),after:checked.value});await controlPersist(before,after);return consumptionAlertSettings()}
  finally{controlUI.busy=false}
 }
+/* ---------- Fryer oil log and table (off-recipe) items — owner decision 2026-11-07 ----------
+   inventory.settings.fryerOil = {ingredientId, density, logFrom, fryers:[{id,name,liters}], weights:{menuItemId:w}}
+   An oil change is an authorized consumption record (eventType FRYER_OIL_CHANGE, kg = liters × density) and leaves stock
+   through its movement. From logFrom on, recipe lines of the fryer-oil item no longer deduct stock (the log does), so it is
+   not counted twice; the recipe numbers then serve as the standard to compare poured oil with.
+   inventory.settings.tableItems = [ingredientId]; inventory.settings.offRecipeStandards = [{ingredientId, per100Items, from, ...}]
+   (versioned: the latest «from» on or before a date applies). */
+const OIL_FRYERS_DEFAULT=[{id:'F1',name:'سرخ‌کن ۱',liters:20},{id:'F2',name:'سرخ‌کن ۲',liters:20},{id:'F3',name:'سرخ‌کن ۳',liters:20},{id:'T1',name:'رومیزی ۱',liters:4.5},{id:'T2',name:'رومیزی ۲',liters:4.5}];
+const TABLE_ITEM_RE=/^روغن زیتون$|سس کچاپ انجل|سس فلفل|کچاپ ساشه|سس تند/;
+function fryerOilSettings(doc=inv){const s=doc?.settings?.fryerOil||{},id=S(s.ingredientId)||A(pricing?.ingredients).find(i=>/^روغن سرخ ?کردنی$/.test(S(i.name)))?.id||'';return{ingredientId:id,density:N(s.density)||0.91,logFrom:controlDate(s.logFrom)?D(s.logFrom):'',fryers:A(s.fryers).length?A(s.fryers).map(f=>({id:S(f.id),name:S(f.name),liters:N(f.liters)})):OIL_FRYERS_DEFAULT.map(f=>({...f})),weights:s.weights&&typeof s.weights==='object'?{...s.weights}:{}}}
+function recipeDeducts(ingredientId,dt){const s=inv?.settings?.fryerOil;return !(s&&S(s.ingredientId)&&S(s.ingredientId)===S(ingredientId)&&controlDate(s.logFrom)&&controlDate(dt)&&beforeOrEq(s.logFrom,dt))}
+function tableItemIds(doc=inv){const saved=doc?.settings?.tableItems;if(Array.isArray(saved))return saved.map(S).filter(Boolean);return A(pricing?.ingredients).filter(i=>i.status!=='غیرفعال'&&TABLE_ITEM_RE.test(S(i.name))).map(i=>i.id)}
+function offRecipeStandard(ingredientId,date){return A(inv?.settings?.offRecipeStandards).filter(x=>x.ingredientId===ingredientId&&controlDate(x.from)&&beforeOrEq(x.from,date)).sort((a,b)=>cmp(b.from,a.from)||S(b.createdAt).localeCompare(S(a.createdAt)))[0]||null}
+function oilChanges(from,to){const s=fryerOilSettings();return A(inv?.consumptionRecords).filter(r=>r.eventType==='FRYER_OIL_CHANGE'&&r.status!=='void'&&(!from||cmp(r.date,from)>=0)&&(!to||beforeOrEq(r.date,to))).map(r=>({...r,fryerName:S(r.fryerName)||s.fryers.find(f=>f.id===r.fryerId)?.name||S(r.fryerId)})).sort((a,b)=>cmp(b.date,a.date)||S(b.createdAt).localeCompare(S(a.createdAt)))}
+async function controlEdit(action,mutate,details={}){if(!canEditInventory())throw Error('ویرایش و ابطال ثبت‌های انبار برای کاربر شما فعال نیست');if(controlUI.busy)throw Error('عملیات دیگری در حال انجام است؛ کمی بعد دوباره تلاش کنید');controlUI.busy=true;
+ try{const before=await controlLoad(),after=controlClone(before);after.settings=after.settings&&typeof after.settings==='object'?after.settings:{};const saved=inv;let out;inv=after;try{out=mutate(after)}finally{inv=saved}controlAudit(after,action,details);await controlPersist(before,after);return out}finally{controlUI.busy=false}}
+async function saveFryerSettings(input){const fryers=A(input.fryers).map((f,i)=>({id:S(f.id)||`FR-${i+1}`,name:S(f.name),liters:N(f.liters)})).filter(f=>f.name||f.liters);if(!fryers.length||fryers.some(f=>!f.name||!(f.liters>0)))throw Error('برای هر سرخ‌کن نام و گنجایش (لیتر) لازم است');if(new Set(fryers.map(f=>f.id)).size!==fryers.length)throw Error('شناسهٔ سرخ‌کن تکراری است');
+ const density=N(input.density);if(!(density>0.5&&density<1.2))throw Error('چگالی روغن باید بین ۰٫۵ و ۱٫۲ کیلو بر لیتر باشد');if(!ingredient(input.ingredientId))throw Error('قلم روغن سرخ‌کردنی را انتخاب کنید');const logFrom=D(input.logFrom);if(logFrom&&!controlDate(logFrom))throw Error('تاریخ شروع دفتر تعویض نامعتبر است');
+ const tableItems=[...new Set(A(input.tableItems).map(S).filter(id=>ingredient(id)))];
+ return controlEdit('FRYER_OIL_SETTINGS_CHANGED',doc=>{const prev=doc.settings.fryerOil||{};doc.settings.fryerOil={...prev,ingredientId:S(input.ingredientId),density,logFrom,fryers,weights:input.weights&&typeof input.weights==='object'?input.weights:(prev.weights||{}),updatedAt:now(),updatedBy:actor()};doc.settings.tableItems=tableItems;return doc.settings.fryerOil},{logFrom,fryers:fryers.length,tableItems:tableItems.length})}
+async function saveOilChange(input){const s=fryerOilSettings(),f=s.fryers.find(x=>x.id===S(input.fryerId)),date=D(input.date),kind=input.kind==='TOP_UP'?'TOP_UP':'FULL',liters=N(input.liters)||(kind==='FULL'?N(f?.liters):0);
+ if(!controlDate(date)||cmp(date,today())>0)throw Error('تاریخ معتبر (نه آینده) لازم است');if(!f)throw Error('سرخ‌کن را انتخاب کنید');if(!(liters>0))throw Error('مقدار روغن (لیتر) لازم است');if(liters>f.liters*1.2)throw Error(`مقدار بیشتر از گنجایش ${f.name} (${F(f.liters,1)} لیتر) است`);if(!ingredient(s.ingredientId))throw Error('قلم روغن سرخ‌کردنی در تنظیمات انبار مشخص نیست');
+ return controlEdit('FRYER_OIL_CHANGE_ADDED',doc=>{doc.consumptionRecords=A(doc.consumptionRecords);const kg=Math.round(liters*s.density*1000)/1000,at=now(),rec={id:uid('OIL',doc.consumptionRecords),recordKind:'consumption',eventType:'FRYER_OIL_CHANGE',date,type:'ingredient',itemId:s.ingredientId,locationId:doc.settings.mainLocationId||'',shift:S(input.shift),quantity:kg,fryerId:f.id,fryerName:f.name,fryerLiters:f.liters,oilChangeKind:kind,liters,density:s.density,reason:`${kind==='FULL'?'تعویض کامل روغن':'افزودن روغن'} — ${f.name}`,notes:S(input.notes),responsiblePersonnelId:S(input.personId),reviewStatus:'تأییدشده',status:'posted',reportedByName:actor(),reviewedBy:actor(),reviewedAt:at,createdBy:actor(),createdAt:at};doc.consumptionRecords.push(rec);syncWasteMovement(rec);return rec},{fryerId:f.id,kind,liters,date})}
+async function voidOilChange(id,reason){if(!S(reason))throw Error('علت ابطال لازم است');return controlEdit('FRYER_OIL_CHANGE_VOIDED',doc=>{const r=A(doc.consumptionRecords).find(x=>x.id===id&&x.eventType==='FRYER_OIL_CHANGE');if(!r)throw Error('ثبت تعویض پیدا نشد');if(r.status==='void')return r;Object.assign(r,{status:'void',reviewStatus:'ردشده',voidReason:S(reason),voidedAt:now(),voidedBy:actor(),updatedAt:now()});syncWasteMovement(r);for(const m of A(doc.inventoryMovements).filter(x=>x.referenceId===id||x.id===r.movementId))m.status='void';return r},{entityId:id,reason:S(reason)})}
+/* ---------- Data issues page («مشکلات اطلاعات») ----------
+   Issues are recalculated from the data, so a fixed one disappears by itself. An issue that is correct as recorded
+   (e.g. a real zero) is acknowledged once: inventory.settings.dataIssueAcks = [{key, note, at, by}] (versioned by audit log). */
+function dataIssueAcks(){return A(inv?.settings?.dataIssueAcks)}
+async function ackDataIssue(key,note){key=S(key);if(!key)throw Error('کلید مورد نامعتبر است');return controlEdit('DATA_ISSUE_ACKNOWLEDGED',doc=>{doc.settings.dataIssueAcks=A(doc.settings.dataIssueAcks).filter(x=>x.key!==key);const row={key,note:S(note),at:now(),by:actor()};doc.settings.dataIssueAcks.push(row);return row},{key,note:S(note)})}
+async function unackDataIssue(key){key=S(key);return controlEdit('DATA_ISSUE_REOPENED',doc=>{doc.settings.dataIssueAcks=A(doc.settings.dataIssueAcks).filter(x=>x.key!==key);return true},{key})}
+// whole counts whose stored variance is older than an entry dated inside their period (refreshed on the next inventory save or «بازمحاسبه همه»)
+function staleCountIds(){if(!inv)return [];const late=lateEntryRows();return A(inv.stocktakes).filter(st=>wholeScope(st)&&st.status==='approved'&&!controlClosed(inv,st.date)&&countNeedsRecalc(st,late)).map(st=>st.id)}
+async function saveOffRecipeStandard(input){const id=S(input.ingredientId),from=D(input.from),per100=Number(input.per100Items);if(!ingredient(id))throw Error('قلم نامعتبر است');if(!controlDate(from))throw Error('تاریخ شروع معیار نامعتبر است');if(!(per100>=0)||!Number.isFinite(per100))throw Error('معیار باید عدد نامنفی باشد');
+ return controlEdit('OFF_RECIPE_STANDARD_SET',doc=>{doc.settings.offRecipeStandards=A(doc.settings.offRecipeStandards);const row={id:uid('ORS',doc.settings.offRecipeStandards),ingredientId:id,per100Items:per100,from,basisFrom:D(input.basisFrom),basisTo:D(input.basisTo),note:S(input.note),createdAt:now(),createdBy:actor()};doc.settings.offRecipeStandards.push(row);return row},{ingredientId:id,per100Items:per100,from})}
+// Read-only figures for the consumption-management card; r = consumptionReport(from,to).
+function offRecipeReport(r){if(!r?.ready)return null;const s=fryerOilSettings(),byId=new Map(A(r.rows).map(x=>[x.id,x])),sold=A(r.menus).reduce((a,m)=>a+N(m.qty),0),changes=oilChanges(r.from,r.to),pouredKg=changes.reduce((a,x)=>a+N(x.quantity),0),oil=byId.get(s.ingredientId)||null;
+ const withOil=new Set([...A(pricing?.recipes),...A(pricing?.recipeVersions).flatMap(v=>A(v.lines).map(l=>({...l,menuItemId:v.menuItemId})))].filter(x=>x.ingredientId===s.ingredientId).map(x=>x.menuItemId)),FRIED=/سوخاری|سرخ کرده|پفکی|وینگز|چیپس رایو|ناگت|فینگر|استریپس|سیب زمینی رایو|کراکت|فلافل|اسپرینگ|پیاز حلقه/;
+ const weightOf=m=>{const w=N(s.weights[m.menuId]);if(w>0)return w;const n=S(m.name);if(/۴|4 ?(تکه|تیکه)/.test(n))return 3;if(/سه|3 ?(تکه|تیکه)/.test(n))return 2.3;if(/بشقاب سوخاری/.test(n))return 2.5;if(/وینگز/.test(n))return 1.5;if(/اضافه/.test(n))return 0.6;if(/سالاد|ساندویچ|زینگر/.test(n))return 0.8;return 1};
+ const fried=A(r.menus).filter(m=>N(m.qty)>0&&(withOil.has(m.menuId)||FRIED.test(S(m.name)))).map(m=>{const line=recipeAt(m.menuId,r.to).find(l=>l.ingredientId===s.ingredientId);return{menuId:m.menuId,name:m.name,code:m.code,qty:N(m.qty),weight:weightOf(m),current:line?N(line.quantity):null}}),wsum=fried.reduce((a,x)=>a+x.qty*x.weight,0);
+ const oilUse=oil&&oil.actual!==null?oil.actual+N(oil.auth):null,basis=pouredKg>0?pouredKg:oilUse,standardKg=fried.reduce((a,x)=>a+(x.current===null?0:x.current*x.qty),0);
+ const storageGap=oilUse!==null&&changes.length?oilUse-pouredKg-N(oil.waste):null;
+ const table=tableItemIds().map(id=>{const x=byId.get(id),i=ingredient(id),off=x&&x.actual!==null?x.actual-N(x.theoretical)-N(x.waste):null,per100=off!==null&&sold>0?off/sold*100:null,std=offRecipeStandard(id,r.to),expected=std&&sold>0?N(std.per100Items)*sold/100:null;return{id,name:i?.name||id,unit:ingredientUnit(i),actual:x?.actual??null,theoretical:x?N(x.theoretical):null,offRecipe:off,per100,unitCost:x?.unitCost??null,std,expected,diff:expected!==null&&off!==null?off-expected:null}});
+ return{from:r.from,to:r.to,sold,settings:s,oilId:s.ingredientId,oilUse,pouredKg,changes,storageGap,standardKg,fried:fried.map(x=>({...x,suggest:wsum>0&&basis>0?basis*x.weight/wsum:null})),basis,basisSource:pouredKg>0?'log':'count',table,capacityLiters:s.fryers.reduce((a,f)=>a+N(f.liters),0)}}
 const controlUI={busy:false,plan:null,backedUp:false,uncertain:false};
 const controlClone=x=>JSON.parse(JSON.stringify(x));
-function controlCanonical(x){if(Array.isArray(x))return '['+x.map(controlCanonical).join(',')+']';if(x&&typeof x==='object')return '{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+controlCanonical(x[k])).join(',')+'}';return JSON.stringify(x)}
+// Same rules as JSON (what the server stores): undefined/function fields are dropped, NaN/Infinity become null.
+function controlCanonical(x){if(Array.isArray(x))return '['+x.map(v=>v===undefined||typeof v==='function'?'null':controlCanonical(v)).join(',')+']';if(x&&typeof x==='object'){if(typeof x.toJSON==='function')return controlCanonical(x.toJSON());return '{'+Object.keys(x).filter(k=>x[k]!==undefined&&typeof x[k]!=='function').sort().map(k=>JSON.stringify(k)+':'+controlCanonical(x[k])).join(',')+'}'}if(typeof x==='number'&&!Number.isFinite(x))return 'null';return JSON.stringify(x)}
 function controlContent(doc){const x=controlClone(doc);if(x.meta){delete x.meta.serverSaveToken;delete x.meta.updatedAt}return controlCanonical(x)}
 function controlManager(){if(!S(sessionStorage.getItem('rayo_admin_user')))throw Error('این عملیات فقط در نشست مدیریت مجاز است');if(controlUI.uncertain)throw Error('نتیجه ذخیره قبلی نامشخص است؛ صفحه را بازخوانی و نسخه سرور را بررسی کنید')}
 function controlClosed(doc,date){return A(doc.periodClosures).some(c=>c.status==='closed'&&cmp(c.to,date)>=0)}
@@ -1086,6 +1169,25 @@ function recordByKind(id,kind){return kind==='consumption'?A(inv.consumptionReco
 function canEditInventory(){return !!S(sessionStorage.getItem('rayo_admin_user'))&&(window.RayoAdminAccess?.allowed?.('inventoryEdit')??true)}
 function reviewEvent(id,kind){const r=recordByKind(id,kind);if(!r)return;if(!canEditInventory())return toastX('ویرایش و ابطال ثبت‌های انبار برای کاربر شما فعال نیست',true);openModal('بررسی رویداد مواد',`<div class="form-grid"><div class="field"><label>وضعیت بررسی</label><select id="v10RevStatus">${['در انتظار بررسی','نیازمند پیگیری','تأییدشده','ردشده','موجه','خطای عملیاتی','بسته‌شده'].map(x=>`<option ${x===(r.reviewStatus||'در انتظار بررسی')?'selected':''}>${x}</option>`).join('')}</select></div><div class="field"><label>مقدار تأییدشده <small class="muted">(${E(r.type==='menu'?'عدد':ingredientUnit(ingredient(r.itemId)))})</small></label><input id="v10RevQty" type="number" step="0.001" value="${N(r.quantity)}"></div><div class="field full"><label>نظر مدیر</label><textarea id="v10RevNote">${E(r.managerNote||'')}</textarea></div><div class="field full"><label>شرح اولیه</label><div class="hint">${E(r.notes||r.reason||'—')}</div></div>${r.unitEntryDetail?`<div class="field full"><label>جزئیات ورود چندواحدی${N(r.originalQuantity)>0?' (مقدار اولیه)':''}</label><div class="hint">${E(RayoIngredientMath.describeCountingEntry?.(r.unitEntryDetail)||'—')}</div></div>`:''}</div>`,`<button class="btn" onclick="closeModal()">انصراف</button><button class="btn btn-primary" onclick="RayoInventoryV10.saveReview('${id}','${kind}')">ثبت بررسی</button>`)}
 async function saveReview(id,kind){const r=recordByKind(id,kind);if(!r)return;if(!canEditInventory())return toastX('ویرایش و ابطال ثبت‌های انبار برای کاربر شما فعال نیست',true);const before=JSON.parse(JSON.stringify(r));const next=document.getElementById('v10RevStatus').value,note=S(document.getElementById('v10RevNote').value),qty=N(document.getElementById('v10RevQty').value),changed=Math.abs(qty-N(r.quantity))>1e-9;if((next==='ردشده'||changed)&&!note)return toastX('برای رد کردن یا اصلاح مقدار، توضیح مدیر الزامی است',true);if(qty<=0&&next!=='ردشده')return toastX('مقدار تأییدشده باید بیشتر از صفر باشد',true);const quantityRatio=changed&&N(r.quantity)>0?qty/N(r.quantity):1;if(changed){r.originalQuantity=N(r.originalQuantity)||N(r.quantity);r.quantity=qty;r.adjustedBy=actor();r.adjustedAt=now()}r.reviewStatus=next;r.managerNote=note;r.reviewedBy=actor();r.reviewedAt=now();r.status=next==='ردشده'?'void':(['تأییدشده','موجه','بسته‌شده'].includes(next)?'posted':'pending');syncWasteMovement(r,quantityRatio);for(const m of A(inv.inventoryMovements).filter(x=>x.referenceId===id||x.id===r.movementId)){m.reviewStatus=r.reviewStatus;m.managerNote=r.managerNote;m.reviewedBy=r.reviewedBy;m.reviewedAt=r.reviewedAt;if(next==='ردشده')m.status='void';else if(['تأییدشده','موجه','بسته‌شده'].includes(next))m.status='posted';else m.status='pending'}inv.changeLog.push({at:now(),action:'بررسی رویداد مواد',entityId:id,status:next,quantity:r.quantity,note,actor:actor(),before});await saveInv('بررسی رویداد مواد');closeModal();renderView()}
+// Bulk unit correction for waste entered in grams/millilitres against a kg/litre item (e.g. «فیله مرغ 400 کیلو»).
+// Suspect: ingredient waste in kg/l, 20 or more, and larger than the item's largest count and typical receipt.
+// Explicit manager action: preview, required backup download, then the same adjustment as saveReview (originalQuantity kept).
+function wasteUnitRef(id){const counts=A(inv?.stocktakes).filter(s=>s.status!=='void').flatMap(s=>A(s.lines).filter(l=>l.ingredientId===id).map(l=>N(l.actual))),rec=A(inv?.stockReceipts).filter(r=>r.status!=='void'&&r.ingredientId===id).map(r=>N(r.quantity)).sort((a,b)=>a-b),med=rec.length?rec[Math.floor(rec.length/2)]:0;return Math.max(med,...counts,1)}
+function wasteUnitSuspect(w){if(!w||w.status==='void'||w.type==='menu'||w.type==='asset')return false;const i=ingredient(w.itemId),u=RayoIngredientMath.unitKey(ingredientUnit(i)),q=N(w.quantity);return !!i&&(u==='kg'||u==='l')&&q>=20&&q>wasteUnitRef(i.id)}
+const wasteFixUI={backup:false};
+function openWasteUnitFix(){if(!canEditInventory())return toastX('ویرایش و ابطال ثبت‌های انبار برای کاربر شما فعال نیست',true);const rows=[...A(inv?.wasteRecords),...A(inv?.consumptionRecords)].filter(wasteUnitSuspect).sort((a,b)=>cmp(a.date,b.date));wasteFixUI.backup=false;
+ if(!rows.length)return toastX('ثبت پرتی مشکوک به خطای واحد پیدا نشد');
+ openModal('اصلاح دسته‌ای واحد پرتی‌ها',`<div class="notice">این ثبت‌ها به کیلو/لیتر هستند ولی از بیشترین شمارش و ورود معمول همان قلم بزرگ‌ترند؛ احتمالاً به گرم/میلی‌لیتر وارد شده‌اند. مقدار پیشنهادی ÷۱۰۰۰ است و قابل تغییر است. مقدار اولیهٔ هر ثبت در <code>originalQuantity</code> و دفتر تغییرات می‌ماند و از «ویرایش / حذف» همان ثبت قابل برگشت است. پس از ذخیره، مغایرت شمارش‌های بعدی خودکار بازمحاسبه می‌شود.</div>
+ <div class="table-wrap"><table class="data-table"><thead><tr><th><input type="checkbox" checked onchange="document.querySelectorAll('[data-wfix]').forEach(x=>x.checked=this.checked)"></th><th>تاریخ</th><th>قلم</th><th>ثبت‌شده</th><th>مقدار درست</th><th>علت</th></tr></thead><tbody>${rows.map(w=>{const i=ingredient(w.itemId),unit=ingredientUnit(i);return `<tr><td><input type="checkbox" data-wfix="${E(w.id)}" checked></td><td>${E(D(w.date))}</td><td>${E(i?.name||w.itemId)}<br><small class="muted">بیشترین شمارش/ورود معمول: ${F(wasteUnitRef(i.id),3)} ${E(unit)}</small></td><td>${F(N(w.quantity),3)} ${E(unit)}</td><td><input data-wfix-qty="${E(w.id)}" inputmode="decimal" value="${N(w.quantity)/1000}" style="max-width:110px"> ${E(unit)}</td><td>${E(w.reason||w.notes||'')}</td></tr>`}).join('')}</tbody></table></div>`,
+ `<button class="btn" onclick="closeModal()">انصراف</button><button class="btn" onclick="RayoInventoryV10.wasteUnitFixBackup()">۱. دانلود پشتیبان این ثبت‌ها</button><button class="btn btn-primary" id="v10WasteFixApply" disabled onclick="RayoInventoryV10.applyWasteUnitFix()">۲. اعمال اصلاح</button>`)}
+function wasteUnitFixBackup(){const ids=new Set([...document.querySelectorAll('[data-wfix]')].map(x=>x.dataset.wfix)),records=[...A(inv?.wasteRecords),...A(inv?.consumptionRecords)].filter(w=>ids.has(w.id)),moves=A(inv?.inventoryMovements).filter(m=>ids.has(m.referenceId)||records.some(w=>w.movementId===m.id));const blob=new Blob([JSON.stringify({kind:'rayo-waste-unit-fix-backup',at:now(),by:actor(),records,movements:moves},null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`rayo-waste-unit-fix-backup-${today().replace(/\//g,'')}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);wasteFixUI.backup=true;const b=document.getElementById('v10WasteFixApply');if(b)b.disabled=false}
+async function applyWasteUnitFix(){if(!wasteFixUI.backup)return toastX('ابتدا پشتیبان را دانلود کنید',true);if(!canEditInventory())return toastX('ویرایش و ابطال ثبت‌های انبار برای کاربر شما فعال نیست',true);
+ const picks=[...document.querySelectorAll('[data-wfix]:checked')].map(x=>{const id=x.dataset.wfix,raw=document.querySelector(`[data-wfix-qty="${CSS.escape(id)}"]`)?.value,q=Number(String(raw??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٫,]/g,'.'));return{id,q}});
+ if(!picks.length)return toastX('هیچ ثبتی انتخاب نشده است',true);const bad=picks.find(p=>!(p.q>0));if(bad)return toastX('مقدار درست باید بیشتر از صفر باشد',true);
+ const all=[...A(inv.wasteRecords),...A(inv.consumptionRecords)],snapshot=JSON.stringify({wasteRecords:inv.wasteRecords,consumptionRecords:inv.consumptionRecords,inventoryMovements:inv.inventoryMovements,changeLog:inv.changeLog}),at=now();
+ try{for(const p of picks){const r=all.find(w=>w.id===p.id);if(!r||!wasteUnitSuspect(r))continue;const old=N(r.quantity),ratio=old>0?p.q/old:1,before=JSON.parse(JSON.stringify(r));r.originalQuantity=N(r.originalQuantity)||old;r.quantity=p.q;r.adjustedBy=actor();r.adjustedAt=at;r.updatedAt=at;r.unitCorrection={from:old,to:p.q,at,by:actor(),reason:'گرم/میلی‌لیتر ثبت‌شده به‌جای کیلو/لیتر'};r.managerNote=[S(r.managerNote),`اصلاح واحد: ${old} → ${p.q}`].filter(Boolean).join(' — ');syncWasteMovement(r,ratio);inv.changeLog.push({at,action:'اصلاح واحد پرتی',entityId:r.id,quantity:p.q,note:r.managerNote,actor:actor(),before})}
+  await saveInv(`اصلاح دسته‌ای واحد ${F(picks.length,0)} ثبت پرتی`);closeModal();renderView();toastX(`${F(picks.length,0)} ثبت پرتی اصلاح شد؛ مقدار اولیه نگه داشته شد`)}
+ catch(e){const s=JSON.parse(snapshot);Object.assign(inv,s);toastX(e.message||'اصلاح انجام نشد',true)}}
 function countSelectionRecords(date,locationId){return A(inv?.stocktakes).filter(st=>st.inventoryScope!=='RAYO'&&['approved','submitted'].includes(st.status)&&D(st.date)===D(date)&&st.locationId===locationId).slice().sort((a,b)=>S(b.updatedAt||b.approvedAt||b.createdAt).localeCompare(S(a.updatedAt||a.approvedAt||a.createdAt)))}
 function loadCountSelection(){const date=D(document.getElementById('v10CountDate')?.value),locationId=S(document.getElementById('v10CountLoc')?.value);if(!date||!locationId)return;ui.countDate=date;ui.countLocation=locationId;const records=countSelectionRecords(date,locationId),byIngredient=new Map;for(const st of records)for(const line of A(st.lines))if(!byIngredient.has(line.ingredientId))byIngredient.set(line.ingredientId,{st,line});document.querySelectorAll('[data-v10-count]').forEach(input=>{const found=byIngredient.get(input.dataset.v10Count);input.value=found?F(found.line.actual,3):'';setUnitEntry(input,found?.line?.unitEntryDetail)});document.querySelectorAll('[data-v10-cost]').forEach(input=>{const id=input.dataset.v10Cost,found=byIngredient.get(id),i=ingredient(id),stored=found?.line?.purchasePriceToman??(found?.line?.unitCost===null||found?.line?.unitCost===undefined?null:N(found.line.unitCost)*(N(i?.packageQuantity)||1)),price=stored??N(i?.lastPurchasePriceToman);input.value=price>0?F(price,3):''});const first=records[0],shift=document.getElementById('v10CountShift'),opening=document.getElementById('v10CountOpening'),note=document.getElementById('v10CountOpeningNote'),status=document.getElementById('v10CountLoadStatus');if(shift)shift.value=first?.shift||'';if(opening)opening.checked=records.some(x=>x.isOpeningBaseline===true);if(note)note.value=records.find(x=>S(x.notes))?.notes||'';if(status)status.textContent=records.length?`${F(byIngredient.size,0)} قلم ثبت‌شده برای ${E(date)} بارگذاری شد؛ مقدارها را ویرایش و ذخیره کنید.`:'برای این تاریخ و محل، شمارش قبلی ثبت نشده است.'}
 function setCountDate(v){ui.countDate=D(v);loadCountSelection()}
@@ -1234,6 +1336,6 @@ window.RayoInventoryV10.locations=activeLocations;
 Object.assign(window.RayoInventoryV10,{wasteEstimate:(type,id,qty,date)=>loaded?wasteEstimate(type,id,qty,date):null,eventLabels:()=>({...EVENT_LABELS}),wasteTypes:()=>[...WASTE_TYPES],authTypes:()=>[...AUTH_TYPES],wasteUnitOf:(type,id)=>{if(!loaded)return '';const row=type==='menu'?A(pricing.menuItems).find(x=>x.id===id):type==='asset'?wasteAssets().find(x=>x.id===id):A(pricing.ingredients).find(x=>x.id===id);return row?wasteUnit(type,row):''},costAtDate:(id,date)=>loaded?costAtDate(id,date):null});
 /* Consumption management report (46 tab «مدیریت مصرف»): read-only report, alert settings and the pure calculation helpers. */
 Object.assign(window.RayoInventoryV10,{consumptionReport:(from,to,options)=>consumptionReport(from,to,options),consumptionAlertSettings:()=>consumptionAlertSettings(),consumptionDefaults:()=>({...CONSUMPTION_DEFAULTS,overrides:[]}),consumptionLabels:()=>({fields:{...CONSUMPTION_LABELS},kinds:{...CONSUMPTION_KINDS},prices:{...CONSUMPTION_PRICE_LABELS},limits:JSON.parse(JSON.stringify(CONSUMPTION_LIMITS)),overrideKeys:[...CONSUMPTION_OVERRIDE_KEYS]}),saveConsumptionAlerts,costInfoAtDate:(id,date,exclusive)=>loaded?costInfoAtDate(id,date,exclusive):null,consumptionMath:{pct:cmPct,level:cmLevel,worst:cmWorst,median:cmMedian,allocate:cmAllocate,derivedLoss:cmDerivedLoss,normalize:cmNormalizeSettings,validate:cmValidateSettings,thresholdsFor:cmThresholdsFor,lossSummary:cmLossSummary}});
-Object.assign(window.RayoInventoryV10,{openModal,searchablePicker,pickerOpen,pickerFilter,pickerSelect,pickerKey,activePersonnelRows,countVariancePane,setVarianceOpenOnly,openVarianceReview,saveVarianceReview,recalcCountVariance,movementActive,openCountingUnitsEntry,openEventUnits,cuAddRow,cuRemoveRow,cuApply,cuCancel,cuUseLiveFactors,unitEntryFor,setUnitEntry,unitEntryNote,hasCountingUnits,countingUnitsButton});
+Object.assign(window.RayoInventoryV10,{openModal,dataIssueAcks,ackDataIssue,unackDataIssue,staleCountIds,fryerOilSettings,tableItemIds,oilChanges,saveFryerSettings,saveOilChange,voidOilChange,saveOffRecipeStandard,offRecipeReport,offRecipeStandard,openWasteUnitFix,wasteUnitFixBackup,applyWasteUnitFix,wasteUnitSuspect,searchablePicker,pickerOpen,pickerFilter,pickerSelect,pickerKey,activePersonnelRows,countVariancePane,setVarianceOpenOnly,openVarianceReview,saveVarianceReview,recalcCountVariance,movementActive,openCountingUnitsEntry,openEventUnits,cuAddRow,cuRemoveRow,cuApply,cuCancel,cuUseLiveFactors,unitEntryFor,setUnitEntry,unitEntryNote,hasCountingUnits,countingUnitsButton});
 install();
 })();

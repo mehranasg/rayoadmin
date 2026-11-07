@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>کنترل انبار و مغایرت — رایو</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..800&display=swap">
+<link rel="stylesheet" href="css/theme.css">
+<style>
+/* page-specific helpers on top of theme.css */
+.period{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.period .input,.period .select{width:auto;min-width:120px}
+.ic-banner{margin-bottom:var(--s4)}
+.ic-flags{display:flex;gap:4px;flex-wrap:wrap}
+.ic-flags .badge{font-size:11px}
+.ic-statement td:first-child{font-weight:600}
+.ic-statement tr.total td{border-top:2px solid var(--border-strong);font-weight:700}
+.ic-issue{border:1px solid var(--border);border-radius:var(--radius);padding:var(--s4);background:var(--surface)}
+.ic-issue h3{margin:0 0 4px;font-size:15px;display:flex;gap:8px;align-items:center}
+.ic-issue p{margin:0 0 var(--s3);color:var(--text-2);font-size:13px;line-height:1.9}
+.ic-issue details summary{cursor:pointer;color:var(--accent);font-size:13px}
+.ic-steps{counter-reset:s;display:grid;gap:var(--s4)}
+.ic-step h2{display:flex;align-items:center;gap:10px}
+.ic-step h2::before{counter-increment:s;content:counter(s);display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:14px}
+.neg{color:var(--danger)} .pos{color:var(--success)} .mut{color:var(--text-3)}
+.ic-ai{width:100%;min-height:420px;font-family:ui-monospace,Consolas,monospace;font-size:12px;direction:rtl}
+.ic-click{cursor:pointer} .ic-click:hover td{background:var(--surface-2)}
+.ic-sort{cursor:pointer;user-select:none} .ic-sort:hover{color:var(--accent)}
+.ic-tag{display:inline-block;font-size:11px;color:var(--text-3);margin-inline-start:6px}
+.ic-loader{max-width:640px;margin:40px auto}
+.ic-readonly{font-size:12px;color:var(--text-3)}
+.modal.wide{max-width:min(1100px,96vw);width:96vw}
+.ic-mini{font-size:12px;color:var(--text-3)}
+</style>
+<script>try{var t=localStorage.getItem('rt_theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <div class="crumbs"><span>عملیات</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>انبار</span></div>
+          <h1>کنترل انبار و مغایرت</h1>
+          <p id="srcLine">در حال بارگذاری…</p>
+        </div>
+        <div class="actions period" id="periodBar" hidden>
+          <div class="segmented" id="modeSeg"><button data-m="month" class="active">ماهانه</button><button data-m="range">بازهٔ دلخواه</button></div>
+          <select class="select" id="monthSel"></select>
+          <input class="input num" id="fromInp" placeholder="از ۱۴۰۵/۰۶/۰۱" hidden>
+          <input class="input num" id="toInp" placeholder="تا ۱۴۰۵/۰۶/۳۱" hidden>
+          <button class="btn btn-secondary btn-sm" id="applyRange" hidden>اعمال</button>
+          <label class="check" title="ورودهای کیلو/لیتر که احتمالاً گرم/میلی‌لیتر تایپ شده‌اند تقسیم بر ۱۰۰۰ محاسبه شوند"><input type="checkbox" id="fixUnits" checked>اصلاح پیشنهادی واحد</label>
+        </div>
+      </div>
+
+      <div id="banner" class="ic-banner"></div>
+
+      <div class="tabs" data-tabs="ic" id="tabs" hidden>
+        <button class="tab active" data-tab="dash"><i data-lucide="layout-dashboard"></i>داشبورد</button>
+        <button class="tab" data-tab="period"><i data-lucide="file-bar-chart"></i>گزارش دوره</button>
+        <button class="tab" data-tab="items"><i data-lucide="table"></i>گردش مواد</button>
+        <button class="tab" data-tab="where"><i data-lucide="search-check"></i>کجا دنبال مغایرت بگردم <span class="badge badge-danger plain" id="issueBadge"></span></button>
+        <button class="tab" data-tab="waste"><i data-lucide="trash-2"></i>پرتی و ضایعات</button>
+        <button class="tab" data-tab="bev"><i data-lucide="cup-soda"></i>نوشیدنی</button>
+        <button class="tab" data-tab="oil"><i data-lucide="flame"></i>روغن و اقلام سر میز</button>
+        <button class="tab" data-tab="counts"><i data-lucide="clipboard-check"></i>انبارگردانی</button>
+        <button class="tab" data-tab="receipts"><i data-lucide="package-plus"></i>ورود به انبار</button>
+        <button class="tab" data-tab="sales"><i data-lucide="receipt"></i>فروش</button>
+        <button class="tab" data-tab="ai"><i data-lucide="sparkles"></i>خروجی AI</button>
+      </div>
+
+      <section data-panel="ic:dash"></section>
+      <section data-panel="ic:period" hidden></section>
+      <section data-panel="ic:items" hidden></section>
+      <section data-panel="ic:where" hidden></section>
+      <section data-panel="ic:waste" hidden></section>
+      <section data-panel="ic:bev" hidden></section>
+      <section data-panel="ic:oil" hidden></section>
+      <section data-panel="ic:counts" hidden></section>
+      <section data-panel="ic:receipts" hidden></section>
+      <section data-panel="ic:sales" hidden></section>
+      <section data-panel="ic:ai" hidden></section>
+
+      <div id="loader" class="ic-loader" hidden>
+        <div class="card"><div class="card-head"><div><h2>بارگذاری اطلاعات انبار</h2><p>این قالب فقط می‌خواند و هیچ چیزی ذخیره نمی‌کند.</p></div></div>
+          <div class="card-body stack">
+            <div class="alert alert-info"><i data-lucide="info"></i><div><b>اتصال زنده</b><p>وقتی این صفحه از دامنهٔ rayocafe.ir باز شود، اطلاعات زنده مستقیم خوانده می‌شود. در غیر این صورت فایل بکاپ انبار و فایل منو/قیمت (JSON) را انتخاب کنید.</p></div></div>
+            <div class="field"><label>فایل‌های JSON (انبار + قیمت‌گذاری یا بکاپ کامل)</label><input class="input" type="file" id="fileInp" accept=".json,application/json" multiple></div>
+            <div class="row"><button class="btn btn-secondary" id="liveBtn"><i data-lucide="plug"></i>تلاش برای اتصال زنده</button><span class="ic-mini" id="loadErr"></span></div>
+          </div></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="icModal">
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="icModalTitle">
+    <div class="modal-head"><h2 id="icModalTitle"></h2><button class="btn btn-ghost btn-sm btn-icon" data-close aria-label="بستن"><i data-lucide="x"></i></button></div>
+    <div class="modal-body" id="icModalBody"></div>
+    <div class="modal-foot" id="icModalFoot"><button class="btn btn-ghost" data-close>بستن</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="js/app.js"></script>
+<script src="js/inventory-engine.js"></script>
+<script src="js/inventory-control.js"></script>
+</body>
+</html>

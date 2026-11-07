@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>رایو — شماتیک پایگاه داده</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..800&display=swap">
+<style>
+:root{--ink:#1d1b18;--muted:#7a736a;--line:#e3ddd2;--paper:#fbfaf7}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:'Vazirmatn',Tahoma,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#sheet{position:relative;width:3200px;padding:48px 56px 40px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:40px;margin-bottom:28px;border-bottom:3px solid var(--ink);padding-bottom:18px}
+header h1{margin:0;font-size:44px;font-weight:900;letter-spacing:-.5px}
+header p{margin:6px 0 0;color:var(--muted);font-size:18px}
+.legend{display:flex;flex-wrap:wrap;gap:10px 22px;font-size:15px;color:#444;max-width:1700px;justify-content:flex-end}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.k{font-family:ui-monospace,Consolas,monospace;font-size:12px;font-weight:700;padding:1px 6px;border-radius:5px}
+.k.pk{background:#1d1b18;color:#fff}.k.fk{background:#e8e3da;color:#5a554d}.k.uk{background:#fff;border:1px solid #bbb;color:#555}
+.sw{width:16px;height:16px;border-radius:4px;display:inline-block}
+.rules{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:30px}
+.rules div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 16px;font-size:15px;line-height:1.8}
+.rules b{display:block;font-size:16px}
+#grid{display:grid;grid-template-columns:repeat(8,1fr);gap:26px;align-items:start;position:relative;z-index:1}
+.dom{border-radius:18px;padding:14px 14px 16px;background:color-mix(in srgb,var(--c) 7%,#fff);border:2px solid color-mix(in srgb,var(--c) 35%,#fff)}
+.dom.w2{grid-column:span 2}
+.dom>h2{margin:0 4px 12px;font-size:22px;font-weight:900;color:var(--c);display:flex;justify-content:space-between;align-items:baseline}
+.dom>h2 small{font-size:13px;color:var(--muted);font-weight:600;font-family:ui-monospace,Consolas,monospace}
+.cols{column-gap:46px}.dom.w2 .cols{column-count:2}
+.t{break-inside:avoid;background:#fff;border:1.5px solid color-mix(in srgb,var(--c) 45%,#ccc);border-radius:10px;margin-bottom:14px;overflow:hidden;box-shadow:0 2px 0 rgba(0,0,0,.03)}
+.t h3{margin:0;padding:6px 10px;background:var(--c);color:#fff;font-size:15px;font-family:ui-monospace,Consolas,monospace;direction:ltr;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.t h3 small{font-family:'Vazirmatn',sans-serif;font-weight:600;font-size:12.5px;opacity:.92;direction:rtl}
+.t ul{list-style:none;margin:0;padding:4px 0;direction:ltr}
+.t li{display:grid;grid-template-columns:auto 1fr auto;gap:6px;align-items:center;padding:2.5px 10px;font-size:12.5px;font-family:ui-monospace,Consolas,monospace;border-bottom:1px dashed #f0ebe2}
+.t li:last-child{border-bottom:0}
+.t li .ty{color:#9a9288;font-size:11.5px}
+.t li .tg{min-width:24px;text-align:center}
+.t li .ref{font-size:11px;color:var(--rc,#777);font-weight:700;white-space:nowrap}
+.t li.pk{background:#faf8f4;font-weight:700}
+#wires{position:absolute;inset:0;pointer-events:none;z-index:2}
+footer{margin-top:30px;display:grid;grid-template-columns:2fr 1fr;gap:20px}
+.flow{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+.flow h4{margin:0 0 10px;font-size:18px}
+.flow ol{margin:0;padding-inline-start:22px;font-size:15px;line-height:2}
+.chain{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-family:ui-monospace,Consolas,monospace;font-size:13px;direction:ltr;justify-content:flex-end;margin:4px 0}
+.chain span{background:#f3efe8;border-radius:6px;padding:2px 8px}
+</style>
+</head>
+<body>
+<div id="sheet">
+<header>
+  <div><h1>رایو — شماتیک پایگاه داده (PostgreSQL)</h1>
+  <p>پنل مدیریت + نرم‌افزار داخل مجموعه (صندوق، سفارش‌گیر، مانیتور آشپزخانه) · آمادهٔ چندشعبه · مبالغ: تومان (bigint) · نسخهٔ طراحی ۱۴۰۵/۰۸</p></div>
+  <div class="legend" id="legend"></div>
+</header>
+<div class="rules">
+  <div><b>ستون‌های مشترک (در جدول‌ها تکرار نشده)</b>id uuid PK · branch_id → branch (جدول‌های تراکنشی) · created_at/by · updated_at/by · row_version</div>
+  <div><b>ثبت افزودنی</b>تراکنش‌ها حذف و بازنویسی نمی‌شوند؛ اصلاح = ردیف ابطال/اصلاحی با reverses_id. status به‌جای حذف (active / archived / void).</div>
+  <div><b>نسخه و snapshot</b>قیمت، رسپی، تنظیم و قاعدهٔ انعام نسخه‌دار با effective_from؛ هر ثبت قیمت/نسخهٔ زمان خودش را نگه می‌دارد. period بسته = قفل.</div>
+  <div><b>همگام‌سازی</b>مرجع (منو، کالا، کاربر، تنظیم) از مرکز به شعبه؛ تراکنش از شعبه به مرکز با sync_outbox و idem_key. هر تغییر حساس در audit_log.</div>
+</div>
+<div id="grid"></div>
+<svg id="wires"></svg>
+<footer>
+  <div class="flow"><h4>جریان‌های اصلی داده</h4>
+    <div class="chain"><span>pos_order</span>→<span>order_item</span>→<span>print_job / station</span>→<span>order_payment</span>→<span>sale + sale_line</span>→<span>stock_move (recipe_version × qty)</span></div>
+    <div class="chain"><span>receipt</span>→<span>receipt_line</span>→<span>stock_move</span> + <span>document (purchase)</span>→<span>payment_allocation</span>←<span>payment</span>↔<span>bank_line</span></div>
+    <div class="chain"><span>attendance_punch</span>→<span>payroll_line</span>→<span>document (payroll)</span> · <span>tip_entry</span>→<span>tip_share</span>→<span>document (tip)</span></div>
+    <div class="chain"><span>stock_count_line</span> − <span>Σ stock_move (theoretical)</span> = <span>variance</span> · <span>fryer_log.std_snapshot</span> ← <span>setting_version</span></div>
+  </div>
+  <div class="flow"><h4>نکته‌ها</h4><ol>
+    <li>وضعیت میز ذخیره نمی‌شود؛ از pos_order و order_item به دست می‌آید.</li>
+    <li>ماندهٔ سند = amount − Σ payment_allocation.</li>
+    <li>هر پرسنل یک party دارد (حقوق، مساعده، خسارت در یک دفتر).</li>
+    <li>کد سپیدز (menu_item.sepidz_code، item.legacy_code) تغییر نمی‌کند.</li>
+  </ol></div>
+</footer>
+</div>
+<script>
+/* schema definition: [table, persian, [[col,type,tag,ref]]]  tag: pk | fk | uk | '' */
+const D=[
+ {id:'core',name:'هسته',c:'#4b5563',t:[
+  ['branch','شعبه',[['code','text','uk'],['name','text'],['address','text'],['phone','text'],['is_hq','bool']]],
+  ['app_user','کاربر',[['staff_id','uuid','fk','staff'],['name','text'],['phone','text','uk'],['pin_hash','text'],['active','bool']]],
+  ['role','نقش',[['code','text','uk'],['name','text']]],
+  ['role_permission','دسترسی نقش',[['role_id','uuid','fk','role'],['module','text'],['level','enum'],['tabs','jsonb']]],
+  ['user_branch','کاربر در شعبه',[['user_id','uuid','fk','app_user'],['branch_id','uuid','fk','branch'],['role_id','uuid','fk','role']]],
+  ['setting','تنظیم',[['key','text','uk'],['area','text'],['value_type','text']]],
+  ['setting_version','نسخهٔ تنظیم',[['setting_id','uuid','fk','setting'],['value','jsonb'],['effective_from','date'],['scope','enum'],['records_reevaluated','int'],['changed_by','uuid','fk','app_user']]],
+  ['period','دوره (ماه)',[['year_month','char(7)','uk'],['status','enum'],['closed_at','timestamptz'],['snapshot','jsonb']]],
+  ['audit_log','سابقهٔ تغییرات',[['entity','text'],['entity_id','uuid'],['action','text'],['before','jsonb'],['after','jsonb'],['user_id','uuid','fk','app_user'],['at','timestamptz']]],
+  ['sync_outbox','صف همگام‌سازی',[['entity','text'],['entity_id','uuid'],['op','text'],['payload','jsonb'],['idem_key','text','uk'],['sent_at','timestamptz'],['ack_at','timestamptz']]]
+ ]},
+ {id:'fin',name:'طرف حساب و مالی',c:'#b4532a',t:[
+  ['party','طرف حساب',[['kind','enum'],['name','text'],['phone','text'],['tax_id','text'],['staff_id','uuid','fk','staff'],['active','bool']]],
+  ['account','حساب نقد/بانک',[['name','text'],['kind','enum'],['holder','text'],['bank_ref','text']]],
+  ['expense_type','نوع هزینه',[['name','text'],['is_cogs','bool']]],
+  ['document','سند بدهی/طلب',[['no','text','uk'],['type','enum'],['dir','enum'],['party_id','uuid','fk','party'],['date','date'],['due_date','date'],['amount','bigint'],['status','enum'],['period_id','uuid','fk','period'],['reverses_id','uuid','fk','document']]],
+  ['document_line','سطر سند',[['document_id','uuid','fk','document'],['item_id','uuid','fk','item'],['expense_type_id','uuid','fk','expense_type'],['qty','numeric'],['unit_price','bigint'],['amount','bigint']]],
+  ['payment','پرداخت/دریافت',[['dir','enum'],['party_id','uuid','fk','party'],['account_id','uuid','fk','account'],['method','enum'],['amount','bigint'],['paid_at','date'],['recorded_at','timestamptz'],['ref_no','text'],['reverses_id','uuid','fk','payment']]],
+  ['payment_allocation','تخصیص',[['payment_id','uuid','fk','payment'],['document_id','uuid','fk','document'],['amount','bigint']]],
+  ['bank_line','گردش بانک',[['account_id','uuid','fk','account'],['date','date'],['amount','bigint'],['ref_no','text'],['payment_id','uuid','fk','payment']]],
+  ['cheque','چک',[['party_id','uuid','fk','party'],['account_id','uuid','fk','account'],['no','text'],['due_date','date'],['amount','bigint'],['state','enum']]],
+  ['cash_session','بستن صندوق شیفت',[['date','date'],['shift','enum'],['pos_shift_id','uuid','fk','pos_shift'],['sales','bigint'],['card','bigint'],['transfer','bigint'],['cash_counted','bigint'],['diff','bigint']]],
+  ['asset','دارایی',[['name','text'],['cost','bigint'],['bought_at','date'],['life_months','int'],['holder','text']]],
+  ['asset_event','خرابی/تعمیر',[['asset_id','uuid','fk','asset'],['kind','enum'],['cost','bigint'],['resp','enum'],['staff_share','bigint'],['staff_id','uuid','fk','staff'],['document_id','uuid','fk','document']]]
+ ]},
+ {id:'inv',name:'انبار',c:'#2c7a7b',t:[
+  ['unit','واحد',[['name','text'],['base_unit','text'],['factor','numeric']]],
+  ['item_category','دستهٔ کالا',[['name','text']]],
+  ['item','کالا (کاتالوگ مرجع)',[['code','text','uk'],['legacy_code','text','uk'],['name','text'],['category_id','uuid','fk','item_category'],['item_type','enum'],['unit_id','uuid','fk','unit'],['pack_factor','numeric'],['waste_pct','numeric'],['control_level','enum'],['min_qty','numeric'],['max_qty','numeric'],['last_price','bigint'],['supplier_id','uuid','fk','party']]],
+  ['item_supplier','کالای تأمین‌کننده',[['item_id','uuid','fk','item'],['party_id','uuid','fk','party'],['price','bigint']]],
+  ['receipt','دریافت کالا',[['party_id','uuid','fk','party'],['date','date'],['document_id','uuid','fk','document'],['price_estimated','bool']]],
+  ['receipt_line','سطر دریافت',[['receipt_id','uuid','fk','receipt'],['item_id','uuid','fk','item'],['qty','numeric'],['unit_price','bigint']]],
+  ['stock_move','گردش موجودی',[['item_id','uuid','fk','item'],['date','date'],['kind','enum'],['qty','numeric'],['unit_cost','bigint'],['ref_type','text'],['ref_id','uuid']]],
+  ['stock_count','شمارش',[['date','date'],['kind','enum'],['status','enum'],['approved_by','uuid','fk','app_user']]],
+  ['stock_count_line','سطر شمارش',[['count_id','uuid','fk','stock_count'],['item_id','uuid','fk','item'],['counted','numeric'],['theoretical','numeric'],['diff_value','bigint']]],
+  ['waste','ضایعات',[['date','date'],['item_id','uuid','fk','item'],['menu_item_id','uuid','fk','menu_item'],['qty','numeric'],['reason','text'],['status','enum']]],
+  ['beverage_daily','کنترل نوشیدنی',[['date','date'],['item_id','uuid','fk','item'],['opening','int'],['in_qty','int'],['sold','int'],['counted','int']]],
+  ['fryer_log','تعویض روغن',[['date','date'],['fryer','text'],['liters','numeric'],['kind','enum'],['portions_since','int'],['std_snapshot','int'],['oil_color','text'],['locked','bool']]],
+  ['overhead_rate','نرخ سربار',[['from_date','date'],['window','text'],['total_buy','bigint'],['portions','int'],['rate','bigint']]]
+ ]},
+ {id:'menu',name:'منو و قیمت',c:'#b7791f',t:[
+  ['menu_category','دستهٔ منو',[['name','text'],['target_cost_pct','numeric']]],
+  ['menu_item','آیتم منو',[['sepidz_code','text','uk'],['name','text'],['category_id','uuid','fk','menu_category'],['active','bool']]],
+  ['recipe_version','نسخهٔ رسپی',[['menu_item_id','uuid','fk','menu_item'],['effective_from','date']]],
+  ['recipe_line','سطر رسپی',[['recipe_version_id','uuid','fk','recipe_version'],['item_id','uuid','fk','item'],['qty','numeric'],['pack_only','bool']]],
+  ['price_version','نسخهٔ قیمت',[['menu_item_id','uuid','fk','menu_item'],['price','bigint'],['effective_from','date'],['reason','text']]],
+  ['channel','کانال فروش',[['code','text','uk'],['name','text'],['markup_pct','numeric'],['uses_pack','bool']]],
+  ['channel_item','آیتم در کانال',[['channel_id','uuid','fk','channel'],['menu_item_id','uuid','fk','menu_item'],['active','bool']]],
+  ['price_list','فهرست قیمت',[['name','text'],['factor','numeric']]],
+  ['modifier_group','گروه افزودنی',[['name','text'],['single','bool'],['required','bool']]],
+  ['modifier_option','گزینهٔ افزودنی',[['group_id','uuid','fk','modifier_group'],['name','text'],['price','bigint']]],
+  ['menu_item_modifier','افزودنی آیتم',[['menu_item_id','uuid','fk','menu_item'],['group_id','uuid','fk','modifier_group']]],
+  ['modifier_recipe','اثر رسپی افزودنی',[['option_id','uuid','fk','modifier_option'],['item_id','uuid','fk','item'],['qty','numeric']]]
+ ]},
+ {id:'pos',name:'فروش، صندوق، سفارش‌گیر و آشپزخانه',c:'#2f6aa8',w:2,t:[
+  ['dining_area','ناحیه',[['name','text']]],
+  ['dining_table','میز',[['area_id','uuid','fk','dining_area'],['no','int'],['seats','int'],['active','bool']]],
+  ['customer','مشتری',[['name','text'],['phone','text','uk'],['tags','text[]'],['note','text'],['birthday','date'],['price_list_id','uuid','fk','price_list']]],
+  ['customer_address','نشانی مشتری',[['customer_id','uuid','fk','customer'],['address','text'],['geo','point']]],
+  ['reservation','رزرو',[['table_id','uuid','fk','dining_table'],['customer_id','uuid','fk','customer'],['at','timestamptz'],['guests','int'],['status','enum']]],
+  ['pos_shift','شیفت صندوق',[['cashier_id','uuid','fk','staff'],['opened_at','timestamptz'],['opening_float','bigint'],['closed_at','timestamptz'],['counted_cash','bigint'],['diff','bigint']]],
+  ['pos_cash_move','ورود/خروج وجه',[['shift_id','uuid','fk','pos_shift'],['kind','enum'],['amount','bigint'],['reason','text']]],
+  ['pos_order','سفارش',[['no','int'],['type','enum'],['table_id','uuid','fk','dining_table'],['guests','int'],['waiter_id','uuid','fk','staff'],['customer_id','uuid','fk','customer'],['price_list_id','uuid','fk','price_list'],['shift_id','uuid','fk','pos_shift'],['opened_at','timestamptz'],['closed_at','timestamptz'],['status','enum'],['merged_into','uuid','fk','pos_order']]],
+  ['order_item','سطر سفارش',[['order_id','uuid','fk','pos_order'],['menu_item_id','uuid','fk','menu_item'],['qty','numeric'],['unit_price','bigint'],['station_id','uuid','fk','station'],['status','enum'],['round','int'],['hold','bool'],['note','text'],['sent_at','timestamptz'],['ready_at','timestamptz'],['void_reason','text'],['void_by','uuid','fk','app_user']]],
+  ['order_item_modifier','افزودنی سطر',[['order_item_id','uuid','fk','order_item'],['option_id','uuid','fk','modifier_option'],['price','bigint']]],
+  ['order_discount','تخفیف',[['order_id','uuid','fk','pos_order'],['kind','enum'],['value','bigint'],['reason','text'],['approved_by','uuid','fk','app_user']]],
+  ['order_payment','پرداخت سفارش',[['order_id','uuid','fk','pos_order'],['method','enum'],['amount','bigint'],['shift_id','uuid','fk','pos_shift'],['tip_amount','bigint'],['tip_target','enum']]],
+  ['void_request','درخواست ابطال',[['order_item_id','uuid','fk','order_item'],['qty','numeric'],['reason','text'],['requested_by','uuid','fk','app_user'],['decided_by','uuid','fk','app_user'],['status','enum']]],
+  ['delivery_dispatch','ارسال پیک',[['order_id','uuid','fk','pos_order'],['courier_id','uuid','fk','staff'],['address_id','uuid','fk','customer_address'],['out_at','timestamptz'],['back_at','timestamptz'],['cash_with_courier','bigint']]],
+  ['station','ایستگاه',[['name','text'],['kds','bool'],['target_min','int']]],
+  ['printer','چاپگر',[['station_id','uuid','fk','station'],['name','text'],['address','text'],['paper_mm','int'],['copies','int']]],
+  ['category_route','مسیر دسته',[['menu_category_id','uuid','fk','menu_category'],['station_id','uuid','fk','station']]],
+  ['print_job','برگهٔ چاپ',[['station_id','uuid','fk','station'],['order_id','uuid','fk','pos_order'],['kind','enum'],['payload','jsonb'],['status','enum'],['printed_at','timestamptz']]],
+  ['sale','فروش (قطعی)',[['date','date'],['source','enum'],['order_id','uuid','fk','pos_order'],['channel_id','uuid','fk','channel'],['total','bigint'],['tax_invoice_no','text','uk']]],
+  ['sale_line','سطر فروش',[['sale_id','uuid','fk','sale'],['menu_item_id','uuid','fk','menu_item'],['qty','numeric'],['amount','bigint'],['recipe_version_id','uuid','fk','recipe_version']]]
+ ]},
+ {id:'ppl',name:'پرسنل',c:'#2f7d57',t:[
+  ['staff','پرسنل',[['code','text','uk'],['name','text'],['role','text'],['section','enum'],['contract','enum'],['rate','bigint'],['start_date','date'],['insured','bool'],['default_shift','enum'],['party_id','uuid','fk','party']]],
+  ['shift_plan','برنامهٔ شیفت',[['staff_id','uuid','fk','staff'],['date','date'],['shift','enum']]],
+  ['attendance_punch','تردد',[['staff_id','uuid','fk','staff'],['at','timestamptz'],['kind','enum'],['source','text'],['corrected_by','uuid','fk','app_user']]],
+  ['payroll_run','حقوق ماه',[['period_id','uuid','fk','period'],['status','enum']]],
+  ['payroll_line','سطر حقوق',[['run_id','uuid','fk','payroll_run'],['staff_id','uuid','fk','staff'],['hours','numeric'],['base','bigint'],['ot_pay','bigint'],['bonus','bigint'],['deductions','jsonb'],['net','bigint'],['document_id','uuid','fk','document']]],
+  ['advance','مساعده',[['staff_id','uuid','fk','staff'],['amount','bigint'],['date','date'],['document_id','uuid','fk','document']]],
+  ['staff_request','درخواست',[['staff_id','uuid','fk','staff'],['kind','enum'],['payload','jsonb'],['status','enum'],['decided_by','uuid','fk','app_user']]],
+  ['checklist','چک‌لیست',[['name','text'],['items','jsonb'],['shift','enum']]],
+  ['checklist_run','اجرای چک‌لیست',[['checklist_id','uuid','fk','checklist'],['staff_id','uuid','fk','staff'],['date','date'],['result','jsonb']]]
+ ]},
+ {id:'tip',name:'انعام',c:'#a3456e',t:[
+  ['tip_rule_version','قاعدهٔ انعام',[['hall_sections','text[]'],['exclude_all','text[]'],['round_to','int'],['effective_from','date']]],
+  ['tip_entry','ورودی انعام',[['date','date'],['shift','enum'],['source','enum'],['target','enum'],['staff_id','uuid','fk','staff'],['amount','bigint'],['spot','bool'],['order_payment_id','uuid','fk','order_payment'],['cash_session_id','uuid','fk','cash_session']]],
+  ['tip_run','تقسیم ماه',[['period_id','uuid','fk','period'],['rule_version_id','uuid','fk','tip_rule_version'],['status','enum'],['carry_over','bigint']]],
+  ['tip_share','سهم نفر',[['run_id','uuid','fk','tip_run'],['tip_entry_id','uuid','fk','tip_entry'],['staff_id','uuid','fk','staff'],['amount','bigint'],['spot','bool'],['document_id','uuid','fk','document']]]
+ ]}
+];
+const where={};D.forEach(d=>d.t.forEach(t=>where[t[0]]=d));
+const grid=document.getElementById('grid');
+grid.innerHTML=D.map(d=>`<section class="dom ${d.w?'w2':''}" style="--c:${d.c}"><h2>${d.name}<small>${d.t.length} tables</small></h2><div class="cols">${d.t.map(([n,fa,cols])=>`<div class="t" id="t_${n}"><h3>${n}<small>${fa}</small></h3><ul>
+  <li class="pk"><span class="tg"><span class="k pk">PK</span></span><span>id</span><span class="ty">uuid</span></li>
+  ${cols.map(([c,ty,tg,ref])=>`<li ${ref?`data-ref="${ref}"`:''}><span class="tg">${tg?`<span class="k ${tg}">${tg.toUpperCase()}</span>`:''}</span><span>${c}${ref?` <span class="ref" style="--rc:${where[ref]?where[ref].c:'#777'}">→ ${ref}</span>`:''}</span><span class="ty">${ty}</span></li>`).join('')}</ul></div>`).join('')}</div></section>`).join('');
+document.getElementById('legend').innerHTML=`<span><span class="k pk">PK</span>کلید اصلی</span><span><span class="k fk">FK</span>کلید خارجی (→ جدول مقصد، رنگ حوزهٔ مقصد)</span><span><span class="k uk">UK</span>یکتا</span>`+
+  D.map(d=>`<span><i class="sw" style="background:${d.c}"></i>${d.name}</span>`).join('')+`<span>— خط: رابطه داخل یک حوزه</span>`;
+/* wires: FK relations inside the same domain (cross-domain ones are labelled with the target's colour) */
+function wires(){
+  const sv=document.getElementById('wires'),sh=document.getElementById('sheet').getBoundingClientRect();
+  sv.setAttribute('width',sh.width);sv.setAttribute('height',sh.height);let out='';
+  document.querySelectorAll('li[data-ref]').forEach(li=>{
+    const src=li.closest('.t'),sName=src.id.slice(2),tName=li.dataset.ref;if(tName===sName)return;
+    if(where[sName]!==where[tName])return;
+    const tgt=document.getElementById('t_'+tName);if(!tgt)return;
+    const a=li.getBoundingClientRect(),b=tgt.querySelector('h3').getBoundingClientRect(),c=where[sName].c;
+    const sameCol=Math.abs(a.left-b.left)<40;
+    const x1=(sameCol?a.left:(a.left>b.left?a.left:a.right))-sh.left,y1=a.top+a.height/2-sh.top;
+    const x2=(sameCol?b.left:(a.left>b.left?b.right:b.left))-sh.left,y2=b.top+b.height/2-sh.top;
+    const bend=sameCol?-(12+Math.min(18,Math.abs(y2-y1)/40)):(x2-x1)/2;
+    const d=sameCol?`M${x1},${y1} C${x1+bend},${y1} ${x2+bend},${y2} ${x2},${y2}`:`M${x1},${y1} C${x1+bend},${y1} ${x2-bend},${y2} ${x2},${y2}`;
+    out+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="1.6" stroke-opacity=".55"/><circle cx="${x2}" cy="${y2}" r="3.2" fill="${c}"/><circle cx="${x1}" cy="${y1}" r="2.2" fill="#fff" stroke="${c}"/>`});
+  sv.innerHTML=out;
+  const W=Math.ceil(sh.width*25.4/96)+2,H=Math.ceil(document.getElementById('sheet').scrollHeight*25.4/96)+2;
+  const st=document.createElement('style');st.textContent=`@page{size:${W}mm ${H}mm;margin:0}`;document.head.appendChild(st);
+  document.body.dataset.ready='1';
+}
+(document.fonts?document.fonts.ready:Promise.resolve()).then(()=>requestAnimationFrame(wires));
+</script>
+</body>
+</html>

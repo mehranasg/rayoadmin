@@ -21,11 +21,12 @@
 | `qa_*.js` | آزمون Node/VM، assertion متنی، یا اتصال به مرورگر آزمون |
 | `scripts/` | ابزارهای تاریخی bump و ساخت mirror Seed؛ مسیر اجرای عادی نیستند |
 | `RAYO_DATA_MODEL_v10_8_0.json` (ریشه) | فقط fixture تست‌های `qa_v10_*`؛ schema رسمی نیست |
+| `js/13-jalali-picker.js` | inputهای `type=date`، دارای `data-jalali="1"`، id شامل `date`، یا برچسب خودشان (label[for]، برچسب `.field`، یا متن والد فقط وقتی والد یک کنترل دارد و در غیر این صورت متن درست پیش از همان input) شامل «تاریخ» را انتخابگر شمسی می‌کند |
 | `temp/` | ابزار محلی/خروجی آزمون، نادیده‌گرفته‌شده توسط Git |
 | `docs/index.html` | نمایشگر HTML مستندات: فایل‌های `.md` را مستقیم می‌خواند (فهرست، لینک بین اسناد، جست‌وجو)؛ از طریق HTTP: `/docs/index.html` |
 | `.claude/` | ابزار محلی Claude Code؛ در `.gitignore` |
 
-`js/18-excel-tools.js::loadXLSX` ابتدا مسیر محلی کتابخانه را امتحان می‌کند و سپس CDNهای XLSX 0.18.5؛ فایل محلی `js/xlsx.full.min.js` در checkout نیست. export می‌تواند CSV شود. فونت‌های IRANSansX از `css/fonts/woff/` درخواست می‌شوند و در Git نیستند؛ هاست (روی سرور اصلی موجودند) یا کپی محلی باید آن‌ها را فراهم کند، وگرنه 404 و fallback. این وابستگی‌ها را با نبود Build اشتباه نگیرید.
+`js/18-excel-tools.js::loadXLSX` ابتدا مسیر محلی کتابخانه را امتحان می‌کند و سپس CDNهای XLSX 0.18.5؛ فایل محلی `js/xlsx.full.min.js` در checkout نیست؛ پیش از تزریق، مسیر محلی با HEAD بررسی می‌شود و اگر هاست به‌جای 404 صفحهٔ HTML برگرداند، مستقیم به CDN می‌رود (بدون خطای `Unexpected token '<'`). بارگذارهای 08 و 09 به همین loader واگذار می‌کنند. export می‌تواند CSV شود. فونت‌های IRANSansX از `css/fonts/woff/` درخواست می‌شوند و در Git نیستند؛ هاست (روی سرور اصلی موجودند) یا کپی محلی باید آن‌ها را فراهم کند، وگرنه 404 و fallback. این وابستگی‌ها را با نبود Build اشتباه نگیرید.
 
 رنگ‌ها در `css/style.css` از جمله `--bg:#f4f6f8`, `--primary:#134e4a`, `--primary2:#0f766e`, `--radius:14px` تعریف شده‌اند. CSS نهایی صفحه و منوی موبایل فایل 44 بر قواعد قدیمی اثر دارند؛ توصیف قدیمی «همیشه bottom navigation» تضمین وضعیت نهایی نیست.
 
@@ -123,7 +124,7 @@ node qa_v10_12_1.js
 | حوزه | QA مرتبط |
 |---|---|
 | افت/منو/قیمت | `qa_standard_preparation_loss.js`, `qa_prepared_items_conversion.js`, `qa_counting_units.js`, `qa_v10_12_1.js` |
-| انبار | `qa_unified_inventory.js`, `qa_single_warehouse_mode.js`, `qa_inventory_control_levels.js`, `qa_inventory_stock_sort_filter.js`, `qa_inventory_entry_issue.js`, `qa_inventory_waste_form.js`, `qa_inventory_bulk_count.js`, `qa_inventory_count_edit.js`, `qa_inventory_receipt_ui.js`, `qa_reorder_point.js`, `qa_operational_forecast.js`, `qa_beverage_serving_control.js`, `qa_consumption_management.js` |
+| انبار | `qa_unified_inventory.js`, `qa_single_warehouse_mode.js`, `qa_inventory_control_levels.js`, `qa_inventory_stock_sort_filter.js`, `qa_inventory_entry_issue.js`, `qa_inventory_waste_form.js`, `qa_inventory_bulk_count.js`, `qa_inventory_count_edit.js`, `qa_inventory_receipt_ui.js`, `qa_reorder_point.js`, `qa_operational_forecast.js`, `qa_beverage_serving_control.js`, `qa_consumption_management.js`, `qa_sales_excel_range.js` |
 | صندوق | `qa_cash_variance.js`, `qa_cash_destinations.js`, `qa_cash_reports_query.js`, `qa_cash_custody.js` |
 | پرسنل/انعام/آموزش | `qa_personnel_counts.js`, `qa_personnel_payroll_forecast.js`, `qa_personnel_salary_account.js`, `qa_tips_query.js`, `qa_tip_form_filters.js`, `qa_tip_monthly_settlement.js`, `qa_checklist_csv_import.js`, `qa_attendance_corrections.js`, `qa_attendance_import.js`, `qa_attendance_engine.js`, `qa_attendance_month.js`, `qa_attendance_report.js` |
 | تأمین/مالی | `qa_supplier_workflows.js`, `qa_supplier_quick_invoice.js`, `qa_supplier_navigation_payment.js`, `qa_supplier_relation_search.js`, `qa_supplier_modal_order_method.js`, `qa_supplier_parties_debts.js`, `qa_finance_obligations.js`, `qa_finance_accrual_tax.js`, `qa_opening_settlement.js` |

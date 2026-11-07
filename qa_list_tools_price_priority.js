@@ -38,7 +38,30 @@ function setup({saveFails=false}={}){
   t.element('pc_pu_price_milk').value='60000';t.element('pc_pu_date_milk').value='1405/08/12';
   await c.pcPriceUpdateSave('milk');
   ok('saving a price advances to the next missing item',c.pricingUI.priceUpdateEditingId==='cream'&&t.saves.length===1&&t.server.pricing.ingredients.find(x=>x.id==='milk').lastPurchasePriceToman===60000);
-  ok('saved item leaves the missing list',c.pcPriceUpdateFilteredIngredients().map(x=>x.id).join()==='cream,salt');}
+  ok('saved item leaves the missing list',c.pcPriceUpdateFilteredIngredients().map(x=>x.id).join()==='cream,salt');
+  const row=c.pcPriceUpdateList();
+  ok('only the date input of the editing row is a Jalali date field',row.includes('id="pc_pu_date_cream" data-jalali="1"')&&!/id="pc_pu_price_cream"[^>]*data-jalali/.test(row));
+  t.element('pc_pu_price_cream').value='90000';t.element('pc_pu_date_cream').value='۱۴۰۵/۸/۱';
+  await c.pcPriceUpdateSave('cream');
+  ok('a typed Persian-digit date is stored as yyyy/mm/dd',t.server.pricing.ingredients.find(x=>x.id==='cream').lastPurchaseDate==='1405/08/01');
+  t.element('pc_pu_price_salt').value='5000';t.element('pc_pu_date_salt').value='1405/13/01';
+  await c.pcPriceUpdateSave('salt');
+  ok('a malformed date is rejected without saving',t.saves.length===2&&!t.server.pricing.ingredients.find(x=>x.id==='salt').lastPurchasePriceToman&&t.toasts.some(x=>String(x).includes('تاریخ قیمت')));}
+ // Every inline handler of the pricing module must reach window: the module is an IIFE.
+ {const src=read('js/08-rayo-pricing-admin-module.js'),exported=new Set([...src.matchAll(/window\.(pc\w+)=/g)].map(m=>m[1]));
+  for(const m of src.matchAll(/Object\.assign\(window,\{([^}]*)\}/g))m[1].split(',').forEach(s=>exported.add(s.split(':')[0].trim()));
+  const handlers=new Set();for(const m of src.matchAll(/\bon[a-z]+="([^"]*)"/g))for(const f of m[1].matchAll(/(?:^|[^.\w$])(pc\w+)\(/g))handlers.add(f[1]);
+  const missing=[...handlers].filter(n=>!exported.has(n));
+  ok('every pricing inline handler is exported to window'+(missing.length?' — missing: '+missing.join(', '):''),!missing.length&&handlers.has('pcClearMenuNotesModal')&&handlers.has('pcRefreshReorderUnit'));}
+ // Jalali picker: a price input next to a «تاریخ» label/input is not turned into a date field.
+ {const pick=read('js/13-jalali-picker.js'),node=(o)=>Object.assign({nodeType:1,dataset:{},attrs:{},setAttribute(k,v){this.attrs[k]=v},matches:s=>/input/.test(s)&&o.tag==='input',closest:()=>null,previousSibling:null},o);
+  const parent={textContent:'تاریخ قیمت: تومان',querySelectorAll:()=>[1,2]},label={nodeType:1,textContent:'تاریخ قیمت:',matches:()=>false};
+  const price=node({tag:'input',id:'pc_pu_price_x',type:'text',placeholder:'قیمت قبلی',parentElement:parent}),date=node({tag:'input',id:'pc_pu_date_x',type:'text',placeholder:'',parentElement:parent,previousSibling:label});
+  const lone=node({tag:'input',id:'f1',type:'text',placeholder:'',parentElement:{textContent:'از تاریخ',querySelectorAll:()=>[1]}});
+  const ctx={CSS:{escape:x=>x},MutationObserver:class{observe(){}},document:{addEventListener(){},querySelector:s=>s==='label[for="pc_pu_date_x"]'?label:null,getElementById:()=>null}};ctx.window=ctx;vm.createContext(ctx);vm.runInContext(pick,ctx);
+  ctx.RayoJalali.mark({querySelectorAll:()=>[price,date,lone]});
+  ok('price input beside a date label is not a date field',!price.dataset.jalali&&price.attrs.inputmode===undefined);
+  ok('date inputs are still detected by label[for] and by a lone parent label',date.dataset.jalali==='1'&&lone.dataset.jalali==='1');}
  // Clearing menu item notes.
  {const t=setup(),{c}=t;const g=c.pcMenuNoteGroups();
   ok('Sepidz import note is recognised with ZWNJ, case and Persian digits',g.seed.map(x=>x.id).join()==='m1,m2'&&g.other.map(x=>x.id).join()==='m3');
@@ -61,5 +84,11 @@ function setup({saveFails=false}={}){
   ok('tips view has a per-person summary table',base.includes('function tipPersonSummaryCard(rows)')&&base.includes('${tipPersonSummaryCard(rows)}'));
   const ctx={};vm.createContext(ctx);vm.runInContext(polish.match(/const S=x=>[^\n]*?,E=/)[0].replace(/,E=$/,';')+'\n'+polish.match(/function exportNumber[^\n]*/)[0]+';this.exportNumber=exportNumber',ctx);
   ok('Persian money, decimals, percent and negative values export as numbers',ctx.exportNumber('۱۲۳٬۴۵۶ تومان')===123456&&ctx.exportNumber('۳۵٫۵٪')===35.5&&ctx.exportNumber('‎−۲٬۰۰۰')===-2000&&ctx.exportNumber('لاته')===null);}
+ // Excel library: a host answering the missing local file with HTML must not get that page injected as a script.
+ for(const [type,local] of [['text/html; charset=utf-8',false],['application/javascript',true]]){const injected=[],ctx={console,fetch:async()=>({ok:true,status:200,headers:{get:()=>type}}),document:{createElement:()=>({}),head:{appendChild(s){injected.push(s.src);if(!/^https?:/.test(s.src)===local||/^https?:/.test(s.src))ctx.XLSX={};s.onload()}}}};ctx.window=ctx;vm.createContext(ctx);vm.runInContext(read('js/18-excel-tools.js'),ctx);
+  await ctx.RayoExcel.loadXLSX();
+  ok(local?'a real local xlsx.full.min.js is still used first':'an HTML answer for the local xlsx file goes straight to the CDN',local?injected.length===1&&injected[0]==='./js/xlsx.full.min.js':injected.length===1&&/^https:\/\/cdnjs/.test(injected[0]));}
+ {const p=read('js/08-rayo-pricing-admin-module.js'),i=read('js/09-rayo-inventory-variance-module.js');
+  ok('pricing and inventory Excel loaders use the shared loader',p.includes('if(window.RayoExcel?.loadXLSX)return window.RayoExcel.loadXLSX()')&&i.includes('if(window.RayoExcel?.loadXLSX)return window.RayoExcel.loadXLSX()')&&!p.includes("'./js/xlsx.full.min.js'")&&!i.includes("'./js/xlsx.full.min.js'"));}
  console.log(`PASS ${passed.length}: list tools on all pages, price-update priority filter and menu note clearing`);
 })().catch(e=>{console.error(e);process.exit(1)});

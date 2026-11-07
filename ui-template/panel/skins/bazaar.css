@@ -1,0 +1,79 @@
+/* =========================================================
+   Rayo panel skin «بازار» (Bazaar) — approach 3 of 3
+   Light, airy, Persian-modern: cream paper, turquoise + saffron, a subtle girih (geometric)
+   pattern, horizontal top navigation instead of the side menu, large rounded "bento" cards
+   and bold display headings. For the owner's overview on a large screen or tablet.
+   Only tokens + layout; no change to markup or JS.
+   ========================================================= */
+html[data-skin="bazaar"]:root{
+  --bg:#f3ede1; --surface:#fffdf8; --surface-2:#fbf6ec; --surface-3:#f1e8d8;
+  --border:#e6dac4; --border-strong:#d6c6a8;
+  --text:#24190f; --text-2:#5e4f3e; --text-3:#9a8a74;
+  --accent:#0e7480; --accent-hover:#0a5f69; --accent-soft:#dcefee; --accent-text:#ffffff;
+  --success:#3c7d4a; --success-soft:#e3f0e2;
+  --warning:#c0861f; --warning-soft:#f8ecd2;
+  --danger:#b2402f;  --danger-soft:#f7e2dc;
+  --info:#2c5e9e;    --info-soft:#e2ebf6;
+  --c1:#0e7480; --c2:#c8962e; --c3:#b2402f; --c4:#5a4a9c; --c5:#8a7a62; --c6:#3c7d4a;
+  --radius-sm:10px; --radius:16px; --radius-lg:24px;
+  --shadow-sm:0 1px 0 rgba(90,60,20,.06);
+  --shadow:0 1px 0 rgba(90,60,20,.05),0 18px 40px -26px rgba(90,60,20,.35);
+  --shadow-lg:0 30px 70px -24px rgba(60,40,10,.35);
+  --topbar-h:60px;
+  color-scheme:light;
+}
+html[data-skin="bazaar"] body{
+  background-color:var(--bg);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23d9c9a8' stroke-width='1' opacity='.55'%3E%3Cpath d='M36 4l9 23 23 9-23 9-9 23-9-23-23-9 23-9z'/%3E%3Ccircle cx='36' cy='36' r='7'/%3E%3Cpath d='M0 0l14 14M72 0L58 14M0 72l14-14M72 72L58 58'/%3E%3C/g%3E%3C/svg%3E");
+  background-attachment:fixed;
+}
+
+/* layout: navigation moves to a horizontal bar on top */
+@media (min-width:961px){
+  html[data-skin="bazaar"] .app{flex-direction:column}
+  html[data-skin="bazaar"] .sidebar{position:sticky;top:0;height:auto;width:100%;flex-direction:row;align-items:center;gap:var(--s3);
+    padding:8px var(--s6);background:#0e3f45;border:0;color:#f6efe2;z-index:45;box-shadow:0 8px 24px -16px rgba(0,0,0,.5)}
+  html[data-skin="bazaar"] .sidebar::after{content:"";position:absolute;inset-inline:0;bottom:-4px;height:4px;
+    background:repeating-linear-gradient(90deg,#c8962e 0 14px,#0e7480 14px 28px,#b2402f 28px 42px)}
+  html[data-skin="bazaar"] .brand{padding:0}
+  html[data-skin="bazaar"] .brand small{color:#a9c7c6}
+  html[data-skin="bazaar"] .brand-mark{background:#c8962e;color:#24190f;border-radius:50%}
+  html[data-skin="bazaar"] .proto-flag{margin:0;background:rgba(200,150,46,.18);color:#f3d38c;white-space:nowrap}
+  html[data-skin="bazaar"] .nav{display:flex;flex:1;align-items:center;gap:2px;overflow-x:auto;padding:0;scrollbar-width:none}
+  html[data-skin="bazaar"] .nav-label{display:none}
+  html[data-skin="bazaar"] .nav-link{width:auto;white-space:nowrap;color:#cfe3e1;padding:8px 12px;border-radius:99px;font-size:13px}
+  html[data-skin="bazaar"] .nav-link:hover{background:rgba(255,255,255,.08);color:#fff}
+  html[data-skin="bazaar"] .nav-link.active{background:#f6efe2;color:#0e3f45}
+  html[data-skin="bazaar"] .nav-link .nav-meta{display:none}
+  html[data-skin="bazaar"] .sidebar-foot{border:0;padding:0}
+  html[data-skin="bazaar"] .role-chip{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);color:#fff;width:auto;padding:4px 10px 4px 4px}
+  html[data-skin="bazaar"] .role-chip small{display:none}
+  html[data-skin="bazaar"] .role-chip .avatar{width:30px;height:30px;background:#c8962e;color:#24190f}
+  html[data-skin="bazaar"] .topbar{position:sticky;top:60px;background:rgba(243,237,225,.85);border:0;padding:0 var(--s7)}
+}
+html[data-skin="bazaar"] .content{max-width:1360px}
+
+/* typography: bold display headings */
+html[data-skin="bazaar"] .page-head h1{font-size:30px;font-weight:900;letter-spacing:-.5px;color:#0e3f45}
+html[data-skin="bazaar"] .page-head h1::after{content:"";display:block;width:56px;height:5px;margin-top:6px;border-radius:5px;background:linear-gradient(90deg,#c8962e,#0e7480)}
+html[data-skin="bazaar"] .card-head h3{font-size:15.5px;font-weight:800;color:#0e3f45}
+
+/* bento cards */
+html[data-skin="bazaar"] .card{border-color:var(--border);background:var(--surface)}
+html[data-skin="bazaar"] .grid{gap:18px}
+html[data-skin="bazaar"] .kpi{padding:22px;background:linear-gradient(150deg,#fffdf8 55%,#f6ead3)}
+html[data-skin="bazaar"] .grid-4>.kpi:first-child{background:linear-gradient(150deg,#0e7480,#0e3f45);color:#f6efe2;border-color:transparent}
+html[data-skin="bazaar"] .grid-4>.kpi:first-child .kpi-label,
+html[data-skin="bazaar"] .grid-4>.kpi:first-child .kpi-foot,
+html[data-skin="bazaar"] .grid-4>.kpi:first-child .kpi-value small{color:#cfe3e1}
+html[data-skin="bazaar"] .grid-4>.kpi:first-child .kpi-icon{background:rgba(255,255,255,.14);color:#f3d38c}
+html[data-skin="bazaar"] .kpi-value{font-size:30px;font-weight:900}
+html[data-skin="bazaar"] .kpi-icon{border-radius:50%;width:38px;height:38px;background:#f6ead3;color:#a5761c}
+html[data-skin="bazaar"] .btn{border-radius:99px}
+html[data-skin="bazaar"] .btn-primary{background:#0e7480;border-color:#0e7480}
+html[data-skin="bazaar"] .badge{border-radius:8px}
+html[data-skin="bazaar"] .tile{border-radius:22px;background:linear-gradient(160deg,#fffdf8,#f8efdf)}
+html[data-skin="bazaar"] .tile .kpi-icon{background:#0e7480;color:#fff}
+html[data-skin="bazaar"] .table th{background:#f6ead3;color:#6a5434}
+html[data-skin="bazaar"] .tabs .tab.active,html[data-skin="bazaar"] .tab.active{color:#0e7480}
+html[data-skin="bazaar"] .modal{border-radius:26px}

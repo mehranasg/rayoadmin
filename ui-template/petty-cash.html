@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مدیریت تنخواه — رایو</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300..800&display=swap">
+<link rel="stylesheet" href="css/theme.css">
+<style>
+.pc-flags{display:flex;gap:4px;flex-wrap:wrap}.pc-flags .badge{font-size:11px}
+.neg{color:var(--danger)}.pos{color:var(--success)}.mut{color:var(--text-3)}
+.pc-rule{border:1px solid var(--border);border-radius:var(--radius);padding:var(--s3) var(--s4);background:var(--surface)}
+.pc-rule b{display:block;margin-bottom:2px}.pc-rule p{margin:0;font-size:13px;color:var(--text-2);line-height:1.8}
+.pc-flow{display:grid;grid-template-columns:repeat(5,1fr);gap:var(--s3)}
+.pc-flow>div{border:1px solid var(--border);border-radius:var(--radius);padding:var(--s3);background:var(--surface-2);font-size:13px;line-height:1.8}
+.pc-flow b{display:block;color:var(--accent)}
+.pc-receipt{width:56px;height:56px;border-radius:8px;background:var(--surface-3);display:grid;place-items:center;color:var(--text-3)}
+.ic-click{cursor:pointer}.ic-click:hover td{background:var(--surface-2)}
+@media (max-width:900px){.pc-flow{grid-template-columns:1fr 1fr}}
+</style>
+<script>try{var t=localStorage.getItem('rt_theme');if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="topbar" id="topbar"></header>
+    <main class="content">
+      <div class="page-head">
+        <div>
+          <div class="crumbs"><span>مالی</span><i data-lucide="chevron-left" style="width:14px;height:14px"></i><span>تنخواه</span></div>
+          <h1>مدیریت تنخواه</h1>
+          <p>کارت‌های تنخواه دست پرسنل، هزینه‌های ریز با رسید و کنترل خودکار استفادهٔ شخصی، خرید گران و خرید بی‌دلیل — <b>دادهٔ نمونه</b></p>
+        </div>
+        <div class="actions">
+          <select class="select" id="pcMonth"></select>
+          <button class="btn btn-secondary" data-open="pcStatement"><i data-lucide="file-spreadsheet"></i>ورود صورتحساب کارت</button>
+          <button class="btn btn-primary" data-open="pcNew"><i data-lucide="plus"></i>ثبت هزینه</button>
+        </div>
+      </div>
+
+      <div class="tabs" data-tabs="pc" id="pcTabs">
+        <button class="tab active" data-tab="dash"><i data-lucide="layout-dashboard"></i>داشبورد</button>
+        <button class="tab" data-tab="ledger"><i data-lucide="list"></i>دفتر هزینه‌ها</button>
+        <button class="tab" data-tab="review"><i data-lucide="shield-alert"></i>نیاز به بررسی <span class="badge badge-danger plain" id="pcReviewBadge"></span></button>
+        <button class="tab" data-tab="cards"><i data-lucide="credit-card"></i>کارت‌ها و تسویه</button>
+        <button class="tab" data-tab="rules"><i data-lucide="sliders-horizontal"></i>قوانین و سقف‌ها</button>
+        <button class="tab" data-tab="design"><i data-lucide="workflow"></i>طرح و پیاده‌سازی</button>
+      </div>
+      <section data-panel="pc:dash"></section>
+      <section data-panel="pc:ledger" hidden></section>
+      <section data-panel="pc:review" hidden></section>
+      <section data-panel="pc:cards" hidden></section>
+      <section data-panel="pc:rules" hidden></section>
+      <section data-panel="pc:design" hidden></section>
+    </main>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="pcNew">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pcNewTitle">
+    <div class="modal-head"><h2 id="pcNewTitle">ثبت هزینهٔ تنخواه</h2><button class="btn btn-ghost btn-sm btn-icon" data-close aria-label="بستن"><i data-lucide="x"></i></button></div>
+    <div class="modal-body">
+      <div class="alert alert-info"><i data-lucide="smartphone"></i><div><b>از گوشی پرسنل</b><p>عکس رسید گرفته می‌شود؛ AI مبلغ، فروشنده و اقلام را می‌خواند و پرسنل فقط «علت خرید» را می‌نویسد. بدون عکس رسید، هزینه «در انتظار رسید» می‌ماند.</p></div></div>
+      <div class="grid grid-2 mt">
+        <div class="field"><label>عکس رسید</label><input class="input" type="file" accept="image/*" capture="environment"></div>
+        <div class="field"><label>کارت</label><select class="select" id="pcNewCard"></select></div>
+        <div class="field"><label>مبلغ</label><div class="input-group"><input class="input" id="pcNewAmount" inputmode="numeric" placeholder="۰"><span class="suffix">تومان</span></div><span class="hint" id="pcNewHint"></span></div>
+        <div class="field"><label>دسته</label><select class="select" id="pcNewCat"></select></div>
+        <div class="field"><label>فروشنده</label><input class="input" placeholder="مثلاً میوه‌فروشی محله"></div>
+        <div class="field"><label>تاریخ و ساعت</label><input class="input" value="۱۴۰۵/۰۸/۱۶ — ۱۱:۲۰"></div>
+        <div class="field span-2"><label>علت خرید (الزامی)</label><input class="input" placeholder="مثلاً لیمو ترش برای بار — تمام شده بود"></div>
+      </div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" data-close>انصراف</button><button class="btn btn-primary" data-close onclick="RT.toast('در قالب ذخیره نمی‌شود')">ثبت</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="pcStatement">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pcStTitle">
+    <div class="modal-head"><h2 id="pcStTitle">ورود صورتحساب کارت تنخواه</h2><button class="btn btn-ghost btn-sm btn-icon" data-close aria-label="بستن"><i data-lucide="x"></i></button></div>
+    <div class="modal-body">
+      <p>فایل Excel/CSV تراکنش‌های کارت از بانک (تاریخ، ساعت، مبلغ، پذیرنده). هر تراکنش با هزینهٔ ثبت‌شده تطبیق داده می‌شود؛ تراکنشی که هزینه‌ای برایش ثبت نشده «اعلام‌نشده» است و برای دارندهٔ کارت پیگیری می‌شود.</p>
+      <div class="field"><label>فایل</label><input class="input" type="file" accept=".xlsx,.xls,.csv"></div>
+    </div>
+    <div class="modal-foot"><button class="btn btn-ghost" data-close>بستن</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="pcDetail">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pcDetailTitle" style="max-width:720px">
+    <div class="modal-head"><h2 id="pcDetailTitle"></h2><button class="btn btn-ghost btn-sm btn-icon" data-close aria-label="بستن"><i data-lucide="x"></i></button></div>
+    <div class="modal-body" id="pcDetailBody"></div>
+    <div class="modal-foot" id="pcDetailFoot"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="js/app.js"></script>
+<script src="js/petty-cash.js"></script>
+</body>
+</html>
