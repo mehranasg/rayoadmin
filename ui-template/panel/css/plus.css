@@ -31,3 +31,7 @@
 .sf-big-n{font-size:20px}
 .sf-count{display:grid;grid-template-columns:1fr 80px 80px;gap:6px;align-items:center}
 .sf-count:has(input:only-of-type){grid-template-columns:1fr 120px}
+
+/* inventory entry rows (inventory-real.js, stage 2) */
+.iw-row{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,2fr) auto;gap:8px;align-items:center}
+@media (max-width:640px){.iw-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.iw-row [data-f=item],.iw-row [data-f=note]{grid-column:1/-1}}

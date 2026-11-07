@@ -2,11 +2,12 @@
    Rayo UI Template — inventory-engine.js
    Read-only analysis engine for the inventory control template.
    Loads live modules with GET RayoData/Load (only works when served from rayocafe.ir — CORS),
-   or from JSON files chosen by the user. It never calls Save/Mutate.
+   or from JSON files chosen by the user. It never calls Save/Mutate (entries are written by inventory-write.js).
    ========================================================= */
 (function(){
 'use strict';
-const API='https://chat.yekzan.com/api/v1.0/RayoData/Load?module=';
+// API origin: the live RayoData service; a local test server may set window.RAYO_TEMPLATE_API before this file loads
+const API_ROOT=`${String(window.RAYO_TEMPLATE_API||'https://chat.yekzan.com').replace(/\/+$/,'')}/api/v1.0/RayoData/`,API=API_ROOT+'Load?module=';
 const A=x=>Array.isArray(x)?x:[];
 const S=x=>String(x??'').trim();
 const N=v=>{const n=Number(String(v??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٬,]/g,''));return Number.isFinite(n)?n:0};
@@ -179,5 +180,5 @@ function calibrateOil(items,oilKg){const sum=items.reduce((a,x)=>a+x.qty*x.weigh
 /* ---------- Months ---------- */
 function monthKeys(M){const out=[];let d=M.firstDay;const last=CAL.i(CAL.today);while(d<=last){const k=CAL.k(d).slice(0,7);if(!out.includes(k))out.push(k);d+=1}return out}
 
-window.InvEngine={positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
+window.InvEngine={API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
 })();

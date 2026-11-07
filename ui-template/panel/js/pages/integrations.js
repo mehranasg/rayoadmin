@@ -1,7 +1,8 @@
 /* Rayo Panel prototype — integration of the standalone template sections
    - انبار: «داشبورد کنترل» + زیربخش‌های گزارش (inventory-control on the shared analysis engine; real data: live on rayocafe.ir or JSON files)
    - مالی: «تنخواه» (petty-cash) and «فاکتورهای AI» (invoice-ai: capture modal + manager queue)
-   The two finance sections run on sample data; the inventory analysis runs on real-format data only (read-only, never saves). */
+   The two finance sections run on sample data; the inventory analysis runs on real-format data only and never saves
+   (inventory entries on live data are saved by inventory-real.js through ../js/inventory-write.js). */
 (function(){
 'use strict';
 const IC=window.InvControl,PC=window.PettyCash,IA=window.InvoiceAI;
@@ -10,10 +11,10 @@ const inv=P.mods.inventory,fin=P.mods.finance;
 /* ---------- inventory: data connection (shared by the analysis views) ---------- */
 let loadState={busy:false,err:''};
 async function connect(kind,files){if(loadState.busy)return;loadState={busy:true,err:''};P.render();
- try{const raw=kind==='live'?await IC.loadLive():kind==='url'?await IC.loadUrl(files):await IC.loadFiles(files);IC.attach(raw);P.toast(raw.source==='live'?'دادهٔ زندهٔ انبار بارگذاری شد (فقط خواندنی)':'فایل‌های انبار بارگذاری شد','database')}
+ try{const raw=kind==='live'?await IC.loadLive():kind==='url'?await IC.loadUrl(files):await IC.loadFiles(files);IC.attach(raw);P.toast(raw.source==='live'?'دادهٔ زندهٔ انبار بارگذاری شد':'فایل‌های انبار بارگذاری شد','database')}
  catch(e){loadState.err=e.message||String(e)}finally{loadState.busy=false;P.render()}}
-(function autoConnect(){const q=new URLSearchParams(location.search).get('data');if(q)connect('url',q);else if(/rayocafe\.ir$/.test(location.hostname))connect('live')})();
-function connectCard(){return P.card({title:'اتصال به دادهٔ واقعی انبار',sub:'این بخش روی دادهٔ واقعی کار می‌کند و هیچ چیزی ذخیره نمی‌کند',body:`
+(function autoConnect(){const q=new URLSearchParams(location.search).get('data');if(q)connect('url',q);else if(/rayocafe\.ir$/.test(location.hostname)||window.RAYO_TEMPLATE_API)connect('live')})();
+function connectCard(){return P.card({title:'اتصال به دادهٔ واقعی انبار',sub:'تحلیل‌ها فقط می‌خوانند؛ ثبت در تب‌های انبار فقط روی دادهٔ زنده و در نشست مدیریت ممکن است',body:`
  ${loadState.busy?P.note('در حال بارگذاری…','loader'):''}${loadState.err?P.note('خطا: '+P.esc(loadState.err),'alert-triangle'):''}
  ${P.note('وقتی پنل از دامنهٔ rayocafe.ir باز شود، دادهٔ زنده خودکار خوانده می‌شود. در غیر این صورت فایل JSON انبار و فایل منو/قیمت (و در صورت تمایل گزارش صندوق) را انتخاب کنید.','info')}
  <div class="form-grid mt">${P.field('فایل‌های JSON','<input class="input" type="file" id="ivaFiles" accept=".json,application/json" multiple>')}<div class="field"><label>&nbsp;</label><button class="btn btn-secondary" id="ivaLive">${P.ic('plug')}تلاش برای اتصال زنده</button></div></div>`})}
