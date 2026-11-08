@@ -40,7 +40,7 @@ const save2=C.activeMonthSave(doc.monthSaves,pid,1405,8),f2=AW.payrollFigures(sa
 let h=hr();AW.applyToPayroll(h,ctx(),{personnelId:pid,year:1405,month:8,save:save2,latePenalty:50000});const a=h.monthlyAdjustments[0],t2=C.monthTotals(save2.days);
 ok(a.hoursOverride===f2.hours&&a.overtimeHours===f2.overtimeHours&&a.undertimeHours===''&&a.delaySource==='attendance'&&a.delayDisplayOnly===true&&a.attendanceSaveId===save2.id&&a.attendanceLateMinutes===Math.round(t2.late),'hourly: hours and approved overtime into the month adjustment, lateness recorded');
 ok(f2.hours<=t2.worked/60+1e-9,'hourly hours never exceed worked time');
-ok(h.penaltiesRewards.length===1&&h.penaltiesRewards[0].status==='پیش‌نویس'&&h.penaltiesRewards[0].source==='attendance-late'&&h.penaltiesRewards[0].year===1405&&h.penaltiesRewards[0].month===8,'lateness fine as a draft penalty for the manager');
+ok(h.penaltiesRewards.length===1&&h.penaltiesRewards[0].status==='پیش‌نویس'&&h.penaltiesRewards[0].source==='attendance-late'&&h.penaltiesRewards[0].year===1405&&h.penaltiesRewards[0].month===8&&h.penaltiesRewards[0].type==='کسر تأخیر','lateness as a draft «کسر تأخیر» for the manager');
 AW.applyToPayroll(h,ctx(),{personnelId:pid,year:1405,month:8,save:save2,latePenalty:0});ok(h.monthlyAdjustments.length===1&&h.penaltiesRewards[0].status==='لغوشده','re-transfer updates the same adjustment; no fine → the draft fine is cancelled');
 ok(AW.payrollState(h,save2,pid,1405,8)==='applied','board state: applied');
 throws(()=>AW.applyToPayroll(hr(),ctx(),{personnelId:pid,year:1405,month:8,save:save2,closed:true}),/قطعی/,'closed payroll month refused');

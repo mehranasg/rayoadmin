@@ -1,0 +1,91 @@
+// QA: payroll of the new panel (migration stage 6a) — newpanel/core/js/payroll-core.js
+//  start month, month states, standalone months (no carry-forward), tips outside the salary, fixed salary prorated by
+//  days employed, hourly hours with overtime, undertime, penalty/reward kinds (legacy «تشویقی»), menu discount for staff
+//  and managers, payment reason kinds, bulk work entry, settings lists, penalty salary month, archive of earlier months.
+// Run: node qa_template_payroll.js
+'use strict';
+const fs=require('fs'),path=require('path');
+let pass=0,fail=0;const ok=(c,m)=>{if(c)pass++;else{fail++;console.log('FAIL:',m)}};
+const throws=(f,re,m)=>{try{f();ok(false,m+' (no error)')}catch(e){ok(re.test(e.message),m+' → '+e.message)}};
+global.window={};for(const f of ['core/js/inventory-engine.js','core/js/inventory-write.js','core/js/attendance-core.js','core/js/payroll-core.js','core/js/people-write.js'])eval(fs.readFileSync(path.join(__dirname,'newpanel',f),'utf8'));
+const PC=window.PayrollCore,PW=window.PeopleWrite,clone=x=>JSON.parse(JSON.stringify(x)),ctx=()=>({actor:'qa',at:'2026-11-09T10:00:00.000Z'});
+const fixed={type:'fixedMonthly',monthlySalary:30000000,monthlyShifts:30,hoursPerShift:8,approximateHourly:125000};
+const hr0={settings:{payrollStartYear:1405,payrollStartMonth:7,overtimeFactor:1.4,menuCreditDiscountPercent:30,menuDiscountPercentManagers:50},lists:{paymentMethods:['نقدی','کارت به کارت'],paymentTypes:['مساعده','تسویه حقوق','پرداخت انعام'],penaltyRewardTypes:['جریمه','تشویقی']},
+ personnel:[{id:'F',name:'ثابت',status:'فعال',section:'سالن',startDate:'1405/01/01',salaryContract:fixed},
+  {id:'N',name:'تازه',status:'فعال',section:'بار',startDate:'1405/07/13',salaryContract:{...fixed,monthlySalary:30000000}},
+  {id:'H',name:'ساعتی',status:'فعال',section:'بار',startDate:'1405/01/01',hourlyRate:100000,salaryContract:{type:'hourly',monthlySalary:0}},
+  {id:'M',name:'مدیر',status:'فعال',section:'مدیریت',startDate:'1405/01/01',salaryContract:{type:'fixedMonthly',monthlySalary:60000000}},
+  {id:'X',name:'رفته',status:'اتمام همکاری',section:'سالن',startDate:'1405/01/01',employmentEndDate:'1405/08/10',salaryContract:fixed},
+  {id:'O',name:'قدیمی',status:'اتمام همکاری',section:'سالن',startDate:'1405/01/01',salaryContract:fixed}],
+ monthlyAdjustments:[{id:'ADJ-00001',personnelId:'H',year:1405,month:7,hoursOverride:200,overtimeHours:20},{id:'ADJ-00002',personnelId:'F',year:1405,month:7,overtimeHours:10,undertimeHours:4,menuUsed:1000000,otherPayment:500000,otherDeduction:100000},{id:'ADJ-00003',personnelId:'M',year:1405,month:7,menuUsed:1000000}],
+ penaltiesRewards:[{id:'PR-00001',personnelId:'F',type:'جریمه',amount:200000,status:'تاییدشده',year:1405,month:7,date:'1405/07/10'},{id:'PR-00002',personnelId:'F',type:'تشویقی',amount:300000,status:'تاییدشده',year:1405,month:7,date:'1405/07/11'},{id:'PR-00003',personnelId:'F',type:'جریمه',amount:999,status:'پیش‌نویس',year:1405,month:7,date:'1405/07/12'},{id:'PR-00004',personnelId:'F',type:'جریمه',amount:5,status:'تاییدشده',year:1405,month:6,date:'1405/06/12'}],
+ payments:[{id:'PAY-00001',personnelId:'F',type:'مساعده',amount:5000000,salaryYear:1405,salaryMonth:'7',date:'1405/07/15'},{id:'PAY-00002',personnelId:'F',type:'تسویه حقوق',amount:20000000,salaryYear:1405,salaryMonth:'7',date:'1405/08/03'},{id:'PAY-00003',personnelId:'F',type:'تسویه حقوق',amount:9,salaryYear:1405,salaryMonth:'7',date:'1405/08/03',status:'void'},{id:'PAY-00004',personnelId:'F',type:'پرداخت انعام',amount:100000,salaryYear:1405,salaryMonth:'8',date:'1405/08/04'},{id:'PAY-00005',personnelId:'F',type:'پرداخت انعام',amount:70000,date:'1405/06/20',salaryYear:1405,salaryMonth:6}],
+ tipGroups:[{id:'T1',receiveDate:'1405/07/05',totalAmount:300000,participants:[{personnelId:'F',weight:1},{personnelId:'H',weight:2}]},{id:'T2',receiveDate:'1405/06/30',totalAmount:900000,participants:[{personnelId:'F',weight:1}]},{id:'T3',receiveDate:'1405/07/09',totalAmount:500000,status:'ابطال‌شده',participants:[{personnelId:'F',weight:1}]}],
+ monthlySettlements:[{id:'MSET-00001',year:1405,month:5,status:'active',rows:[{personnelId:'F',amount:123}]}],payrollClosures:[]};
+const hr=clone(hr0),T='1405/08/18',p=id=>hr.personnel.find(x=>x.id===id);
+// months and states
+ok(PC.months(hr,T).map(x=>x.month).join()==='7,8','months from the start month to today');
+ok(PC.monthState(hr,1405,6,T)==='before'&&PC.monthState(hr,1405,7,T)==='open'&&PC.monthState(hr,1405,8,T)==='current'&&PC.monthState(hr,1405,9,T)==='future','month states');
+ok(PC.months({...clone(hr0),settings:{}},T).length===0&&PC.monthRows({...clone(hr0),settings:{}},1405,7).length===0,'nothing is calculated before a start month is set');
+// fixed salary
+const f=PC.calc(hr,p('F'),1405,7),L=k=>f.lines.filter(l=>l.k===k).reduce((a,l)=>a+l.v,0);
+ok(L('base')===30000000&&L('ot')===10*125000*1.4&&L('ut')===-4*125000,'fixed: salary + overtime × hourly × factor − undertime × hourly');
+ok(L('add')===300000&&L('ded')===-200000,'approved penalty deducted, legacy «تشویقی» added; draft and other months ignored');
+ok(f.flags.some(x=>x.k==='draft'),'draft penalty flagged');
+ok(L('menu')===-700000&&L('otherPay')===500000&&L('otherDed')===-100000,'menu use × (1 − 30%), other payment and deduction');
+const net=30000000+1750000-500000+300000-200000+500000-100000-700000;ok(f.net===net,'net of the month');
+ok(f.advance===5000000&&f.paid===20000000&&f.balance===net-25000000,'balance = net − advance − salary payments of the month (string salaryMonth, void and tip payments ignored)');
+ok(!f.lines.some(l=>/انعام|ایاب|غذا/.test(l.l)),'no tip, transport or meal line in the salary');
+ok(PC.calc(hr,p('M'),1405,7).lines.find(l=>l.k==='menu').v===-500000,'managers («مدیریت») get their own menu discount');
+// standalone months
+const f8=PC.calc(hr,p('F'),1405,8);ok(f8.net===30000000&&f8.balance===30000000,'next month does not carry the balance of the previous one');
+const eb=PC.earlierBalances(hr,1405,8);ok(eb.length===1&&eb[0].month===7&&eb[0].rows.some(r=>r.personnelId==='F'&&r.balance===f.balance),'balances of earlier months listed separately');
+// prorating and employment
+const n=PC.calc(hr,p('N'),1405,7);ok(n.days===18&&n.lines[0].v===18000000,'started mid-month: fixed salary × days employed / month days');
+ok(PC.calc(hr,p('X'),1405,8).days===10&&!PC.inPayroll(hr,p('X'),1405,9),'leaver: prorated to the end date, not in later months');
+ok(!PC.inPayroll(hr,p('O'),1405,8),'left without an end date and no data: not in the month');
+ok(PC.monthRows(hr,1405,7).length===5,'month rows: everybody employed in the month');
+// hourly
+const h=PC.calc(hr,p('H'),1405,7);ok(h.lines.find(l=>l.k==='base').v===180*100000&&h.lines.find(l=>l.k==='ot').v===20*100000*1.4,'hourly: (hours − overtime) × rate + overtime × rate × factor');
+ok(PC.calc(hr,p('H'),1405,8).flags.some(x=>x.k==='hours'),'hourly without hours flagged');
+// tips ledger
+const tl=PC.tipLedger(hr,'F');ok(tl.earned===100000&&tl.paid===100000&&tl.balance===0,'tips: shares from the start date (void groups out) − tip payments from the start date');
+ok(Math.abs(PC.tipLedger(hr,'H').earned-200000)<1e-6,'tip share by weight');
+// reason and item kinds
+ok(PC.reasonKind(hr,{type:'مساعده'})==='advance'&&PC.reasonKind(hr,{type:'پرداخت انعام'})==='tip'&&PC.reasonKind(hr,{type:'x',tipSettlement:true})==='tip'&&PC.reasonKind(hr,{type:'اصلاح پرداخت'})==='salary','payment reason kinds (defaults and legacy)');
+ok(PC.itemKind(hr,{type:'کسر تأخیر'})==='deduction'&&PC.itemKind(hr,{type:'پاداش'})==='addition'&&PC.itemKind(hr,{type:'تشویقی'})==='addition','item kinds');
+// bulk work entry
+let w=clone(hr0);const base=PC.sig(w,1405,8);
+const nw=PC.saveWork(w,ctx(),{year:1405,month:8,rows:{H:{hours:'۱۸۰',ot:'10'},F:{ut:'2',otherPay:'',notes:'x'}},baseSig:base,today:T});
+ok(nw===2&&PC.adjOf(w,'H',1405,8).hoursOverride===180&&PC.adjOf(w,'H',1405,8).id==='ADJ-00004'&&PC.adjOf(w,'F',1405,8).undertimeHours===2,'work saved for two people (Persian digits, next ADJ id)');
+throws(()=>PC.saveWork(w,ctx(),{year:1405,month:8,rows:{H:{hours:180}},baseSig:base,today:T}),/کاربر دیگری/,'concurrent change refused');
+throws(()=>PC.saveWork(w,ctx(),{year:1405,month:8,rows:{H:{hours:180,ot:10}},today:T}),/تغییری/,'no-op refused');
+throws(()=>PC.saveWork(w,ctx(),{year:1405,month:8,rows:{H:{ot:200}},today:T}),/بیشتر/,'overtime above total hours refused for hourly');
+throws(()=>PC.saveWork(w,ctx(),{year:1405,month:8,rows:{H:{hours:-1}},today:T}),/نامعتبر/,'negative refused');
+throws(()=>PC.saveWork(w,ctx(),{year:1405,month:6,rows:{H:{hours:1}},today:T}),/قبل از شروع/,'archive month refused');
+w.payrollClosures=[{year:1405,month:7,active:true}];throws(()=>PC.saveWork(w,ctx(),{year:1405,month:7,rows:{H:{hours:1}},today:T}),/قطعی/,'closed month refused');
+w.monthlyAdjustments.push({id:'ADJ-00009',personnelId:'N',year:1405,month:8,hoursOverride:'',overtimeHours:3,hoursFromAttendance:true});PC.saveWork(w,ctx(),{year:1405,month:8,rows:{N:{ot:5}},today:T});ok(PC.adjOf(w,'N',1405,8).hoursFromAttendance===false&&PC.adjOf(w,'N',1405,8).manualOverAttendance===true,'manual change over attendance is marked');
+// penalty salary month: a closed month sends a new item to the first open month
+ok(PC.itemSalaryMonth(w,'1405/07/20').month===8&&PC.itemSalaryMonth(w,'1405/07/20').late===true&&PC.itemSalaryMonth(w,'1405/08/02').month===8,'late item goes to the first month that is not final');
+const r=PW.addPenalty(w,ctx(),{date:'1405/07/20',personnelId:'F',type:'کسر تأخیر',amount:50000,status:'تاییدشده',reason:'تأخیر'});ok(r.month===8&&r.lateFrom==='1405/07'&&r.type==='کسر تأخیر','«کسر تأخیر» accepted; recorded in the open month with its own date');
+throws(()=>PW.addPenalty(w,ctx(),{date:'1405/08/02',personnelId:'F',type:'تشویقی',amount:1,status:'تاییدشده',reason:'x'}),/نوع/,'retired type not offered for new items');
+// settings
+let s=clone(hr0);const cfg=PC.config(s),x={startYear:1405,startMonth:7,overtimeFactor:1.4,menuStaff:30,menuManagers:50,tipStep:5000,advanceWarnPercent:50,reasons:cfg.reasons.concat([{title:'وام',kind:'other',active:true}]),items:cfg.items,methods:['نقدی','کارت به کارت','واریز به حساب']};
+PC.saveSettings(s,ctx(),x);ok(s.settings.paymentReasons.length===6&&s.lists.paymentTypes.includes('وام')&&s.lists.penaltyRewardTypes.join()==='جریمه,کسر تأخیر,پاداش'&&s.lists.paymentMethods.length===3,'settings saved; current-panel lists follow the active titles');
+throws(()=>PC.saveSettings(s,ctx(),x),/تغییری/,'no-op settings refused');
+throws(()=>PC.saveSettings(s,ctx(),{...x,reasons:x.reasons.map(r=>r.title==='مساعده'?{...r,kind:'other'}:r)}),/مساعده/,'kind of a used reason cannot change');
+throws(()=>PC.saveSettings(s,ctx(),{...x,reasons:x.reasons.filter(r=>r.kind!=='tip')}),/انعام/,'a tip reason is required');
+throws(()=>PC.saveSettings(s,ctx(),{...x,reasons:[...x.reasons,{title:'مساعده',kind:'advance'}]}),/تکراری/,'duplicate title refused');
+throws(()=>PC.saveSettings(s,ctx(),{...x,startMonth:13}),/ماه شروع/,'invalid start refused');
+PC.saveSettings(s,ctx(),{...x,reasons:x.reasons.map(r=>r.title==='وام'?{...r,active:false}:r)});ok(s.settings.paymentReasons.find(r=>r.title==='وام').active===false&&!s.lists.paymentTypes.includes('وام'),'reason deactivated, not removed');
+// contract terms: shifts × hours → hourly; effective month
+let c=clone(hr0);global.window.PayrollCore=PC;const res=PW.saveSalaryTerms(c,ctx(),{id:'F',type:'fixedMonthly',monthlySalary:36000000,monthlyShifts:30,hoursPerShift:8,effective:'1405/07'});
+ok(res.effective==='1405/07'&&c.personnel[0].salaryContract.approximateHourly===150000&&PC.contractOf(c.personnel[0],1405,7).monthlySalary===36000000&&PC.contractOf(c.personnel[0],1405,6).monthlySalary===30000000,'contract from a chosen month; hourly rate from shifts × hours; earlier months keep the old terms');
+throws(()=>PW.saveSalaryTerms(c,ctx(),{id:'F',type:'fixedMonthly',monthlySalary:1,effective:'1405/06'}),/قبل از شروع/,'contract before the start month refused');
+// archive
+const a=PC.archive(hr);ok(a.tipShares.length===1&&a.tipShares[0].amount===900000&&a.payments.map(x=>x.id).join()==='PAY-00005'&&a.items.map(x=>x.id).join()==='PR-00004'&&a.settlements.length===1,'archive: everything recorded before the start month');
+// static checks of the pages
+const pr=fs.readFileSync(path.join(__dirname,'newpanel/js/pages/payroll-real.js'),'utf8'),ix=fs.readFileSync(path.join(__dirname,'newpanel/index.html'),'utf8');
+ok(ix.includes('core/js/payroll-core.js')&&ix.includes('js/pages/payroll-real.js')&&!ix.includes('payroll-engine.js'),'index loads the new payroll files only');
+ok(/id:'work'/.test(pr)&&/id:'payset'/.test(pr),'tabs «کارکرد ماه» and «تنظیمات حقوق»');
+console.log(`qa_template_payroll: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

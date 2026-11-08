@@ -75,7 +75,7 @@ function applyToPayroll(hr,ctx,{personnelId,year,month,save,latePenalty=0,closed
  hr.penaltiesRewards=A(hr.penaltiesRewards);const old=hr.penaltiesRewards.find(x=>x.source==='attendance-late'&&x.personnelId===personnelId&&+x.year===+year&&+x.month===+month&&x.status!=='لغوشده');const amt=Math.round(N(latePenalty));
  if(amt>0){const last=`${year}/${pad(month)}/${pad(C().monthLength(+year,+month))}`,reason=`تأخیر ${C().MONTHS?.[month-1]||month} (${f.lateMinutes} دقیقه)`;
   if(old&&old.status==='تاییدشده')throw Error('جریمهٔ تأخیر این ماه قبلاً تأیید شده است؛ اول در «حقوق ماه» لغوش کنید');
-  if(old)Object.assign(old,{amount:amt,reason,updatedAt:ctx.at});else hr.penaltiesRewards.push({id:uid('PR',hr.penaltiesRewards),date:last,personnelId,type:'جریمه',amount:amt,reason,status:'پیش‌نویس',source:'attendance-late',sourceId:save.id,year:+year,month:+month,createdAt:ctx.at,createdBy:ctx.actor})}
+  if(old)Object.assign(old,{amount:amt,reason,updatedAt:ctx.at});else hr.penaltiesRewards.push({id:uid('PR',hr.penaltiesRewards),date:last,personnelId,type:'کسر تأخیر',amount:amt,reason,status:'پیش‌نویس',source:'attendance-late',sourceId:save.id,year:+year,month:+month,createdAt:ctx.at,createdBy:ctx.actor})}
  else if(old&&old.status==='پیش‌نویس')old.status='لغوشده';
  ctx.auditExtra={personnelId,year,month,saveId:save.id,before,after:{hours:f.hours,overtimeHours:f.overtimeHours,undertimeHours:f.undertimeHours,late:f.lateMinutes},latePenalty:amt};return f}
 // per person-month state for the board
