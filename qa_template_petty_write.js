@@ -1,9 +1,9 @@
-// QA: ui-template/js/petty-write.js — petty cash cards, top-ups, expenses, controls, decisions, month close (synthetic data only).
+// QA: newpanel/core/js/petty-write.js — petty cash cards, top-ups, expenses, controls, decisions, month close (synthetic data only).
 // Run: node qa_template_petty_write.js
 'use strict';
 const fs=require('fs'),path=require('path');
 global.window={};
-for(const f of ['inventory-engine.js','petty-write.js'])eval(fs.readFileSync(path.join(__dirname,'ui-template/js',f),'utf8'));
+for(const f of ['inventory-engine.js','petty-write.js'])eval(fs.readFileSync(path.join(__dirname,'newpanel/core/js',f),'utf8'));
 const PW=window.PettyWrite,E=window.InvEngine,C=E.CAL;
 let pass=0,fail=0;const ok=(c,m)=>{if(c)pass++;else{fail++;console.log('FAIL:',m)}};
 const throws=(f,re,m)=>{try{f();ok(false,m+' (no error)')}catch(e){ok(re.test(e.message),m+' → '+e.message)}};

@@ -1,9 +1,9 @@
-// QA: ui-template/js/assets-write.js — asset counts, quantity events, maintenance, incidents and void (synthetic data only).
+// QA: newpanel/core/js/assets-write.js — asset counts, quantity events, maintenance, incidents and void (synthetic data only).
 // Run: node qa_template_assets_write.js
 'use strict';
 const fs=require('fs'),path=require('path');
 global.window={};
-for(const f of ['inventory-engine.js','assets-write.js'])eval(fs.readFileSync(path.join(__dirname,'ui-template/js',f),'utf8'));
+for(const f of ['inventory-engine.js','assets-write.js'])eval(fs.readFileSync(path.join(__dirname,'newpanel/core/js',f),'utf8'));
 const AW=window.AssetsWrite,E=window.InvEngine;
 let pass=0,fail=0;const ok=(c,m)=>{if(c)pass++;else{fail++;console.log('FAIL:',m)}};
 const throws=(f,re,m)=>{try{f();ok(false,m+' (no error)')}catch(e){ok(re.test(e.message),m+' → '+e.message)}};

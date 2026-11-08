@@ -1,12 +1,12 @@
 // Payroll engine of the new panel = the salary calculation of js/00-base.js, extracted unchanged.
-//   node qa_template_payroll_sync.js --write   → (re)builds ui-template/js/payroll-engine.js from js/00-base.js
+//   node qa_template_payroll_sync.js --write   → (re)builds newpanel/core/js/payroll-engine.js from js/00-base.js
 //   node qa_template_payroll_sync.js           → fails when payroll-engine.js no longer matches js/00-base.js
 // Extraction: js/00-base.js is split into top-level statements (every split point is checked with the JavaScript parser,
 // syntax only, nothing is executed); the statements needed by the roots below are copied in file order into a function
 // that receives the personnel document as `state` (the global the original code reads).
 'use strict';
 const fs=require('fs'),path=require('path');
-const SRC=path.join(__dirname,'js/00-base.js'),OUT=path.join(__dirname,'ui-template/js/payroll-engine.js');
+const SRC=path.join(__dirname,'js/00-base.js'),OUT=path.join(__dirname,'newpanel/core/js/payroll-engine.js');
 const ROOTS=['payrollRowsForPeriod','calcPayroll','calcPayrollLive','payrollPeopleForPeriod','payrollClosure','payrollStartPeriod','payrollBeforeStart','tipShares','payrollNetToman'];
 const EXCLUDE=new Set(['state']);// passed in
 const parses=code=>{try{new Function(code);return true}catch(_){return false}};

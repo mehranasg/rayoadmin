@@ -1,0 +1,160 @@
+/* =========================================================
+   Rayo UI Template — menu-write.js
+   Menu cost model and menu entries from the new panel onto the live pricing module (stage 4).
+   Same rules and record shapes as the current panel:
+     cost     → js/45 menuMetrics (current recipe lines pricing.recipes, net unit cost, manual cost without lines)
+     recipe   → pricing.recipes lines (js/08 pcSaveRecipeLine) + a dated version in pricing.recipeVersions when the
+                lines changed (js/32 snapshotRecipe; an item's first version applies from the start, '0000/00/00')
+     price    → pricing.priceHistory row + menuItems[].currentPriceToman (js/08 pcConfirmAppliedPrice)
+     settings → settings.categoryTargets / priceIncrementToman (js/45 savePricingSettings)
+   Saving goes through InvWrite.edit (fresh Load → change a copy → audit row → Save → reload and compare) with
+   module 'pricing'. Nothing else is written; inventory is never touched here.
+   ========================================================= */
+(function(){
+'use strict';
+const E=()=>window.InvEngine;
+const A=x=>Array.isArray(x)?x:[];
+const S=x=>String(x??'').trim();
+const N=v=>{const n=Number(String(v??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/٫/g,'.').replace(/[٬,\s]/g,''));return Number.isFinite(n)?n:NaN};
+const Z=v=>{const n=Number(v);return Number.isFinite(n)?n:0};
+const clone=x=>JSON.parse(JSON.stringify(x));
+const FAM={kg:'mass',g:'mass',l:'vol',ml:'vol'};
+const pcUid=(prefix,rows)=>{let m=0;A(rows).forEach(x=>{const q=S(x.id).match(/(\d+)$/);if(q)m=Math.max(m,+q[1])});return `${prefix}-${String(m+1).padStart(4,'0')}`};
+const uid6=(prefix,rows)=>{let m=0;A(rows).forEach(x=>{const q=S(x.id).match(/(\d+)$/);if(q)m=Math.max(m,+q[1])});return `${prefix}-${String(m+1).padStart(6,'0')}`};
+
+/* ---------- cost model ---------- */
+// js/08 pcGrossCatalogCost: when the last price came from a supplier invoice, that invoice's own package and unit are used
+let historyIndex={src:null,map:null};
+function invoiceHistory(doc,i){if(!doc)return null;if(historyIndex.src!==doc.ingredientPriceHistory){historyIndex={src:doc.ingredientPriceHistory,map:new Map};for(const h of A(doc.ingredientPriceHistory)){if(h.isVoided===true||!h.invoiceId)continue;const k=h.ingredientId+'|'+h.invoiceId,o=historyIndex.map.get(k);if(!o||S(h.date)>S(o.date)||(S(h.date)===S(o.date)&&S(h.createdAt)>S(o.createdAt)))historyIndex.map.set(k,h)}}return historyIndex.map.get(i.id+'|'+i.lastPurchaseInvoiceId)||null}
+function unitCost(i,doc){if(!i)return{v:NaN,why:'ماده در کاتالوگ نیست'};
+ if(i.lastPurchaseSource==='supplierInvoice'&&i.lastPurchaseInvoiceId&&doc){const h=invoiceHistory(doc,i);if(!h)return{v:NaN,why:'قیمت فاکتور آخر پیدا نشد'};if(E().UK(h.recipeUnit||i.recipeUnit)!==E().UK(i.recipeUnit))return{v:NaN,why:'واحد فاکتور با واحد مصرف فرق دارد'};i={...i,...h,lastPurchasePriceToman:h.priceToman,purchaseUnit:h.purchaseUnit||i.purchaseUnit,packageQuantity:h.packageQuantity,wastePercent:i.wastePercent}}
+ const pk=Number(i.packageQuantity),price=Number(i.lastPurchasePriceToman),pu=E().UK(i.purchaseUnit),ru=E().UK(i.recipeUnit),w=Number(i.wastePercent)||0,y=1-w/100;
+ if(!pu||!ru||(FAM[pu]&&FAM[ru]&&FAM[pu]!==FAM[ru]))return{v:NaN,why:'واحد خرید و مصرف ناسازگار'};if(!(pk>0))return{v:NaN,why:'مقدار بسته نامعتبر'};if(!(price>0))return{v:NaN,why:'بدون قیمت خرید'};if(!(y>0))return{v:NaN,why:'افت نامعتبر'};return{v:price/pk/y,why:''}}
+const recipeLines=(doc,menuId)=>A(doc.recipes).filter(r=>r.menuItemId===menuId);
+function metrics(doc,m,ingMap){const ing=ingMap||new Map(A(doc.ingredients).map(i=>[i.id,i])),lines=recipeLines(doc,m.id);
+ const rows=lines.map(l=>{const i=ing.get(l.ingredientId),u=unitCost(i,doc),qty=Z(l.quantity),ok=Number.isFinite(u.v)&&u.v>0&&qty>0;return{l,i,qty,unit:u.v,cost:ok?u.v*qty:null,why:ok?'':qty<=0?'مقدار صفر یا خالی':u.why}});
+ let cost=rows.reduce((a,r)=>a+(r.cost||0),0),manual=false;const missing=rows.filter(r=>r.cost===null).length;
+ if(!lines.length&&m.manualCostEnabled!==false&&Z(m.manualCostToman)>0){cost=Z(m.manualCostToman);manual=true}
+ const s=doc.settings||{},price=Z(m.currentPriceToman),target=Z(m.customTargetCostPercent)||Z(s.categoryTargets?.[m.category])||35,complete=cost>0&&missing===0,step=priceStep(doc);
+ return{rows,cost,manual,missing,complete,price,target,step,ratio:price>0&&cost>0?cost/price*100:null,margin:complete&&price>0?price-cost:null,suggested:complete&&target>0?Math.ceil(cost/(target/100)/step)*step:0,state:!lines.length?(manual?'manual':'none'):missing?'incomplete':'complete'}}
+const priceStep=doc=>Math.max(1000,Z(doc.settings?.priceIncrementToman)||10000);
+const recipeCapable=i=>!!i&&['MENU_INGREDIENT','MENU_CONSUMABLE'].includes(i.itemType||'MENU_INGREDIENT');
+function versionsOf(doc,menuId){return A(doc.recipeVersions).filter(v=>v.menuItemId===menuId).sort((a,b)=>S(b.effectiveFrom).localeCompare(S(a.effectiveFrom))||S(b.createdAt).localeCompare(S(a.createdAt)))}
+// same comparison as js/32 sameRecipe
+function sameRecipe(a,b){const norm=rows=>A(rows).map(x=>`${x.ingredientId}|${Z(x.quantity)}|${x.locationId||''}|${S(x.notes)}|${x.wastePercent??''}|${x.recipeUnit||''}`).sort();const x=norm(a),y=norm(b);return x.length===y.length&&x.every((v,i)=>v===y[i])}
+function snapshotLines(doc,menuId){const ing=new Map(A(doc.ingredients).map(i=>[i.id,i]));return recipeLines(doc,menuId).map(r=>{const i=ing.get(r.ingredientId),w=Number(i?.wastePercent)||0;if(!i||!(Z(r.quantity)>0)||!(w>=0&&w<100))throw Error('نسخهٔ رسپی ناقص است؛ مقدار و افت مواد را بررسی کنید');return{...clone(r),id:r.id||'',quantity:Z(r.quantity),notes:r.notes||'',locationId:r.locationId||'',wastePercent:w,recipeUnit:i.recipeUnit}})}
+// does the current recipe (pricing.recipes) match the version effective today?
+// (ingredient and quantity only: migrated versions carry no loss/unit snapshot)
+function versionDrift(doc,menuId){const v=versionsOf(doc,menuId).find(v=>(E().D(v.effectiveFrom)||'0000/00/00')<=E().CAL.today),cur=recipeLines(doc,menuId);if(!v)return cur.length?'no-version':'';const k=rows=>A(rows).map(x=>`${x.ingredientId}|${Z(x.quantity)}`).sort().join(';');return k(v.lines)===k(cur)?'':'differs'}
+
+/* ---------- recipe edit ---------- */
+function saveRecipe(doc,ctx,{menuId,lines,effectiveFrom,note}){const m=A(doc.menuItems).find(x=>x.id===menuId);if(!m)throw Error('آیتم منو پیدا نشد');const ing=new Map(A(doc.ingredients).map(i=>[i.id,i])),today=E().CAL.today;
+ const rows=A(lines).map((x,k)=>{const i=ing.get(S(x.ingredientId));if(!recipeCapable(i))throw Error(`سطر ${k+1}: مادهٔ رسپی (مادهٔ اولیه یا ملزوم منو) را انتخاب کنید`);if(i.status==='غیرفعال'&&!recipeLines(doc,menuId).some(r=>r.ingredientId===i.id))throw Error(`«${i.name}» غیرفعال است`);const q=N(x.quantity);if(!(q>0))throw Error(`سطر ${k+1} (${i.name}): مقدار مثبت لازم است`);const w=Number(i.wastePercent)||0;if(!(w>=0&&w<100))throw Error(`افت «${i.name}» نامعتبر است`);return{i,quantity:Math.round(q*1e6)/1e6,notes:S(x.notes)}});
+ if(!rows.length)throw Error('رسپی دست‌کم یک ماده لازم دارد');if(new Set(rows.map(r=>r.i.id)).size!==rows.length)throw Error('یک ماده دو بار در رسپی آمده است');
+ const latest=versionsOf(doc,menuId)[0];let from=E().D(effectiveFrom)||today;if(E().CAL.i(from)===null)throw Error('تاریخ اثر معتبر نیست');if(from>today)throw Error('تاریخ اثر نمی‌تواند در آینده باشد');
+ if(latest&&latest.effectiveFrom!=='0000/00/00'&&from<E().D(latest.effectiveFrom))throw Error(`تاریخ اثر نمی‌تواند قبل از آخرین نسخه (${latest.effectiveFrom}) باشد`);
+ // current lines: keep the id of an ingredient already in the recipe
+ doc.recipes=A(doc.recipes);const old=recipeLines(doc,menuId),keep=doc.recipes.filter(r=>r.menuItemId!==menuId),next=[];
+ for(const x of rows){const o=old.find(r=>r.ingredientId===x.i.id);next.push(o?{...o,quantity:x.quantity,notes:x.notes}:{id:pcUid('REC',[...doc.recipes,...next]),menuItemId:menuId,ingredientId:x.i.id,quantity:x.quantity,notes:x.notes})}
+ const changed=!(old.length===next.length&&old.every(o=>{const n=next.find(z=>z.id===o.id);return n&&Z(n.quantity)===Z(o.quantity)&&S(n.notes)===S(o.notes)}));
+ doc.recipes=[...keep,...next];
+ const snap=snapshotLines(doc,menuId).map(r=>({...r,id:r.id||uid6('RVL',[])}));let version=null;
+ if(!latest||!sameRecipe(latest.lines,snap)){const eff=latest?from:'0000/00/00';doc.recipeVersions=A(doc.recipeVersions);version={id:uid6('RV',doc.recipeVersions),menuItemId:menuId,effectiveFrom:eff,createdAt:ctx.at,createdBy:ctx.actor,source:'ui-template-recipe-edit',...(S(note)?{notes:S(note)}:{}),lines:snap};doc.recipeVersions.push(version);
+  doc.changeLog=A(doc.changeLog);doc.changeLog.unshift({at:ctx.at,action:'RECIPE_VERSION_CREATED',entityId:menuId,effectiveFrom:eff,createdBy:ctx.actor})}
+ if(!changed&&!version)throw Error('تغییری در رسپی داده نشده است');
+ ctx.auditExtra={entityId:menuId,before:{lines:clone(old)},effectiveFrom:version?.effectiveFrom||''};
+ return{menuId,changed,version}}
+
+/* ---------- price change ---------- */
+function changePrice(doc,ctx,{menuId,price,note}){const m=A(doc.menuItems).find(x=>x.id===menuId);if(!m)throw Error('آیتم منو پیدا نشد');const p=N(price);if(!(p>0))throw Error('قیمت جدید معتبر وارد کنید');if(p%1000)throw Error('قیمت باید مضرب ۱٬۰۰۰ تومان باشد');const old=Z(m.currentPriceToman);if(p===old)throw Error('قیمت جدید با قیمت فعلی یکی است');
+ const x=metrics(doc,m);doc.priceHistory=A(doc.priceHistory);const row={id:pcUid('PRICE',doc.priceHistory),menuItemId:m.id,itemCode:m.code,itemName:m.name,oldPriceToman:old,newPriceToman:p,costToman:Math.round(x.cost),targetCostPercent:x.target,changedAt:ctx.at,notes:(S(note)||'تغییر قیمت با تأیید مدیر')+(x.suggested&&p===x.suggested?' — مطابق پیشنهاد سیستم':' — ورود دستی')+' (پنل جدید)'};
+ doc.priceHistory.unshift(row);m.currentPriceToman=p;m.lastPriceChangeAt=ctx.at;ctx.auditExtra={entityId:m.id,before:{currentPriceToman:old}};return row}
+
+/* ---------- pricing settings ---------- */
+function saveSettings(doc,ctx,{targets,step}){doc.settings=doc.settings&&typeof doc.settings==='object'?doc.settings:{};const before={categoryTargets:clone(doc.settings.categoryTargets||{}),priceIncrementToman:doc.settings.priceIncrementToman};const cats=new Set([...A(doc.lists?.menuCategories),...A(doc.menuItems).map(m=>m.category),...Object.keys(doc.settings.categoryTargets||{})].filter(Boolean));
+ doc.settings.categoryTargets=doc.settings.categoryTargets||{};for(const [c,v] of Object.entries(targets||{})){if(!cats.has(c))throw Error(`دستهٔ «${c}» در منو نیست`);const n=N(v);if(!(n>=1&&n<=100))throw Error(`هدف «${c}» باید بین ۱ و ۱۰۰ درصد باشد`);doc.settings.categoryTargets[c]=Math.round(n*10)/10}
+ if(step!==undefined&&S(step)!==''){const s=N(step);if(!(s>=1000))throw Error('گام قیمت دست‌کم ۱٬۰۰۰ تومان است');doc.settings.priceIncrementToman=Math.ceil(s/1000)*1000}
+ if(JSON.stringify(before)===JSON.stringify({categoryTargets:doc.settings.categoryTargets,priceIncrementToman:doc.settings.priceIncrementToman}))throw Error('تغییری داده نشده است');ctx.auditExtra={before};return doc.settings}
+
+const validPricing=doc=>!!doc&&typeof doc==='object'&&Array.isArray(doc.menuItems)&&Array.isArray(doc.ingredients)&&Array.isArray(doc.recipes);
+
+/* ---------- catalog definitions (migration stage 2): ingredient and menu item ----------
+   Same record shapes as js/08 pcSaveIngredient / pcSaveMenuItem and js/45 deleteMenu, with these owner decisions:
+   - an existing code never changes (Sepidz code and the key of history); a new ingredient takes the next number of the
+     numeric series; a new menu item needs its Sepidz code unless settings.requireMenuSalesCode is false (owner only)
+   - names are unique after normalisation (ی/ک, spaces, ZWNJ); the stock (recipe) unit of an existing item is locked
+   - the price of an existing menu item changes only through «تغییر قیمت» (changePrice)
+   - an inactive menu item cannot be shown on the site; an item with sales or recipe versions is deactivated, not deleted */
+const NORM=s=>S(s).normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[‌‎‏]/g,' ').replace(/\s+/g,' ').toLowerCase();
+const ITEM_TYPES={MENU_INGREDIENT:'ماده اولیه منو',MENU_CONSUMABLE:'ملزومات مستقیم منو',OPERATIONAL_CONSUMABLE:'مصرفی عملیاتی',GENERAL_INVENTORY:'کالای عمومی / قطعه',NON_STOCK:'خدمت / هزینه غیرموجودی'};
+const DRIVERS={GUESTS:'تعداد مهمان',CHECKS:'تعداد فاکتور',OPEN_DAYS:'روز کاری',SHIFTS:'تعداد شیفت',WASH_CYCLES:'دفعات شست‌وشو'};
+const UNITS_DEFAULT=['بسته','عدد','لیتر','کیلوگرم','گرم'];
+function duplicateNames(doc){const by=new Map;for(const i of A(doc.ingredients)){const k=NORM(i.name);if(!k)continue;const l=by.get(k)||[];l.push(i.id);by.set(k,l)}return new Map([...by].filter(([,l])=>l.length>1))}
+function nextIngredientCode(doc){let m=0;for(const i of A(doc.ingredients)){const c=S(i.code);if(/^\d+$/.test(c))m=Math.max(m,+c)}return m?String(m+1):pcUid('INGCODE',doc.ingredients)}
+const fam=u=>FAM[E().UK(u)]||'';
+// active menu items whose current recipe uses the ingredient (shown before deactivating it)
+function ingredientUsage(doc,id){const ms=new Set(A(doc.recipes).filter(r=>r.ingredientId===id).map(r=>r.menuItemId));return A(doc.menuItems).filter(m=>ms.has(m.id)&&m.status!=='غیرفعال')}
+function saveIngredient(doc,ctx,x){
+ const ings=A(doc.ingredients),old=x.id?ings.find(i=>i.id===x.id):null;if(x.id&&!old)throw Error('قلم پیدا نشد');
+ const name=S(x.name);if(!name)throw Error('نام قلم الزامی است');
+ const dup=ings.find(i=>i.id!==x.id&&NORM(i.name)===NORM(name));if(dup)throw Error(`«${dup.name}» با کد ${dup.code||'—'} قبلاً تعریف شده؛ همان را ویرایش کنید`);
+ if(old&&S(x.code)&&S(x.code)!==S(old.code))throw Error('کد قلم ثبت‌شده تغییر نمی‌کند');
+ if(old&&S(x.recipeUnit)&&E().UK(x.recipeUnit)!==E().UK(old.recipeUnit))throw Error('واحد پایهٔ قلمی که سابقه دارد تغییر نمی‌کند؛ اگر واحد اشتباه است، قلم جدید بسازید و این را غیرفعال کنید');
+ const itemType=ITEM_TYPES[x.itemType]?x.itemType:'MENU_INGREDIENT',recipeUnit=old?S(old.recipeUnit):S(x.recipeUnit),purchaseUnit=S(x.purchaseUnit);
+ if(!recipeUnit||!purchaseUnit)throw Error('واحد خرید و واحد مصرف لازم است');
+ if(fam(purchaseUnit)&&fam(recipeUnit)&&fam(purchaseUnit)!==fam(recipeUnit))throw Error('واحد خرید و واحد مصرف از یک جنس نیستند (وزن و حجم)؛ واحد هم‌جنس انتخاب کنید');
+ const pack=N(x.packageQuantity);if(!(pack>0))throw Error('مقدار ناخالص هر واحد خرید باید بیشتر از صفر باشد');
+ const waste=S(x.wastePercent)===''?0:N(x.wastePercent);if(!(waste>=0&&waste<100))throw Error('درصد افت باید صفر یا بیشتر و کمتر از ۱۰۰ باشد');
+ const opt=(v,l,pos)=>{if(v===null||v===undefined||S(v)==='')return null;const n=N(v);if(!(pos?n>0:n>=0))throw Error(l);return n};
+ const reorder=opt(x.reorderPoint,'نقطهٔ سفارش باید خالی، صفر یا عدد مثبت باشد'),density=opt(x.densityKgPerLiter,'چگالی باید عدد مثبت باشد',1);
+ const priceIn=S(x.price)===''?null:N(x.price);if(priceIn!==null&&!(priceIn>0))throw Error('قیمت خرید باید عدد مثبت باشد؛ قیمت نامشخص را خالی بگذارید');
+ // counting units (js/08 pcReadCountingUnitRows / pcCheckCountingUnitNames / pcMergeCountingUnits / pcAssignCountingUnitIds)
+ const seen=new Set([NORM(recipeUnit)]),rows=[];for(const r of A(x.countingUnits)){const n=S(r.name);if(!n&&S(r.factor)==='')continue;if(!n)throw Error('نام واحد شمارش الزامی است');const f=N(r.factor);if(!(f>0))throw Error(`ضریب واحد «${n}» باید عدد مثبت باشد`);
+  if(seen.has(NORM(n)))throw Error(`نام واحد «${n}» تکراری یا هم‌نام واحد پایه است`);if(NORM(n)===NORM(purchaseUnit))throw Error(`«${n}» واحد خرید این قلم است و ضریبش از مقدار بسته می‌آید؛ نام دیگری انتخاب کنید`);seen.add(NORM(n));rows.push({id:S(r.id)||null,name:n,factor:f,active:r.active!==false})}
+ const prevCU=new Map(A(old?.countingUnits).filter(u=>u&&u.id).map(u=>[u.id,u]));let cuMax=0;rows.forEach(r=>{const q=S(r.id).match(/(\d+)$/);if(q)cuMax=Math.max(cuMax,+q[1])});
+ const countingUnits=rows.map(r=>{const id=r.id||`CU-${String(++cuMax).padStart(4,'0')}`,o=prevCU.get(id);if(!o)return{id,name:r.name,factor:r.factor,active:r.active,createdAt:ctx.at};const out={...o,name:r.name,factor:r.factor,active:r.active};if(Z(o.factor)!==r.factor||o.active!==r.active||o.name!==r.name)out.updatedAt=ctx.at;return out});
+ const op=itemType==='OPERATIONAL_CONSUMABLE';
+ const price=priceIn!==null?priceIn:(old?Z(old.lastPurchasePriceToman):0);
+ const priceChanged=!old?price>0:(x.priceEdited===true&&priceIn!==null)||Z(old.packageQuantity)!==pack||S(old.purchaseUnit)!==purchaseUnit;
+ const o={code:old?old.code:(S(x.code)||nextIngredientCode(doc)),name,category:S(x.category)||'سایر',purchaseUnit,recipeUnit,countingUnits,packageQuantity:pack,lastPurchasePriceToman:price,wastePercent:waste,
+  lastPurchaseDate:priceChanged?(E().D(x.priceDate)||E().CAL.today):S(old?.lastPurchaseDate),status:x.status==='غیرفعال'?'غیرفعال':'فعال',itemType,recipeCapable:['MENU_INGREDIENT','MENU_CONSUMABLE'].includes(itemType),inventoryTracked:itemType!=='NON_STOCK',procurementEnabled:true,
+  consumptionDriver:op?(DRIVERS[x.consumptionDriver]?x.consumptionDriver:'GUESTS'):'',standardUsagePerDriver:op?Z(N(x.standardUsagePerDriver)):0,driverBase:op?Math.max(1,Z(N(x.driverBase))||100):0,reorderPoint:reorder,densityKgPerLiter:density,densityNote:S(x.densityNote),notes:S(x.notes)};
+ if(!old&&ings.some(i=>NORM(i.code)===NORM(o.code)))throw Error('کد قلم تکراری است');
+ if(priceChanged)Object.assign(o,{lastPurchaseSource:'manual',lastPurchaseInvoiceId:''});
+ const before=old?clone(old):null;let saved;if(old){saved=old;Object.assign(saved,o)}else{saved={id:pcUid('ING',ings),...o};doc.ingredients=[...ings,saved]}
+ doc.lists=doc.lists&&typeof doc.lists==='object'?doc.lists:{};doc.lists.ingredientCategories=A(doc.lists.ingredientCategories);if(!doc.lists.ingredientCategories.includes(o.category))doc.lists.ingredientCategories.push(o.category);
+ if(priceChanged&&price>0){doc.ingredientPriceHistory=A(doc.ingredientPriceHistory);const d=o.lastPurchaseDate;if(!doc.ingredientPriceHistory.some(h=>h.ingredientId===saved.id&&Z(h.priceToman)===price&&S(h.date)===d&&S(h.source)==='manual'&&Z(h.packageQuantity)===pack&&h.purchaseUnit===purchaseUnit&&h.recipeUnit===recipeUnit))doc.ingredientPriceHistory.push({id:pcUid('IPH',doc.ingredientPriceHistory),ingredientId:saved.id,date:d,priceToman:price,source:'manual',purchaseUnit,recipeUnit,packageQuantity:pack,createdAt:ctx.at})}
+ // a new preparation loss: today's recipe of every item using it gets a dated version (js/08 pcStageLossChange)
+ if(before&&(Number(before.wastePercent)||0)!==waste){const menus=[...new Set(A(doc.recipes).filter(r=>r.ingredientId===saved.id).map(r=>r.menuItemId))];doc.recipeVersions=A(doc.recipeVersions);
+  for(const menuItemId of menus)doc.recipeVersions.push({id:pcUid('RV',doc.recipeVersions),menuItemId,lines:snapshotLines(doc,menuItemId),effectiveFrom:E().CAL.today,createdAt:ctx.at,createdBy:ctx.actor,source:'ingredient-preparation-loss-change'})}
+ ctx.auditExtra={entityId:saved.id,before};return{id:saved.id,code:saved.code,created:!before,priceChanged}}
+
+const requireSalesCode=doc=>doc?.settings?.requireMenuSalesCode!==false;
+function setRequireSalesCode(doc,ctx,{value}){doc.settings=doc.settings&&typeof doc.settings==='object'?doc.settings:{};const before=requireSalesCode(doc);if(before===!!value)throw Error('تغییری داده نشده است');doc.settings.requireMenuSalesCode=!!value;ctx.auditExtra={before,after:!!value};return !!value}
+const codeKey=c=>NORM(c).replace(/\s/g,'');
+function menuNameDuplicate(doc,{id,name,category}){return A(doc.menuItems).find(m=>m.id!==id&&NORM(m.name)===NORM(name)&&S(m.category)===S(category))||null}
+function saveMenuItem(doc,ctx,x){
+ const items=A(doc.menuItems),old=x.id?items.find(m=>m.id===x.id):null;if(x.id&&!old)throw Error('آیتم منو پیدا نشد');
+ const name=S(x.name);if(!name)throw Error('نام آیتم الزامی است');
+ if(old&&S(x.code)&&S(x.code)!==S(old.code))throw Error('کد آیتم ثبت‌شده (کد سپیدز) تغییر نمی‌کند');
+ const code=old?S(old.code):S(x.code).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+ if(!old&&!code&&requireSalesCode(doc))throw Error('کد سپیدز آیتم الزامی است؛ بدون آن فروش این آیتم از فایل سپیدز وارد نمی‌شود');
+ if(!old&&code&&items.some(m=>codeKey(m.code)===codeKey(code)))throw Error('این کد برای آیتم دیگری ثبت شده است');
+ const status=x.status==='غیرفعال'?'غیرفعال':'فعال',siteStatus=x.siteStatus==='فعال'?'فعال':'غیرفعال';if(status==='غیرفعال'&&siteStatus==='فعال')throw Error('آیتم غیرفعال نمی‌تواند در سایت نمایش داده شود');
+ const cats=A(doc.lists?.menuCategories),category=S(x.category)||'سایر';
+ const target=S(x.customTargetCostPercent)===''?0:N(x.customTargetCostPercent);if(!(target>=0&&target<=100))throw Error('سقف اختصاصی باید بین ۰ و ۱۰۰ باشد');
+ const manual=S(x.manualCostToman)===''?0:N(x.manualCostToman);if(!(manual>=0))throw Error('بهای دستی معتبر نیست');
+ const o={name,category,unit:S(x.unit)||'عدد',customTargetCostPercent:target,manualCostToman:manual,manualCostEnabled:x.manualCostEnabled===true,status,siteStatus,labelPriceOnly:x.labelPriceOnly===true,notes:S(x.notes)};
+ doc.lists=doc.lists&&typeof doc.lists==='object'?doc.lists:{};doc.settings=doc.settings&&typeof doc.settings==='object'?doc.settings:{};
+ if(!cats.includes(category)){doc.lists.menuCategories=[...cats,category];doc.settings.categoryTargets={...(doc.settings.categoryTargets||{}),[category]:35}}
+ const before=old?clone(old):null;let id;
+ if(old){Object.assign(old,o);id=old.id}
+ else{const p=S(x.price)===''?0:N(x.price);if(!(p>=0))throw Error('قیمت فروش معتبر نیست');if(p%1000)throw Error('قیمت باید مضرب ۱٬۰۰۰ تومان باشد');id=pcUid('MENU',items);doc.menuItems=[...items,{id,code:code||pcUid('ITEM',items),...o,currentPriceToman:p,lastPriceChangeAt:p>0?ctx.at:null}]}
+ ctx.auditExtra={entityId:id,before};return{id,created:!before}}
+// js/45 deleteMenu: an item with sales lines or recipe versions is deactivated (and hidden on the site), otherwise removed with its current recipe
+function removeMenuItem(doc,ctx,{id,salesCount}){const m=A(doc.menuItems).find(x=>x.id===id);if(!m)throw Error('آیتم منو پیدا نشد');const versions=A(doc.recipeVersions).filter(v=>v.menuItemId===id).length;ctx.auditExtra={entityId:id,before:clone(m)};
+ if(salesCount||versions){Object.assign(m,{status:'غیرفعال',siteStatus:'غیرفعال',archivedAt:ctx.at,archivedBy:ctx.actor,archiveReason:salesCount?`دارای ${salesCount} ردیف فروش ثبت‌شده`:'دارای نسخه تاریخ‌دار رسپی'});return'deactivated'}
+ doc.menuItems=A(doc.menuItems).filter(x=>x.id!==id);doc.recipes=A(doc.recipes).filter(r=>r.menuItemId!==id);return'removed'}
+
+window.MenuWrite={NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+})();

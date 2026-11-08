@@ -1,11 +1,11 @@
-// QA: ui-template/js/inventory-write.js — record shapes, rules and the protected save protocol (synthetic data only).
+// QA: newpanel/core/js/inventory-write.js — record shapes, rules and the protected save protocol (synthetic data only).
 // Run: node qa_template_inventory_write.js
 'use strict';
 const fs=require('fs'),path=require('path');
 global.window={};
 const sessionStore={};global.sessionStorage={getItem:k=>sessionStore[k]??null,setItem:(k,v)=>{sessionStore[k]=String(v)}};
-eval(fs.readFileSync(path.join(__dirname,'ui-template/js/inventory-engine.js'),'utf8'));
-eval(fs.readFileSync(path.join(__dirname,'ui-template/js/inventory-write.js'),'utf8'));
+eval(fs.readFileSync(path.join(__dirname,'newpanel/core/js/inventory-engine.js'),'utf8'));
+eval(fs.readFileSync(path.join(__dirname,'newpanel/core/js/inventory-write.js'),'utf8'));
 const E=window.InvEngine,W=window.InvWrite;
 let pass=0,fail=0;const ok=(c,m)=>{if(c)pass++;else{fail++;console.log('FAIL:',m)}};
 const throws=(f,re,m)=>{try{f();ok(false,m+' (no error)')}catch(e){ok(re.test(e.message),m+' → '+e.message)}};
