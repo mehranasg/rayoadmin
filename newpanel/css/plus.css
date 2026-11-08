@@ -44,3 +44,30 @@
 /* petty cash rules (finance ← تنخواه) */
 .pc-rule{border:1px solid var(--border);border-radius:var(--radius);padding:var(--s3) var(--s4);background:var(--surface)}
 .pc-rule b{display:block;margin-bottom:2px}.pc-rule p{margin:0;font-size:13px;color:var(--text-2);line-height:1.8}
+/* shift plan (people ← شیفت‌پلن) */
+.sh-wrap{max-height:70vh;overflow:auto}
+.sh-table{border-collapse:separate;border-spacing:0;font-size:12px}
+.sh-table th,.sh-table td{padding:4px 3px;text-align:center;white-space:nowrap}
+.sh-table .sh-name{position:sticky;right:0;z-index:2;background:var(--surface);text-align:start;min-width:130px;max-width:170px;padding-inline:8px;border-inline-start:1px solid var(--border)}
+.sh-table .sh-name b{display:block;font-size:12.5px}.sh-table .sh-name small{display:block;color:var(--text-3);font-size:11px;white-space:normal}
+.sh-table .sh-cnt{min-width:70px;font-size:12px}
+.sh-table thead th{position:sticky;top:0;z-index:1;background:var(--surface-2)}
+.sh-table thead th.sh-name{z-index:3;background:var(--surface-2)}
+.sh-table th.sh-d{min-width:30px;cursor:pointer}.sh-table th.sh-d b{display:block}.sh-table th.sh-d small{color:var(--text-3);font-weight:400}
+.sh-table th.fri,.sh-table th.hol{color:var(--danger)}
+.sh-table td.sh-c{cursor:pointer;user-select:none;color:var(--text-3);border:1px solid var(--surface);border-radius:4px;font-weight:600}
+.sh-table td.sh-c:hover{outline:2px solid var(--accent);outline-offset:-2px}
+.sh-table td.sh-c.m{background:var(--info-soft);color:var(--info)}
+.sh-table td.sh-c.e{background:var(--violet-soft);color:var(--violet)}
+.sh-table td.sh-c.me{background:var(--accent-soft);color:var(--accent-text)}
+.sh-table tfoot td{position:sticky;bottom:0;background:var(--surface-2);cursor:pointer}
+.sh-table tfoot tr:first-child td{bottom:29px}
+.sh-table tfoot td.sh-name{z-index:3}
+.sh-table .warn-text,.warn-text{color:var(--warning)}
+.sh-days{flex-wrap:wrap}.sh-days button{min-width:36px;position:relative}
+.sh-days .dot{position:absolute;top:3px;left:3px;width:6px;height:6px;border-radius:50%;background:var(--text-3)}
+.sh-days .dot.neg{background:var(--danger)}.sh-days .dot.warn{background:var(--warning)}.sh-days .dot.ok{background:var(--success)}
+.btn-x{border:0;background:none;color:inherit;cursor:pointer;padding:0 0 0 2px;font-size:14px;line-height:1}
+.sh-needs th,.sh-needs td{padding:4px;text-align:center}.sh-needs td:first-child{text-align:start;white-space:nowrap}
+.sh-needs .sh-n{min-width:0;width:44px;height:30px;padding:0 4px;text-align:center}
+.sh-needs .sh-n.on{border-color:var(--accent);background:var(--accent-soft)}
