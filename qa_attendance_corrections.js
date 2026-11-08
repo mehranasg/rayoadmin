@@ -124,27 +124,30 @@ const file=(name,content)=>({name,text:async()=>content,arrayBuffer:async()=>new
  console.log('پنل پرسنل: کارکرد ماه من (js/22)');
  new vm.Script(staff,{filename:'js/22-staff-panel.js'});
  check('صفحه و منوی پرسنل',staff.includes("attendance:'attendance.html'")&&staff.includes("['attendance','⏱️','کارکرد ماه من']")&&staff.includes('attendance:staffAttendanceView'));
- check('صفحه HTML پرسنل، 18 را قبل از 22 بارگذاری می‌کند',page.includes('data-staff-view="attendance"')&&page.indexOf('18-excel-tools.js')>0&&page.indexOf('18-excel-tools.js')<page.indexOf('22-staff-panel.js'));
+ check('صفحه HTML پرسنل، 18 و هستهٔ حضور و غیاب (50) را قبل از 22 بارگذاری می‌کند',page.includes('data-staff-view="attendance"')&&page.indexOf('18-excel-tools.js')>0&&page.indexOf('18-excel-tools.js')<page.indexOf('22-staff-panel.js')&&page.indexOf('50-attendance-core.js')>0&&page.indexOf('50-attendance-core.js')<page.indexOf('22-staff-panel.js'));
  check('درخواست تکراری در انتظار برای یک روز پذیرفته نمی‌شود',staff.includes("throw new Error('برای این تاریخ یک درخواست در انتظار بررسی دارید')"));
  check('توضیح، ورود و خروج الزامی و تاریخ آینده ممنوع',staff.includes("return toastStaff('توضیح درخواست الزامی است',true)")&&staff.includes("return toastStaff('ساعت ورود و خروج صحیح را وارد کنید',true)")&&staff.includes('date>DG(today())'));
- check('ثبت درخواست با Snapshot ثبت دستگاه',staff.includes('currentPairs:cur?cur.pairs:[]')&&staff.includes("status:'در انتظار'"));
+ check('ثبت درخواست با Snapshot ترددهای ماژول حضور و غیاب',staff.includes('currentPairs:staffAttDayPairs(cur)')&&staff.includes("status:'در انتظار'"));
 
  // Staff page run through the real staffInit against an in-memory hr document (no network, no real Save).
  const els={},el=id=>els[id]||(els[id]={id,value:'',textContent:'',innerHTML:'',dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},appendChild(x){(this.children||(this.children=[])).push(x)}});
  const server={hr:{personnel:[{id:'P1',name:'علی',status:'فعال',userAccess:{enabled:true,permissions:{}}},{id:'P2',name:'سارا',status:'فعال',userAccess:{enabled:true,permissions:{}}}],attendanceLogs:JSON.parse(JSON.stringify(logs)),attendanceCorrections:[{id:'ATTC-00001',personnelId:'P1',date:'1405/07/11',status:'در انتظار'}],shiftRecords:shifts,monthlyAdjustments:[{personnelId:'P1',year:1405,month:7,overtimeHours:'1',undertimeHours:''}],lists:{},meta:{},unknownRoot:{keep:1}}};
+ /* the attendance module (one source): seed settings + face-device punches of P1 — 10th: arrival only, 11th: 09:00–18:00 */
+ server.attendance={...JSON.parse(fs.readFileSync('seed/attendance-data.seed.json','utf8')),punches:[['1405/07/10','08:00:00','in'],['1405/07/11','09:00:00','in'],['1405/07/11','18:00:00','out']].map(([date,time,type],k)=>({id:`ATP-${k+1}`,personnelId:'P1',code:'5',date,time,businessDate:date,type,method:'face'}))};
  let saves=0;
  const c={console,URL,URLSearchParams,Intl,Date,Math,JSON,Promise,clearTimeout,setTimeout:()=>{},innerWidth:1200,confirm:()=>true,
   location:{pathname:'/personel/attendance.html',search:'',replace:u=>{c.redirect=u}},sessionStorage:{getItem:()=>JSON.stringify({personnelId:'P1',name:'علی'}),removeItem(){}},localStorage:{getItem:()=>null,setItem(){},removeItem(){}},
   document:{readyState:'complete',head:{appendChild(){}},body:{dataset:{staffView:'attendance'},appendChild(){}},getElementById:el,querySelector:()=>null,querySelectorAll:()=>[],createElement:()=>({dataset:{},classList:{add(){},remove(){}},style:{},remove(){}}),addEventListener(){},documentElement:{dataset:{}}},
   RayoJalali:{today:()=>'1405/07/30',mark(){}},
   RAYO_API_GATEWAY:{loadOrBootstrap:async m=>{if(!server[m])throw new Error('not loaded');return JSON.parse(JSON.stringify(server[m]))},saveModule:async(m,d)=>{saves++;server[m]=JSON.parse(JSON.stringify(d));return{ok:true}}}};
- c.window=c;c.globalThis=c;vm.createContext(c);vm.runInContext(excel,c);vm.runInContext(staff,c,{filename:'js/22-staff-panel.js'});
+ c.window=c;c.globalThis=c;vm.createContext(c);vm.runInContext(excel,c);vm.runInContext(fs.readFileSync('js/50-attendance-core.js','utf8'),c);vm.runInContext(staff,c,{filename:'js/22-staff-panel.js'});
  await c.staffInit();
+ await c.staffAttEnsure();
  check('صفحه برای پرسنل بدون مجوز خاص باز می‌شود',!c.redirect);
  const html=el('staffView').innerHTML;
  check('نمای پرسنل جمع کارکرد، اضافه‌کار و کسر کار را نشان می‌دهد',html.includes('جمع کارکرد')&&html.includes('اضافه‌کار')&&html.includes('کسر کار')&&html.includes('۹:۰۰')&&html.includes('staffAttPrefill'));
  check('روزی که درخواست در انتظار دارد دکمه دوباره ندارد',!html.includes("staffAttPrefill('1405/07/11')")&&html.includes("staffAttPrefill('1405/07/10')"));
- check('اضافه‌کار ثبت‌شده در حقوق نمایش داده می‌شود',html.includes('ثبت‌شده در حقوق این ماه'));
+ check('ماه نهایی‌نشده برچسب دارد (کارکرد از ماژول حضور و غیاب)',html.includes('هنوز نهایی نشده'));
  check('باز کردن صفحه هیچ Save انجام نمی‌دهد',saves===0);
  const setForm=(date,tin,tout,note)=>{el('staffAttDate').value=date;el('staffAttIn').value=tin;el('staffAttOut').value=tout;el('staffAttNote').value=note};
  setForm('1405/07/11','08:00','16:00','دستگاه خاموش بود');await c.staffSaveAttendanceCorrection();
@@ -157,6 +160,7 @@ const file=(name,content)=>({name,text:async()=>content,arrayBuffer:async()=>new
  const added=server.hr.attendanceCorrections.at(-1);
  check('درخواست معتبر روی سند تازه hr ذخیره می‌شود',saves===1&&server.hr.attendanceCorrections.length===2&&added.personnelId==='P1'&&added.date==='1405/07/10'&&added.currentPairs[0].in==='08:00'&&added.currentPairs[0].out===''&&added.requestedOut==='16:00'&&added.status==='در انتظار');
  check('فیلدهای ناشناخته سند hr حفظ می‌شوند',server.hr.unknownRoot?.keep===1&&server.hr.attendanceLogs.length===2);
+ check('پنل پرسنل دیگر از ریز کارکرد قدیمی (attendanceLogs) نمی‌خواند',!/hr.attendanceLogs|RayoAttendance.summary/.test(staff));
  assert.strictEqual(added.id,'ATTC-00002');
  console.log(`PASS ${passed}: attendance import formats, monthly summary, corrections, admin wiring and staff request flow`);
 })().catch(e=>{console.error(e);process.exit(1)});

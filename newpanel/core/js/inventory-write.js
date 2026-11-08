@@ -43,9 +43,9 @@ const unitName=i=>S(i?.recipeUnit||i?.unit||i?.stockUnit||'واحد');
 // entry units: the stock (recipe) unit, plus the purchase unit when it is a different unit with a package size
 function unitsOf(i){const out=[{name:unitName(i),factor:1}],pk=Number(i?.packageQuantity);if(S(i?.purchaseUnit)&&pk>1&&E().UK(i.purchaseUnit)!==E().UK(unitName(i)))out.push({name:S(i.purchaseUnit),factor:pk});return out}
 function mainLocation(doc){const id=S(doc.settings?.mainLocationId);return A(doc.locations).find(l=>l.id===id)||A(doc.locations)[0]||(id?{id,name:''}:null)}
-function audit(doc,action,details,ctx){doc.changeLog=A(doc.changeLog);const row={id:`${ctx.module==='pricing'?'PLOG':ctx.module==='personnel'?'LOG':ctx.module==='suppliers'?'SLOG':ctx.module==='assets'?'ALOG':ctx.module==='finance'?'FLOG':ctx.module==='cashreport'?'CLOG':'ICT'}-${ctx.reqId}`,action,at:ctx.at,actor:ctx.actor,via:'ui-template',...details};
+function audit(doc,action,details,ctx){doc.changeLog=A(doc.changeLog);const row={id:`${ctx.module==='pricing'?'PLOG':ctx.module==='personnel'?'LOG':ctx.module==='suppliers'?'SLOG':ctx.module==='assets'?'ALOG':ctx.module==='finance'?'FLOG':ctx.module==='cashreport'?'CLOG':ctx.module==='attendance'?'ATL':'ICT'}-${ctx.reqId}`,action,at:ctx.at,actor:ctx.actor,via:'ui-template',...details};
  // pricing.changeLog is newest-first and the current panel keeps its first 500 rows, so pricing rows go to the front
- if(['pricing','personnel','suppliers','assets','finance','cashreport'].includes(ctx.module))doc.changeLog.unshift(row);else doc.changeLog.push(row);if(ctx.module==='cashreport')doc.changeLog=doc.changeLog.slice(0,500);return row}
+ if(['pricing','personnel','suppliers','assets','finance','cashreport','attendance'].includes(ctx.module))doc.changeLog.unshift(row);else doc.changeLog.push(row);if(ctx.module==='cashreport'||ctx.module==='attendance')doc.changeLog=doc.changeLog.slice(0,500);return row}
 function checkDate(doc,date,label='تاریخ'){if(!validDate(date))throw Error(`${label} معتبر نیست (مثال ۱۴۰۵/۰۸/۱۷)`);if(date>E().CAL.today)throw Error(`${label} نمی‌تواند در آینده باشد`);const c=closedPeriod(doc,date);if(c)throw Error(`دورهٔ ${c.from||''} تا ${c.to} بسته است`)}
 
 /* ---------- receipt (js/46 saveReceiptBatch, DIRECT_ENTRY) ---------- */
