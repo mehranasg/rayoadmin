@@ -23,7 +23,7 @@ const C=()=>window.RayoAttendanceCore;
 const MONTHS=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 const monthLength=(y,m)=>C()?.monthLength?C().monthLength(+y,+m):(m<=6?31:m<=11?30:29);
 const code=(y,m)=>(+y)*100+(+m);
-const label=(y,m)=>`${MONTHS[m-1]||m} ${y}`;
+const label=(y,m)=>`${MONTHS[m-1]||m} ${String(y).replace(/\d/g,d=>"۰۱۲۳۴۵۶۷۸۹"[d])}`;
 const D=s=>{const q=latin(s).trim().match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);return q?`${q[1]}/${pad(q[2])}/${pad(q[3])}`:''};
 const ymOf=s=>{const d=D(s);return d?[+d.slice(0,4),+d.slice(5,7)]:[0,0]};
 const VOID=['void','ابطال‌شده','لغوشده'];
@@ -163,7 +163,49 @@ function archive(hr){const s=startDate(hr);if(!s)return null;const before=d=>{co
   adjustments:A(hr.monthlyAdjustments).filter(x=>beforeYM(x.year,x.month)).map(x=>({id:x.id,month:`${x.year}/${pad(x.month)}`,personnelId:x.personnelId,name:nm(x.personnelId),hours:x.hoursOverride??'',overtimeHours:x.overtimeHours??'',undertimeHours:x.undertimeHours??'',otherPayment:x.otherPayment??'',otherDeduction:x.otherDeduction??'',notes:S(x.notes)})),
   settlements:A(hr.monthlySettlements).filter(x=>beforeYM(x.year,x.month)).flatMap(x=>A(x.rows).map(r=>({id:x.id,month:`${x.year}/${pad(x.month)}`,status:S(x.status),notes:S(x.notes),personnelId:r.personnelId,name:r.personnelName||nm(r.personnelId),amount:Math.round(N(r.amount))})))}}
 
+/* ---------- payments (stage 6b) ----------
+   advance → salary month = month of the payment date (not final); salary → a chosen month from the start to today,
+   the month in progress only as «تسویهٔ پایان همکاری» (finalSettlement); tip → the tip ledger; other → outside payroll.
+   checkPayment gives errors (refused) and warnings (shown, the user confirms); the form and the save use the same check. */
+function forecast(hr,p,y,m){const c=contractOf(p,y,m),len=monthLength(y,m),days=employedDays(p,y,m)||len;if(c.type==='fixed')return c.monthlySalary*days/len;if(c.type==='hourly')return c.hourly*(c.monthlyHours||c.agreedShifts*c.hoursPerShift)*days/len;return 0}
+const fmt=v=>Math.round(N(v)).toLocaleString('fa-IR');
+function checkPayment(hr,x,today,pending=[]){const cfg=config(hr),errors=[],warnings=[],p=A(hr?.personnel).find(q=>q.id===S(x.personnelId)),date=D(x.date),amount=N(x.amount),reason=cfg.reasons.find(r=>r.active&&r.title===S(x.reason)),kind=reason?.kind||'',[ty,tm]=ymOf(today),sd=startDate(hr);
+ const out={kind,year:0,month:0,errors,warnings,balance:null,tipBalance:null};
+ if(!p)errors.push('پرسنل را انتخاب کنید');if(!reason)errors.push('علت پرداخت را انتخاب کنید');if(!(amount>0))errors.push('مبلغ باید بیشتر از صفر باشد');
+ if(!date)errors.push('تاریخ پرداخت معتبر نیست');else{if(today&&date>D(today))errors.push('تاریخ پرداخت بعد از امروز است');if(!sd)errors.push('ماه شروع حقوق در تنظیمات تعیین نشده است');else if(date<sd)errors.push('تاریخ پرداخت قبل از شروع حقوق در نرم‌افزار است')}
+ if(S(x.method)&&!cfg.methods.includes(S(x.method)))errors.push('روش پرداخت در فهرست تنظیمات نیست');if(!S(x.method))errors.push('روش پرداخت را انتخاب کنید');
+ if(errors.length||!p)return out;const [dy,dm]=ymOf(date),others=[...A(hr.payments),...pending].filter(q=>q&&!isVoid(q)&&q.personnelId===p.id);
+ const name=label;
+ if(kind==='advance'){out.year=dy;out.month=dm;if(isClosed(hr,dy,dm))errors.push(`حقوق ${name(dy,dm)} قطعی شده است؛ مساعده برای ماه قطعی‌شده ثبت نمی‌شود`);
+  const f=forecast(hr,p,dy,dm),r=calc(hr,p,dy,dm,null,cfg),adv=others.filter(q=>reasonKind(hr,q,cfg)==='advance'&&N(q.salaryYear)===dy&&N(q.salaryMonth)===dm).reduce((s,q)=>s+N(q.amount),0);out.balance=f-adv-r.paid;
+  if(f>0&&adv+amount>f*cfg.advanceWarnPercent/100)warnings.push(`جمع مساعدهٔ ${name(dy,dm)} با این پرداخت ${fmt(adv+amount)} می‌شود؛ بیش از ${fmt(cfg.advanceWarnPercent)}٪ حقوق پیش‌بینی (${fmt(f)})`);
+  if(f>0&&adv+amount+r.paid>f)warnings.push('مساعده از حقوق پیش‌بینی ماه بیشتر می‌شود');if(!f)warnings.push('حقوق پیش‌بینی این نفر معلوم نیست (قرارداد کامل نیست)')}
+ else if(kind==='salary'){const y=N(x.year),m=N(x.month);out.year=y;out.month=m;if(!(y>0&&m>=1&&m<=12))errors.push('ماه حقوق را انتخاب کنید');else{const st=monthState(hr,y,m,today);
+   if(st==='before')errors.push('این ماه قبل از شروع حقوق در نرم‌افزار است');else if(st==='future')errors.push('ماه آینده است');
+   else{if(st==='current'){if(x.finalSettlement!==true)errors.push(`حقوق ${name(y,m)} هنوز تمام نشده است؛ برای این ماه فقط «مساعده» یا «تسویهٔ پایان همکاری»`);else if(!D(p.employmentEndDate))warnings.push('تاریخ پایان همکاری در پرونده ثبت نشده است؛ حقوق ثابت تا آخر ماه حساب شده — اول تاریخ پایان را ثبت کنید')}
+    else if(st==='open')warnings.push(`حقوق ${name(y,m)} هنوز قطعی نشده است؛ مبلغ ممکن است تغییر کند`);
+    const r=calc(hr,p,y,m,null,cfg),prior=pending.filter(q=>q.personnelId===p.id&&!isVoid(q)&&['advance','salary'].includes(q.reasonKind)&&N(q.salaryYear)===y&&N(q.salaryMonth)===m).reduce((s,q)=>s+N(q.amount),0);out.balance=r.balance-prior;
+    if(r.flags.some(f=>['hours','contract'].includes(f.k)))warnings.push(r.flags.filter(f=>['hours','contract'].includes(f.k)).map(f=>f.t).join('، ')+' — حقوق این ماه کامل حساب نشده');
+    if(out.balance<=0.5)warnings.push(`ماندهٔ حقوق ${name(y,m)} صفر یا منفی است`);else if(amount>out.balance+0.5)warnings.push(`مبلغ از ماندهٔ حقوق ${name(y,m)} (${fmt(out.balance)}) بیشتر است`)}}
+  if(x.recordBonus===true){const it=cfg.items.find(i=>i.active&&i.kind==='addition'&&i.title===S(x.reason));if(!it)errors.push('برای ثبت پاداش، نوعی با همین عنوان (اضافه به حقوق) در تنظیمات لازم است');else if(out.year&&isClosed(hr,out.year,out.month))errors.push('حقوق آن ماه قطعی شده است؛ پاداش در آن ثبت نمی‌شود')}}
+ else if(kind==='tip'){out.year=dy;out.month=dm;const t=tipLedger(hr,p.id),prior=pending.filter(q=>q.personnelId===p.id&&q.reasonKind==='tip'&&!isVoid(q)).reduce((s,q)=>s+N(q.amount),0);out.tipBalance=t.balance-prior;if(amount>out.tipBalance+0.5)warnings.push(`مبلغ از ماندهٔ انعام (${fmt(out.tipBalance)}) بیشتر است`)}
+ else if(kind==='other'){out.year=dy;out.month=dm;if(!S(x.notes))errors.push('برای پرداخت خارج از حقوق، توضیح لازم است')}
+ if(S(x.tracking)&&others.some(q=>S(q.tracking)&&S(q.tracking)===S(x.tracking)))errors.push('این شمارهٔ پیگیری قبلاً ثبت شده است');
+ if(others.some(q=>D(q.date)===date&&Math.round(N(q.amount))===Math.round(amount)&&reasonKind(hr,q,cfg)===kind))warnings.push('پرداخت همین مبلغ و همین علت برای همین نفر در همین روز قبلاً ثبت شده است');
+ return out}
+/* list: [{personnelId, reason, year, month, date, amount, method, accountKey, tracking, notes, finalSettlement, recordBonus}] */
+function addPayments(hr,ctx,list,today){if(!A(list).length)throw Error('پرداختی برای ثبت نیست');hr.payments=A(hr.payments);hr.penaltiesRewards=A(hr.penaltiesRewards);const made=[];
+ for(const x of list){/* earlier rows of the same save are already in hr.payments */const c=checkPayment(hr,x,today);if(c.errors.length)throw Error((A(hr.personnel).find(p=>p.id===x.personnelId)?.name||'')+': '+c.errors[0]);
+  const pay={id:uid('PAY',hr.payments),date:D(x.date),salaryYear:c.year,salaryMonth:c.month,personnelId:S(x.personnelId),type:S(x.reason),reasonKind:c.kind,amount:Math.round(N(x.amount)),method:S(x.method),accountKey:S(x.accountKey),sourceAccount:'',tracking:S(x.tracking),registeredBy:ctx.actor,referenceCode:'',notes:S(x.notes),sourcePayrollClosureId:closureOf(hr,c.year,c.month)?.id||'',sourceKey:`payroll:${S(x.personnelId)}:${c.year}:${c.month}`,...(x.finalSettlement===true&&c.kind==='salary'?{finalSettlement:true}:{}),createdAt:ctx.at,createdBy:ctx.actor};
+  if(x.recordBonus===true&&c.kind==='salary'){const row={id:uid('PR',hr.penaltiesRewards),date:pay.date,personnelId:pay.personnelId,type:pay.type,amount:pay.amount,reason:pay.notes||'پاداش پرداخت‌شده',status:'تاییدشده',approvedBy:ctx.actor,notes:'',year:c.year,month:c.month,source:'payment',sourceId:pay.id,createdAt:ctx.at,createdBy:ctx.actor};hr.penaltiesRewards.push(row);pay.bonusItemId=row.id}
+  hr.payments.push(pay);made.push(pay)}
+ ctx.auditExtra={payments:made.map(p=>p.id),total:made.reduce((s,p)=>s+p.amount,0)};return made}
+function voidPayment(hr,ctx,{id,reason}){const p=A(hr.payments).find(x=>x.id===id);if(!p)throw Error('پرداخت پیدا نشد');if(isVoid(p))throw Error('این پرداخت قبلاً ابطال شده است');if(!S(reason))throw Error('علت ابطال لازم است');
+ Object.assign(p,{status:'void',voidReason:S(reason),voidedAt:ctx.at,voidedBy:ctx.actor});
+ if(p.bonusItemId){const b=A(hr.penaltiesRewards).find(x=>x.id===p.bonusItemId);if(b&&b.status!=='لغوشده')Object.assign(b,{status:'لغوشده',cancelReason:'ابطال پرداخت '+p.id,cancelledAt:ctx.at,cancelledBy:ctx.actor})}
+ ctx.auditExtra={entityId:id,reason:S(reason),amount:N(p.amount)};return p}
+
 window.PayrollCore={MONTHS,KINDS,ITEM_KINDS,DEF_REASONS,DEF_ITEMS,DEF_METHODS,N,D,label,code,monthLength,config,reasonKind,itemKind,isManager,monthState,months,closureOf,isClosed,
  termsFor,contractOf,contractText,employedDays,adjOf,itemsOf,salaryPaymentsOf,inPayroll,calc,monthRows,monthSummary,earlierBalances,personMonths,
- tipShares,tipLedger,tipGroupsFrom,tipPaymentsFrom,sig,saveWork,saveSettings,itemSalaryMonth,archive,isVoid};
+ tipShares,tipLedger,tipGroupsFrom,tipPaymentsFrom,sig,saveWork,saveSettings,itemSalaryMonth,archive,isVoid,forecast,checkPayment,addPayments,voidPayment};
 })();

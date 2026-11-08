@@ -84,6 +84,35 @@ ok(res.effective==='1405/07'&&c.personnel[0].salaryContract.approximateHourly===
 throws(()=>PW.saveSalaryTerms(c,ctx(),{id:'F',type:'fixedMonthly',monthlySalary:1,effective:'1405/06'}),/قبل از شروع/,'contract before the start month refused');
 // archive
 const a=PC.archive(hr);ok(a.tipShares.length===1&&a.tipShares[0].amount===900000&&a.payments.map(x=>x.id).join()==='PAY-00005'&&a.items.map(x=>x.id).join()==='PR-00004'&&a.settlements.length===1,'archive: everything recorded before the start month');
+// payments (stage 6b)
+{let q=clone(hr0);const base={personnelId:'F',date:'1405/08/10',method:'نقدی',amount:1000000};
+ let c=PC.checkPayment(q,{...base,reason:'مساعده'},T);ok(!c.errors.length&&c.kind==='advance'&&c.year===1405&&c.month===8,'advance: salary month = month of the payment date');
+ c=PC.checkPayment(q,{...base,reason:'مساعده',amount:20000000},T);ok(c.warnings.some(w=>/پیش‌بینی/.test(w)),'advance above the warning percent: warning only');
+ c=PC.checkPayment(q,{...base,reason:'تسویه حقوق',year:1405,month:8},T);ok(c.errors.some(e=>/تمام نشده/.test(e)),'salary of the month in progress refused without «تسویهٔ پایان همکاری»');
+ c=PC.checkPayment(q,{...base,reason:'تسویه حقوق',year:1405,month:8,finalSettlement:true},T);ok(!c.errors.length&&c.warnings.some(w=>/پایان همکاری/.test(w)),'final settlement in the month in progress allowed; missing end date warned');
+ c=PC.checkPayment(q,{...base,personnelId:'X',reason:'تسویه حقوق',year:1405,month:8,finalSettlement:true,amount:5000000},T);ok(!c.errors.length&&!c.warnings.some(w=>/پایان همکاری/.test(w))&&c.balance===10000000,'leaver with end date: balance of the prorated month');
+ c=PC.checkPayment(q,{...base,reason:'تسویه حقوق',year:1405,month:7,amount:99000000},T);ok(c.warnings.some(w=>/بیشتر است/.test(w))&&c.warnings.some(w=>/قطعی نشده/.test(w)),'salary above the balance and month not final: warnings');
+ c=PC.checkPayment(q,{...base,reason:'تسویه حقوق',year:1405,month:6},T);ok(c.errors.some(e=>/قبل از شروع/.test(e)),'salary month before the start refused');
+ c=PC.checkPayment(q,{...base,reason:'پرداخت انعام',amount:500000},T);ok(c.kind==='tip'&&c.tipBalance===0&&c.warnings.some(w=>/انعام/.test(w)),'tip payment above the tip balance warned');
+ c=PC.checkPayment(q,{...base,reason:'x'},T);ok(c.errors.some(e=>/علت/.test(e)),'unknown or inactive reason refused');
+ c=PC.checkPayment(q,{...base,reason:'مساعده',date:'1405/09/01'},T);ok(c.errors.some(e=>/بعد از امروز/.test(e)),'future date refused');
+ c=PC.checkPayment(q,{...base,reason:'مساعده',date:'1405/06/30'},T);ok(c.errors.some(e=>/قبل از شروع/.test(e)),'date before the start refused');
+ c=PC.checkPayment(q,{...base,reason:'مساعده',method:'چک'},T);ok(c.errors.some(e=>/روش/.test(e)),'method outside the settings refused');
+ q.settings.paymentReasons=[...PC.config(q).reasons,{title:'وام',kind:'other',active:true}];c=PC.checkPayment(q,{...base,reason:'وام'},T);ok(c.errors.some(e=>/توضیح/.test(e)),'payment outside payroll needs a note');
+ const made=PC.addPayments(q,ctx(),[{...base,reason:'تسویه حقوق',year:1405,month:7,amount:3000000,tracking:'۱۲۳'}],T)[0];
+ ok(made.id==='PAY-00006'&&made.salaryYear===1405&&made.salaryMonth===7&&made.reasonKind==='salary'&&made.registeredBy==='qa'&&made.tracking==='۱۲۳'&&PC.calc(q,p('F'),1405,7).paid===23000000,'salary payment recorded (numeric salary month, actor) and counted in the month');
+ throws(()=>PC.addPayments(q,ctx(),[{...base,reason:'تسویه حقوق',year:1405,month:7,tracking:'۱۲۳'}],T),/پیگیری/,'duplicate tracking number refused');
+ ok(PC.checkPayment(q,{...base,reason:'تسویه حقوق',year:1405,month:7,amount:3000000},T).warnings.some(w=>/همین روز/.test(w)),'same person, amount, reason and day: warning');
+ const bon=PC.addPayments(q,ctx(),[{...base,reason:'پاداش',year:1405,month:7,amount:400000,recordBonus:true,notes:'فروش خوب'}],T)[0],pr=q.penaltiesRewards.find(x=>x.id===bon.bonusItemId);
+ ok(pr&&pr.type==='پاداش'&&pr.status==='تاییدشده'&&pr.month===7&&pr.amount===400000,'bonus payment also records the bonus in the month');
+ const before=PC.calc(q,p('F'),1405,7);PC.voidPayment(q,ctx(),{id:bon.id,reason:'اشتباه'});ok(q.payments.find(x=>x.id===bon.id).status==='void'&&pr.status==='لغوشده'&&PC.calc(q,p('F'),1405,7).net===before.net-400000,'void: payment kept as void, its bonus cancelled');
+ throws(()=>PC.voidPayment(q,ctx(),{id:bon.id,reason:'x'}),/قبلاً/,'void twice refused');throws(()=>PC.voidPayment(q,ctx(),{id:made.id,reason:''}),/علت/,'void needs a reason');
+ q.tipGroups.push({id:'T9',receiveDate:'1405/08/05',totalAmount:600000,participants:[{personnelId:'X',weight:1}]});
+ const two=PC.addPayments(q,ctx(),[{personnelId:'X',reason:'تسویه حقوق',year:1405,month:8,finalSettlement:true,date:'1405/08/12',amount:10000000,method:'نقدی'},{personnelId:'X',reason:'پرداخت انعام',date:'1405/08/12',amount:600000,method:'نقدی'}],T);
+ ok(two.length===2&&two[0].finalSettlement===true&&PC.calc(q,p('X'),1405,8).balance===0&&PC.tipLedger(q,'X').balance===0,'final settlement of a leaver with his tips: two records in one save');
+ q.payrollClosures=[{year:1405,month:8,active:true}];ok(PC.checkPayment(q,{...base,reason:'مساعده'},T).errors.some(e=>/قطعی/.test(e)),'advance for a final month refused')}
+// staff panel: advance requests retired
+{const s22=fs.readFileSync(path.join(__dirname,'js/22-staff-panel.js'),'utf8');ok(!s22.includes("['advance','💰','درخواست مساعده']")&&/async function staffSaveAdvance\(\)\{return toastStaff/.test(s22)&&!/d\.advanceRequests/.test(s22),'staff panel: no advance request menu and no write')}
 // static checks of the pages
 const pr=fs.readFileSync(path.join(__dirname,'newpanel/js/pages/payroll-real.js'),'utf8'),ix=fs.readFileSync(path.join(__dirname,'newpanel/index.html'),'utf8');
 ok(ix.includes('core/js/payroll-core.js')&&ix.includes('js/pages/payroll-real.js')&&!ix.includes('payroll-engine.js'),'index loads the new payroll files only');
