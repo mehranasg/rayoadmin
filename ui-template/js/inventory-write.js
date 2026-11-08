@@ -43,9 +43,9 @@ const unitName=i=>S(i?.recipeUnit||i?.unit||i?.stockUnit||'واحد');
 // entry units: the stock (recipe) unit, plus the purchase unit when it is a different unit with a package size
 function unitsOf(i){const out=[{name:unitName(i),factor:1}],pk=Number(i?.packageQuantity);if(S(i?.purchaseUnit)&&pk>1&&E().UK(i.purchaseUnit)!==E().UK(unitName(i)))out.push({name:S(i.purchaseUnit),factor:pk});return out}
 function mainLocation(doc){const id=S(doc.settings?.mainLocationId);return A(doc.locations).find(l=>l.id===id)||A(doc.locations)[0]||(id?{id,name:''}:null)}
-function audit(doc,action,details,ctx){doc.changeLog=A(doc.changeLog);const row={id:`${ctx.module==='pricing'?'PLOG':'ICT'}-${ctx.reqId}`,action,at:ctx.at,actor:ctx.actor,via:'ui-template',...details};
+function audit(doc,action,details,ctx){doc.changeLog=A(doc.changeLog);const row={id:`${ctx.module==='pricing'?'PLOG':ctx.module==='personnel'?'LOG':ctx.module==='suppliers'?'SLOG':ctx.module==='assets'?'ALOG':ctx.module==='finance'?'FLOG':'ICT'}-${ctx.reqId}`,action,at:ctx.at,actor:ctx.actor,via:'ui-template',...details};
  // pricing.changeLog is newest-first and the current panel keeps its first 500 rows, so pricing rows go to the front
- if(ctx.module==='pricing')doc.changeLog.unshift(row);else doc.changeLog.push(row);return row}
+ if(['pricing','personnel','suppliers','assets','finance'].includes(ctx.module))doc.changeLog.unshift(row);else doc.changeLog.push(row);return row}
 function checkDate(doc,date,label='تاریخ'){if(!validDate(date))throw Error(`${label} معتبر نیست (مثال ۱۴۰۵/۰۸/۱۷)`);if(date>E().CAL.today)throw Error(`${label} نمی‌تواند در آینده باشد`);const c=closedPeriod(doc,date);if(c)throw Error(`دورهٔ ${c.from||''} تا ${c.to} بسته است`)}
 
 /* ---------- receipt (js/46 saveReceiptBatch, DIRECT_ENTRY) ---------- */
@@ -119,6 +119,29 @@ function addCount(doc,ctx,{date,entries,note}){date=D(date);checkDate(doc,date,'
  for(const [id,rv] of touched){const s=byId.get(id)||target;s.coverage={counted:s.lines.length,total};if(created&&s===target)continue;s.revisionHistory=A(s.revisionHistory);s.revisionHistory.push(rv);s.updatedAt=ctx.at;s.updatedBy=ctx.actor;if(S(note)&&s===target)s.notes=S(s.notes)?`${S(s.notes)} | ${S(note)}`:S(note)}
  return{id:target.id,created,count:rows.length,replaced}}
 
+/* ---------- inventory settings (stage 11) ----------
+   control levels (js/32 saveControlLevels): settings.itemControlLevels {id: LIGHT|PRECISE|PARKED}, lightMaxGapDays 7…730
+   fryer oil (js/32 saveFryerSettings): settings.fryerOil {ingredientId, density 0.5…1.2, logFrom, fryers[{id,name,liters}]}
+   and settings.tableItems; reorder points (js/08 ingredient edit, read by js/40 reorderPointValue): pricing.ingredients[]
+   .reorderPoint / .targetStock (empty = none). */
+const LEVELS=['LIGHT','PRECISE','PARKED'];
+const levelOf=(doc,id)=>{const v=doc?.settings?.itemControlLevels?.[id];return LEVELS.includes(v)?v:'LIGHT'};
+function saveControlLevels(doc,ctx,{levels,gap}){doc.settings=doc.settings||{};const next={...(doc.settings.itemControlLevels||{})},changes=[];
+ for(const [id,v0] of Object.entries(levels||{})){const v=LEVELS.includes(v0)?v0:'LIGHT',old=levelOf(doc,id);if(v!==old){changes.push({ingredientId:id,before:old,after:v});next[id]=v}}
+ const curGap=Number(doc.settings.lightMaxGapDays)||90,g=gap===undefined||S(gap)===''?curGap:N(gap);if(!Number.isInteger(g)||g<7||g>730)throw Error('حداکثر فاصلهٔ شمارش باید عدد صحیح بین ۷ تا ۷۳۰ روز باشد');
+ if(!changes.length&&g===curGap)throw Error('تغییری انتخاب نشده است');doc.settings.itemControlLevels=next;doc.settings.lightMaxGapDays=g;ctx.auditExtra={changes,lightMaxGapDays:g};return{changes:changes.length,gap:g}}
+function saveFryerSettings(doc,ctx,input){doc.settings=doc.settings||{};const ing=ingredients(ctx.pricing),fryers=A(input.fryers).map((f,i)=>({id:S(f.id)||`FR-${i+1}`,name:S(f.name),liters:N(f.liters)})).filter(f=>f.name||f.liters>0);
+ if(!fryers.length||fryers.some(f=>!f.name||!(f.liters>0)))throw Error('برای هر سرخ‌کن نام و گنجایش (لیتر) لازم است');if(new Set(fryers.map(f=>f.id)).size!==fryers.length)throw Error('شناسهٔ سرخ‌کن تکراری است');
+ const density=N(input.density);if(!(density>0.5&&density<1.2))throw Error('چگالی روغن باید بین ۰٫۵ و ۱٫۲ کیلو بر لیتر باشد');if(!ing.get(S(input.ingredientId)))throw Error('قلم روغن سرخ‌کردنی را انتخاب کنید');
+ const logFrom=S(input.logFrom)?D(input.logFrom):'';if(S(input.logFrom)&&!validDate(logFrom))throw Error('تاریخ شروع دفتر تعویض نامعتبر است');
+ const tableItems=[...new Set(A(input.tableItems).map(S).filter(id=>ing.get(id)))],prev=doc.settings.fryerOil||{};ctx.auditExtra={before:{fryerOil:clone(prev),tableItems:A(doc.settings.tableItems)}};
+ doc.settings.fryerOil={...prev,ingredientId:S(input.ingredientId),density,logFrom,fryers,weights:prev.weights&&typeof prev.weights==='object'?prev.weights:{},updatedAt:ctx.at,updatedBy:ctx.actor};doc.settings.tableItems=tableItems;return doc.settings.fryerOil}
+// pricing document: {id: {reorderPoint, targetStock}} with '' = clear
+function saveReorderPoints(pr,ctx,{rows}){const ing=new Map(A(pr.ingredients).map(i=>[i.id,i])),changes=[],val=v=>{if(v===null||v===undefined||S(v)==='')return null;const n=N(v);if(!(n>=0))throw Error('نقطهٔ سفارش و موجودی هدف باید خالی، صفر یا عدد مثبت باشند');return n};
+ for(const [id,x] of Object.entries(rows||{})){const i=ing.get(id);if(!i)continue;const rp=val(x.reorderPoint),ts=val(x.targetStock),orp=i.reorderPoint===undefined||i.reorderPoint===''?null:i.reorderPoint,ots=i.targetStock===undefined||i.targetStock===''?null:i.targetStock;
+  if(rp!==(orp===null?null:Number(orp))||ts!==(ots===null?null:Number(ots))){changes.push({ingredientId:id,before:{reorderPoint:orp,targetStock:ots},after:{reorderPoint:rp,targetStock:ts}});i.reorderPoint=rp;i.targetStock=ts;i.updatedAt=ctx.at}}
+ if(!changes.length)throw Error('تغییری داده نشده است');ctx.auditExtra={changes};return changes.length}
+
 /* ---------- protected save ---------- */
 const state={busy:false,uncertain:false};
 function validDoc(doc){return !!doc&&typeof doc==='object'&&Array.isArray(doc.stocktakes)&&Array.isArray(doc.inventoryMovements)}
@@ -142,6 +165,6 @@ async function edit(io,{action,details={},mutate}){
   catch(e){if(sent){try{const c=await io.load();if(S(c?.meta?.serverSaveToken)===after.meta.serverSaveToken&&content(c)===content(after))return{out,doc:c}}catch(_){}state.uncertain=true}throw e}
  }finally{state.busy=false}}
 
-window.InvWrite={EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+window.InvWrite={LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,addEvent,voidEvent,addOilChange,addCount,findEvent,edit};
 })();

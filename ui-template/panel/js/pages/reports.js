@@ -82,7 +82,7 @@ function ai(){
 }
 function mountAi(root){
   const draw=()=>{const sec=P.$$('[data-sec]',root).filter(c=>c.checked).map(c=>c.dataset.sec),f=P.$('#aiFmt .active',root).dataset.f;P.$('#aiPre',root).textContent=aiBundle(sec,f);return f};
-  root.addEventListener('change',draw);
+  (P.$('#pnTab',root)||root).addEventListener('change',draw);
   P.$('#aiFmt',root).onclick=e=>{const b=e.target.closest('button');if(!b)return;P.$$('#aiFmt button',root).forEach(x=>x.classList.toggle('active',x===b));draw()};
   P.$('#aiCopy',root).onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(P.$('#aiPre',root).textContent);P.toast('کپی شد — در چت AI بچسبانید')};
   P.$('#aiDl',root).onclick=()=>{const f=draw(),blob=new Blob([P.$('#aiPre',root).textContent],{type:f==='json'?'application/json':'text/markdown'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='rayo-1405-07.'+(f==='json'?'json':'md');a.click();URL.revokeObjectURL(a.href)};

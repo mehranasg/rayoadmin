@@ -99,6 +99,25 @@ const full=PW.addQuickInvoice(I,ctx(),{supplierId:'SUP-1',date:day(1),amount:200
  c=ctx();PW.voidDirectDebt(I6,c,{id:op.id,reason:'اصلاح'});ok(op.status==='void'&&c.auditExtra.before.status==='active'&&PW.supplierAccount(I6,'SUP-1').balance===700000+300000+150000-500000,'voiding the opening counts all documents again');
  ok(PW.addDirectDebt(I6,ctx(),{supplierId:'SUP-1',debtType:'opening',date:day(5),amount:1800000,description:'اصلاح‌شده',coverageConfirmed:true},{suppliers:sup}).calculatedBalanceToman===700000,'a new opening on the same date after void')}
 
+// 3d. edit invoice / payment, purchase orders
+{const I7=inv(),P7=pr();const r7=PW.addInvoice(I7,ctx(),{supplierId:'SUP-1',number:'E1',date:day(4),status:'draft',lines:[{itemId:'ING-1',quantity:1}]},{pricing:P7,suppliers:sup});
+ c=ctx();const e1=PW.editInvoice(I7,c,{id:r7.id,supplierId:'SUP-1',number:'E1',date:day(4),status:'finalized',lines:[{itemId:'ING-1',quantity:2,packageQuantity:1,unitPrice:420000,updateCatalogPrice:true}]},{pricing:P7,suppliers:sup});
+ ok(e1.id===r7.id&&e1.status==='finalized'&&e1.totalToman===840000&&e1.pricingSyncStatus==='pending'&&c.auditExtra.before.status==='draft'&&I7.purchaseInvoices.length===1,'draft edited to final in place, prices pending');
+ throws(()=>PW.editInvoice(I7,ctx(),{id:r7.id,supplierId:'SUP-1',number:'E1',date:day(4),status:'draft',lines:[{itemId:'ING-1',quantity:1,packageQuantity:1,unitPrice:0}]},{pricing:P7,suppliers:sup}),/مثبت/,'a final invoice stays final (needs prices)');
+ I7.stockReceipts=[{id:'RC1',invoiceId:r7.id,ingredientId:'ING-1',quantity:2,status:'posted'}];
+ throws(()=>PW.editInvoice(I7,ctx(),{id:r7.id,supplierId:'SUP-2',number:'E1',date:day(4),lines:[{itemId:'ING-1',quantity:2,packageQuantity:1,unitPrice:1}]},{pricing:P7,suppliers:sup}),/رسید/,'linked receipt: supplier cannot change');
+ throws(()=>PW.editInvoice(I7,ctx(),{id:r7.id,supplierId:'SUP-1',number:'E1',date:day(4),lines:[{itemId:'ING-1',quantity:1,packageQuantity:1,unitPrice:1}]},{pricing:P7,suppliers:sup}),/کمتر/,'linked receipt: quantity cannot drop below received');
+ const q7=PW.addQuickInvoice(I7,ctx(),{supplierId:'SUP-2',date:day(3),amount:1000},{suppliers:sup}).row;PW.editInvoice(I7,ctx(),{id:q7.id,supplierId:'SUP-2',number:'Q9',date:day(3),amount:'۲٬۰۰۰',lines:[]},{pricing:P7,suppliers:sup});ok(q7.totalToman===2000&&q7.hasLineDetails===false&&q7.invoiceNumber==='Q9','quick invoice edit keeps it quick');
+ const p7=PW.addPayment(I7,ctx(),{supplierId:'SUP-2',invoiceId:q7.id,date:day(2),amount:500,paymentLocationId:'PAYLOC-1',reference:'P-1'},{suppliers:sup});c=ctx();
+ PW.editPayment(I7,c,{id:p7.id,supplierId:'SUP-2',invoiceId:q7.id,date:day(2),amount:800,paymentLocationId:'PAYLOC-1',reference:'P-1'},{suppliers:sup});
+ ok(p7.amount===800&&p7.id&&I7.supplierPayments.length===1&&c.auditExtra.before.amount===500&&p7.updatedBy==='qa-admin','payment edited in place (own reference allowed)');
+ PW.addPayment(I7,ctx(),{supplierId:'SUP-2',date:day(2),amount:1,paymentLocationId:'PAYLOC-1',reference:'P-2'},{suppliers:sup});throws(()=>PW.editPayment(I7,ctx(),{id:p7.id,supplierId:'SUP-2',date:day(2),amount:1,paymentLocationId:'PAYLOC-1',reference:'P-2'},{suppliers:sup}),/مرجع/,'edited payment cannot take another payment\'s reference');
+ const S7=JSON.parse(JSON.stringify(sup));S7.purchaseRequests=[];const o=PW.addOrder(S7,ctx(),{supplierId:'SUP-1',date:day(1),eta:T,lines:[{itemId:'ING-1',quantity:'۳',packageQuantity:1,unitPrice:400000}]},{pricing:P7});
+ ok(o.supplierCode==='S1'&&o.status==='ثبت‌شده'&&o.lines[0].purchaseQuantity===3&&S7.purchaseRequests[0]===o,'purchase order like js/42');
+ throws(()=>PW.addOrder(S7,ctx(),{supplierId:'SUP-1',date:T,eta:day(1),lines:[{itemId:'ING-1',quantity:1}]},{pricing:P7}),/قبل از/,'delivery before order refused');
+ throws(()=>PW.trackOrder(S7,ctx(),{id:o.id,status:'تحویل‌شده'}),/تحویل واقعی/,'delivered needs the actual date');
+ PW.trackOrder(S7,ctx(),{id:o.id,status:'تحویل‌شده',actual:T});ok(o.status==='تحویل‌شده'&&o.actualDeliveryDate===T,'order tracking');throws(()=>PW.trackOrder(S7,ctx(),{id:o.id,status:'لغوشده'}),/علت لغو/,'cancel needs a note')}
+
 // 4. two-module save order (inventory then pricing) through the protected save
 (async()=>{const srv={inventory:JSON.stringify(inv()),pricing:JSON.stringify(pr())},saves=[];
  const io=m=>({module:m,validate:m==='pricing'?window.MenuWrite.validPricing:d=>Array.isArray(d.stocktakes)&&Array.isArray(d.inventoryMovements),load:async()=>JSON.parse(srv[m]),save:async d=>{saves.push(m);srv[m]=JSON.stringify(d)},actor:()=>'qa-admin',pricing:()=>JSON.parse(srv.pricing)});

@@ -41,7 +41,7 @@ P.actions.cashClose=()=>P.form({title:'بستن صندوق شیفت',size:'wide'
     ${P.field('تحویل نقد به',`<select class="select">${P.opts([['a1','صندوق نقدی (می‌ماند)'],['owner','تحویل به مالک'],['bank','واریز به بانک']])}</select>`)}
     </div><div class="sum-box"><span>اختلاف (کسری/اضافه)</span><b id="ccDiff">—</b></div>`,
   onMount:m=>{const calc=()=>{const v=n=>P.num(P.$(`[name=${n}]`,m).value);const tp=c=>['shift','all','person'].reduce((a,k)=>a+v('t_'+k+'_'+c),0);const d=(v('card')-tp('card'))+v('cash')+(v('tr')-tp('transfer'))+v('exp')-v('pos');
-    P.$('#ccDiff',m).innerHTML=`<span class="${d<0?'down':d>0?'up':''}">${d<0?'کسری ':d>0?'اضافه ':''}${P.t(Math.abs(d))}</span> <small class="muted">تومان</small>`};m.addEventListener('input',calc);calc()},
+    P.$('#ccDiff',m).innerHTML=`<span class="${d<0?'down':d>0?'up':''}">${d<0?'کسری ':d>0?'اضافه ':''}${P.t(Math.abs(d))}</span> <small class="muted">تومان</small>`};P.$('.modal-body',m).addEventListener('input',calc);calc()},
   onOk:f=>{const v=n=>P.num(f[n].value);['shift','all','person'].forEach(k=>['card','cash','transfer'].forEach(c=>{const a=v('t_'+k+'_'+c);if(a>0)D.TIP_IN.push({date:D.TODAY,shift:'عصر',src:c,target:k,sid:k==='person'?f.t_sid.value:undefined,amount:a,spot:c==='cash',by:'s1'})}));
     P.toast('گزارش صندوق ثبت شد؛ فروش روز، انعام و ماندهٔ حساب‌ها به‌روز شد')}});
 
@@ -202,7 +202,7 @@ function assetsTab(){
 P.respPick=(resp='staff',share='',cost=0)=>`<div class="field"><label>هزینه با چه کسی؟</label><div class="segmented" data-resp>${[['company','کامل با مجموعه'],['staff','کامل با پرسنل'],['share','سهمی با پرسنل']].map(([k,t])=>`<button type="button" data-r="${k}" class="${k===resp?'active':''}">${t}</button>`).join('')}</div>
   <div class="row mt" data-share ${resp==='share'?'':'hidden'}><div class="input-group" style="max-width:150px"><input class="input num" name="sharePct" placeholder="مثلاً ۵۰" value="${resp==='share'&&cost?P.fa(Math.round(share/cost*100)):''}"><span class="suffix">٪</span></div><span class="muted">یا</span><div class="input-group" style="max-width:200px"><input class="input money num" name="shareAmt" placeholder="مبلغ" value="${resp==='share'&&share?P.t(share):''}"><span class="suffix">تومان</span></div></div>
   <small class="muted">سهم پرسنل پس از تأیید، سند خسارت در حساب همان نفر می‌شود و در حقوق ماه کسر می‌شود.</small></div>`;
-P.respBind=m=>m.addEventListener('click',e=>{const b=e.target.closest('[data-resp] button');if(!b)return;const g=b.parentNode;g.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));g.parentNode.querySelector('[data-share]').hidden=b.dataset.r!=='share'});
+P.respBind=m=>P.$('.modal-body',m).addEventListener('click',e=>{const b=e.target.closest('[data-resp] button');if(!b)return;const g=b.parentNode;g.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));g.parentNode.querySelector('[data-share]').hidden=b.dataset.r!=='share'});
 P.respRead=(f,cost)=>{const r=f.querySelector('[data-resp] .active').dataset.r;if(r!=='share')return{resp:r,share:r==='staff'?cost:0};
   const amt=P.num(f.shareAmt.value),pct=P.num(f.sharePct.value);return{resp:'share',share:Math.min(cost,amt||Math.round(cost*pct/100/10000)*10000)}};
 P.respBadge=e=>e.resp==='company'?P.b('مجموعه','neutral',1):e.resp==='staff'?P.b('کامل با '+P.staff(e.by).name,'warning',1):P.b('سهم '+P.staff(e.by).name+': '+P.t(e.share),'warning',1);

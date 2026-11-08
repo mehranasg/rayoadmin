@@ -147,7 +147,9 @@ function positions(M,date){const t1=CAL.i(date)+1,out=new Map,row=id=>{if(!out.h
  for(const s of M.sales)for(const l of A(s.lines)){const ld=l.date?CAL.i(l.date):null,a=ld??s.a,b=ld??s.b,n=b-a+1,q=N(l.quantity),dEnd=ld!==null?D(l.date):D(s.to||s.date);
   for(const rl of M.recipeAt(l.menuItemId,dEnd)){if(!M.recipeDeducts(rl.ingredientId,dEnd))continue;const i=M.ing.get(rl.ingredientId),per=M.gross(i,rl,1);if(!Number.isFinite(per))continue;const r=row(rl.ingredientId),lo=Math.max(a,from(r)),hi=Math.min(b,t1-1),part=Math.max(0,hi-lo+1)/n;if(part>0)r.sales+=per*q*part}}
  for(const r of out.values()){r.qty=r.base===null&&!r.receipt?null:(r.base||0)+r.receipt-r.sales-r.waste-r.auth;if(r.base===null)r.flags.add('noCount');if(r.qty!==null&&r.qty<-1e-6)r.flags.add('negative');r.cost=M.costAt(r.id,date);r.value=r.qty===null||r.cost===null?null:Math.max(0,r.qty)*r.cost;
-  const tr=A(M.inv.trackedIngredients).find(x=>x.ingredientId===r.id),i=M.ing.get(r.id);r.reorderPoint=Number(tr?.reorderPoint||i?.reorderPoint||0);r.target=Number(tr?.targetStock||0)||r.reorderPoint*2;r.needOrder=r.reorderPoint>0&&r.qty!==null&&r.qty<=r.reorderPoint;r.supplierId=tr?.supplierId||''}
+  const tr=A(M.inv.trackedIngredients).find(x=>x.ingredientId===r.id),i=M.ing.get(r.id);// js/40 reorderPointValue: the item's own reorderPoint wins, then the legacy trackedIngredients value; need = stock ≤ point
+  const has=(o,k)=>!!o&&Object.prototype.hasOwnProperty.call(o,k)&&o[k]!==''&&o[k]!==null&&o[k]!==undefined,pt=has(i,'reorderPoint')?Number(i.reorderPoint):has(tr,'reorderPoint')?Number(tr.reorderPoint):null;r.reorderPoint=Number.isFinite(pt)&&pt>=0?pt:0;r.hasReorderPoint=Number.isFinite(pt)&&pt>=0;
+  r.target=has(i,'targetStock')?Number(i.targetStock):has(tr,'targetStock')?Number(tr.targetStock):r.reorderPoint*2;r.needOrder=r.hasReorderPoint&&r.qty!==null&&r.qty<=r.reorderPoint;r.supplierId=tr?.supplierId||''}
  return[...out.values()]}
 
 /* ---------- Beverage daily control ---------- */

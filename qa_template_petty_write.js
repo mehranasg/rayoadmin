@@ -1,0 +1,56 @@
+// QA: ui-template/js/petty-write.js — petty cash cards, top-ups, expenses, controls, decisions, month close (synthetic data only).
+// Run: node qa_template_petty_write.js
+'use strict';
+const fs=require('fs'),path=require('path');
+global.window={};
+for(const f of ['inventory-engine.js','petty-write.js'])eval(fs.readFileSync(path.join(__dirname,'ui-template/js',f),'utf8'));
+const PW=window.PettyWrite,E=window.InvEngine,C=E.CAL;
+let pass=0,fail=0;const ok=(c,m)=>{if(c)pass++;else{fail++;console.log('FAIL:',m)}};
+const throws=(f,re,m)=>{try{f();ok(false,m+' (no error)')}catch(e){ok(re.test(e.message),m+' → '+e.message)}};
+const T=C.today,day=k=>C.k(C.i(T)-k),thisMonth=T.slice(0,7);
+// previous month: the first day of this month minus one
+const prevEnd=C.k(C.i(thisMonth+'/01')-1),prevMonth=prevEnd.slice(0,7),inPrev=prevMonth+'/10';
+const pricing={ingredients:[{id:'ING-1',name:'لیمو ترش',purchaseUnit:'کیلوگرم',lastPurchasePriceToman:200000},{id:'ING-2',name:'شیر',purchaseUnit:'لیتر',lastPurchasePriceToman:80000}]};
+const inventory={trackedIngredients:[{ingredientId:'ING-2'}]};
+const fin={meta:{updatedAt:'x'},entries:[],monthlyOverrides:[],changeLog:[],parties:[{id:'keep'}]};
+const ctx=()=>({actor:'qa-admin',at:new Date().toISOString(),reqId:'R'+(pass+fail),module:'finance',pricing});
+
+ok(PW.validFinance(fin)&&!PW.validFinance({code:500,message:'no'})&&!PW.validFinance([]),'finance document check');
+throws(()=>PW.addCard(fin,ctx(),{holderName:'علی',last4:'12'}),/چهار رقم/,'card needs last 4 digits');
+const c=PW.addCard(fin,ctx(),{holderPersonnelId:'P-1',holderName:'علی',last4:'۴۲۱۸',limitToman:'15,000,000',openingToman:'1000000',openedAt:prevMonth+'/01'});
+ok(c.id==='PCC-001'&&c.last4==='4218'&&c.openingToman===1000000&&fin.parties[0].id==='keep','card created, other finance data kept');
+throws(()=>PW.addCard(fin,ctx(),{holderName:'رضا',last4:'4218'}),/همین چهار رقم/,'duplicate active card refused');
+const t=PW.addTopup(fin,ctx(),{cardId:c.id,date:inPrev,amountToman:'۵٬۰۰۰٬۰۰۰'});ok(t.id==='PCT-00001'&&t.amountToman===5000000,'top-up');
+throws(()=>PW.addTopup(fin,ctx(),{cardId:c.id,date:C.k(C.i(T)+1),amountToman:1}),/بعد از امروز/,'future top-up refused');
+throws(()=>PW.addExpense(fin,ctx(),{cardId:c.id,date:inPrev,categoryId:'produce',merchant:'میوه‌فروشی',amountToman:100000}),/علت/,'purpose required');
+const e1=PW.addExpense(fin,ctx(),{cardId:c.id,date:inPrev,time:'10:00',categoryId:'produce',merchant:'میوه‌فروشی',purpose:'لیمو بار',hasReceipt:true,lines:[{ingredientId:'ING-1',qty:'2',unitPrice:'290000'}],amountToman:''});
+ok(e1.id==='PCE-00001'&&e1.amountToman===580000&&e1.lines[0].name==='لیمو ترش'&&e1.lines[0].unit==='کیلوگرم','expense amount from lines, name and unit from catalog');
+throws(()=>PW.addExpense(fin,ctx(),{cardId:c.id,date:inPrev,categoryId:'produce',merchant:'x',purpose:'y',lines:[{name:'a',qty:1,unitPrice:1000}],amountToman:5000}),/نمی‌خواند/,'lines total must match amount');
+const e2=PW.addExpense(fin,ctx(),{cardId:c.id,date:inPrev,time:'07:30',categoryId:'other',merchant:'کارواش',purpose:'شستشو',amountToman:1000000});
+const e3=PW.addExpense(fin,ctx(),{cardId:c.id,date:inPrev,time:'11:00',categoryId:'dairy',merchant:'لبنیاتی',purpose:'شیر',hasReceipt:true,lines:[{ingredientId:'ING-2',qty:10,unitPrice:80000}]});
+const e4=PW.addExpense(fin,ctx(),{cardId:c.id,date:inPrev,time:'11:20',categoryId:'dairy',merchant:'لبنیاتی',purpose:'شیر',hasReceipt:true,lines:[{ingredientId:'ING-2',qty:10,unitPrice:80000}]});
+const e5=PW.addExpense(fin,ctx(),{cardId:c.id,date:inPrev,time:'12:00',categoryId:'dairy',merchant:'نانوایی',purpose:'نان',hasReceipt:true,amountToman:1500000});
+const e6=PW.addExpense(fin,ctx(),{cardId:c.id,date:inPrev,time:'12:30',categoryId:'dairy',merchant:'نانوایی',purpose:'نان',hasReceipt:true,amountToman:1200000});
+const F=PW.flags(fin,pricing,inventory),codes=id=>(F.get(id)||[]).map(f=>f.code);
+ok(codes(e1.id).includes('price')&&F.get(e1.id).find(f=>f.code==='price').impact===180000,'expensive line flagged with overpayment');
+ok(['noReceipt','personal','hours','round'].every(k=>codes(e2.id).includes(k)),'personal-looking expense: no receipt, keyword, hours, round');
+ok(codes(e3.id).includes('stock')&&codes(e4.id).includes('duplicate'),'stock item note and duplicate');
+ok(codes(e6.id).includes('split')&&!codes(e5.id).includes('split'),'split purchase over the per-purchase limit');
+throws(()=>PW.decide(fin,ctx(),{id:e2.id,status:'personal'}),/توضیح/,'personal decision needs a note');
+PW.decide(fin,ctx(),{id:e2.id,status:'personal',note:'کارواش شخصی'});PW.decide(fin,ctx(),{id:e1.id,status:'approved'});PW.decide(fin,ctx(),{id:e1.id,status:'rejected',note:'گران'});
+ok(e1.decision.status==='rejected'&&e1.decisionHistory.length===1,'decision change keeps history');
+PW.voidRow(fin,ctx(),{kind:'expense',id:e4.id,reason:'تکراری'});ok(e4.status==='void'&&fin.pettyCash.expenses.length===6,'void keeps the row');
+throws(()=>PW.closeMonth(fin,ctx(),{cardId:c.id,period:prevMonth,bankBalance:0}),/تصمیم/,'month close needs decisions');
+for(const e of [e3,e5,e6])PW.decide(fin,ctx(),{id:e.id,status:'approved'});
+const b=PW.balance(fin,c.id,prevEnd);ok(b.expected===1000000+5000000-(580000+1000000+800000+1500000+1200000)&&b.personal===1000000&&b.rejected===580000,'balance by decision');
+throws(()=>PW.closeMonth(fin,ctx(),{cardId:c.id,period:prevMonth,bankBalance:b.expected-5000}),/توضیح/,'difference needs a note');
+throws(()=>PW.closeMonth(fin,ctx(),{cardId:c.id,period:thisMonth,bankBalance:0}),/گذشته/,'current month cannot be closed');
+const s=PW.closeMonth(fin,ctx(),{cardId:c.id,period:prevMonth,bankBalance:b.expected});ok(s.id==='PCS-00001'&&s.diff===0,'month closed');
+throws(()=>PW.addExpense(fin,ctx(),{cardId:c.id,date:inPrev,categoryId:'other',merchant:'x',purpose:'y',amountToman:1000}),/بسته/,'closed month locked for new rows');
+throws(()=>PW.voidRow(fin,ctx(),{kind:'expense',id:e3.id,reason:'x'}),/بسته/,'closed month locked for voids');
+PW.voidRow(fin,ctx(),{kind:'close',id:s.id,reason:'بازبینی'});ok(s.status==='void','close can be voided to reopen');
+throws(()=>PW.saveSettings(fin,ctx(),{categories:[{id:'x',name:'تنها',limitToman:1,monthlyBudgetToman:1}],priceTolerancePercent:20,workFrom:'08:00',workTo:'23:00'}),/هزینه دارد/,'used category cannot be dropped');
+const st=PW.saveSettings(fin,ctx(),{categories:PW.settings(fin).categories.map(c=>c.id==='dairy'?{...c,limitToman:'3000000'}:c),blockedMerchantKeywords:'کارواش، بنزین',priceTolerancePercent:'15',workFrom:'08:00',workTo:'23:00',splitWindowMinutes:60,roundAmountToman:500000});
+ok(st.categories.find(c=>c.id==='dairy').limitToman===3000000&&st.blockedMerchantKeywords.length===2&&PW.settings(fin).priceTolerancePercent===15,'settings saved under finance.settings.pettyCash');
+ok(JSON.stringify(Object.keys(fin).sort())===JSON.stringify(['changeLog','entries','meta','monthlyOverrides','parties','pettyCash','settings']),'only pettyCash and settings added to finance');
+console.log(`qa_template_petty_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

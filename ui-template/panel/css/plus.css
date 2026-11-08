@@ -41,3 +41,6 @@
 .pi-row .pi-price{grid-column:1/-1;font-size:12px}
 .pi-row .pi-price:empty{display:none}
 @media (max-width:760px){.pi-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}.pi-row [data-f=item]{grid-column:1/-1}}
+/* petty cash rules (finance ← تنخواه) */
+.pc-rule{border:1px solid var(--border);border-radius:var(--radius);padding:var(--s3) var(--s4);background:var(--surface)}
+.pc-rule b{display:block;margin-bottom:2px}.pc-rule p{margin:0;font-size:13px;color:var(--text-2);line-height:1.8}

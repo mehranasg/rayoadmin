@@ -78,5 +78,5 @@ for(const [id,v] of Object.entries(REAL)){const t=fin.tabs.find(x=>x.id===id);if
  t.render=r=>IC.ready()?(v.render?v.render(r):empty(v.empty)+r0(r)):hint()+r0(r);
  t.mount=(root,r)=>{if(IC.ready()&&v.render){v.mount&&v.mount(root,r)}else m0&&m0(root,r)};
  if(a0&&v.render)t.actions=r=>IC.ready()?(v.actions?v.actions():`<button class="btn btn-secondary" disabled title="ثبت مالی روی دادهٔ واقعی در مرحلهٔ بعد">${P.ic('lock')}ثبت — مرحلهٔ بعد</button>`):a0(r);}
-window.FinanceReal={monthStats,sales,mask,suppliers:()=>sup.doc};
+window.FinanceReal={monthStats,sales,mask,suppliers:()=>sup.doc,loadSuppliers,supState:sup,setSuppliers:d=>{sup.doc=d;sup.err=''}};
 })();

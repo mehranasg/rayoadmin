@@ -87,6 +87,19 @@ ok(w2.status==='void'&&w2.reviewStatus==='ردشده'&&doc.inventoryMovements.fi
 const linked={...baseDoc()};linked.stockReceipts=[{id:'R-INV',date:D3,ingredientId:'i1',quantity:1,status:'posted',invoiceId:'INV-1'}];
 throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'invoice receipt void refused');
 
+// 6b. inventory settings and the reorder rule
+{const d=baseDoc(),c=ctx();const r=W.saveControlLevels(d,c,{levels:{i1:'PRECISE',i2:'LIGHT'},gap:'۳۰'});
+ ok(r.changes===1&&d.settings.itemControlLevels.i1==='PRECISE'&&d.settings.lightMaxGapDays===30&&c.auditExtra.changes[0].before==='LIGHT','control levels saved (only real changes)');
+ throws(()=>W.saveControlLevels(d,ctx(),{levels:{i1:'PRECISE'},gap:30}),/تغییری/,'no change refused');
+ throws(()=>W.saveControlLevels(d,ctx(),{levels:{},gap:5}),/۷ تا ۷۳۰/,'gap outside 7…730 refused');
+ const f=W.saveFryerSettings(d,ctx(),{ingredientId:'i2',density:'0.9',logFrom:D1,fryers:[{name:'بزرگ',liters:'20'},{name:'رومیزی',liters:4.5}],tableItems:['i1','nope']});
+ ok(f.fryers.length===2&&f.fryers[0].id==='FR-1'&&f.density===0.9&&f.logFrom===D1&&d.settings.tableItems.join()==='i1','fryer settings like js/32');
+ throws(()=>W.saveFryerSettings(d,ctx(),{ingredientId:'i2',density:2,fryers:[{name:'x',liters:1}]}),/چگالی/,'density out of range refused');
+ const pr2=JSON.parse(JSON.stringify(pricing)),n=W.saveReorderPoints(pr2,ctx(),{rows:{i1:{reorderPoint:'۵',targetStock:'12'},i2:{reorderPoint:'',targetStock:''}}});
+ ok(n===1&&pr2.ingredients[0].reorderPoint===5&&pr2.ingredients[0].targetStock===12,'reorder point saved on the item');
+ const inv2=baseDoc();inv2.trackedIngredients=[{ingredientId:'i1',reorderPoint:100}];const Mx=E.build({inventory:inv2,pricing:pr2}),p1=E.positions(Mx,T).find(x=>x.id==='i1');
+ ok(p1.reorderPoint===5&&p1.target===12,'the item reorder point wins over the legacy tracked value (js/40)')}
+
 // 7. protected save protocol
 (async()=>{
  const server={text:JSON.stringify(baseDoc()),saves:0};

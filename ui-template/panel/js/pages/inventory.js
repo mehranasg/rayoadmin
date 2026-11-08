@@ -62,7 +62,7 @@ P.actions.waste=()=>P.form({title:'ثبت ضایعات',size:'wide',ok:'ثبت �
     const calc=()=>{const menu=k.querySelector('.active').textContent.includes('منو');const q=P.num(P.$('[name=q]',m).value);let v;
       if(menu){const x=D.MENU.find(i=>i.id===sel.value);v=P.recipeCost(x)*q;P.$('#wsUnit',m).textContent='پرس / عدد'}else{const it=P.item(sel.value);v=it.price*q;P.$('#wsUnit',m).textContent=it.pUnit}P.$('#wsVal',m).innerHTML=P.T(v)};
     k.onclick=e=>{const b=e.target.closest('button');if(!b)return;P.$$('button',k).forEach(x=>x.classList.toggle('active',x===b));sel.innerHTML=b.textContent.includes('منو')?P.opts(D.MENU.map(i=>[i.id,i.name])):P.opts(D.ITEMS.map(i=>[i.id,i.name]));calc()};
-    m.addEventListener('input',calc);sel.onchange=calc;calc()},
+    P.$('.modal-body',m).addEventListener('input',calc);sel.onchange=calc;calc()},
   onOk:f=>{const menu=P.$('#wsKind .active').textContent.includes('منو');const name=menu?D.MENU.find(i=>i.id===f.it.value).name:P.item(f.it.value).name;
     D.WASTE.unshift({date:D.TODAY,kind:menu?'منو':'مواد',item:name,qty:f.q.value,value:P.num(P.$('#wsVal').textContent),reason:f.reason.value,by:f.by.value,status:'منتظر تأیید'});P.toast('ضایعات ثبت شد؛ منتظر تأیید مدیر')}});
 
