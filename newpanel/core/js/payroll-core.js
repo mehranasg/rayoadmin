@@ -80,7 +80,11 @@ function inPayroll(hr,p,y,m){if(hasData(hr,p.id,y,m))return true;if(!employedDay
  return !!D(p.employmentEndDate)}
 
 /* ---------- salary of one person in one month ---------- */
-function calc(hr,p,y,m,draft=null,cfg=config(hr)){const c=contractOf(p,y,m),a=draft||adjOf(hr,p.id,y,m)||{},len=monthLength(y,m),days=employedDays(p,y,m)||(hasData(hr,p.id,y,m)?len:0),lines=[],flags=[];
+/* a month closed by the new panel (closure engine v2) keeps its salary lines; payments stay live */
+const snapOf=(hr,pid,y,m)=>{const c=closureOf(hr,y,m);return c?.engine==='v2'?A(c.rows).find(r=>r.personnelId===pid)||null:null};
+function fromSnapshot(hr,p,y,m,r,cfg){const pays=salaryPaymentsOf(hr,p.id,y,m,cfg),advance=pays.filter(x=>reasonKind(hr,x,cfg)==='advance').reduce((s,x)=>s+N(x.amount),0),paid=pays.filter(x=>reasonKind(hr,x,cfg)==='salary').reduce((s,x)=>s+N(x.amount),0),net=N(r.net),balance=net-advance-paid,flags=[];if(balance<-0.5&&advance+paid>0)flags.push({k:'over',t:'بیش از حقوق ماه پرداخت شده است'});
+ return{personnelId:p.id,year:+y,month:+m,contract:r.contract||contractOf(p,y,m),days:N(r.days),monthDays:N(r.monthDays)||monthLength(y,m),hours:r.hours??null,overtimeHours:N(r.overtimeHours),undertimeHours:N(r.undertimeHours),menuUsed:N(r.menuUsed),menuPercent:N(r.menuPercent),lines:A(r.lines),flags,base:N(r.base),overtime:N(r.overtime),undertime:N(r.undertime),additions:N(r.additions),deductions:N(r.deductions),menu:N(r.menu),net,advance,paid,balance,payments:pays,adjustment:{},closed:true}}
+function calc(hr,p,y,m,draft=null,cfg=config(hr)){if(!draft){const sn=snapOf(hr,p.id,y,m);if(sn)return fromSnapshot(hr,p,y,m,sn,cfg)}const c=contractOf(p,y,m),a=draft||adjOf(hr,p.id,y,m)||{},len=monthLength(y,m),days=employedDays(p,y,m)||(hasData(hr,p.id,y,m)?len:0),lines=[],flags=[];
  const add=(k,l,v,sub='')=>{v=round(v);if(v)lines.push({k,l,v,sub})};
  const ot=Math.max(0,N(a.overtimeHours)),ut=Math.max(0,N(a.undertimeHours));let hours=null;
  if(c.type==='fixed'){const base=c.monthlySalary*days/len;add('base','حقوق ثابت',base,days<len?`${days} از ${len} روز`:'');
@@ -100,7 +104,7 @@ function calc(hr,p,y,m,draft=null,cfg=config(hr)){const c=contractOf(p,y,m),a=dr
  const sum=k=>lines.filter(l=>k.includes(l.k)).reduce((s,l)=>s+l.v,0);
  return{personnelId:p.id,year:+y,month:+m,contract:c,days,monthDays:len,hours,overtimeHours:ot,undertimeHours:ut,menuUsed:used,menuPercent:pct,lines,flags,
   base:sum(['base']),overtime:sum(['ot']),undertime:-sum(['ut']),additions:sum(['add','otherPay']),deductions:-sum(['ded','otherDed']),menu:-sum(['menu']),net,advance,paid,balance,payments:pays,adjustment:a}}
-function monthRows(hr,y,m,cfg=config(hr)){if(!startCode(hr)||code(y,m)<startCode(hr))return[];return A(hr?.personnel).filter(p=>inPayroll(hr,p,y,m)).map(p=>calc(hr,p,y,m,null,cfg))}
+function monthRows(hr,y,m,cfg=config(hr)){if(!startCode(hr)||code(y,m)<startCode(hr))return[];const cl=closureOf(hr,y,m);if(cl?.engine==='v2'){const ids=new Set(A(cl.rows).map(r=>r.personnelId));return A(hr?.personnel).filter(p=>ids.has(p.id)).map(p=>calc(hr,p,y,m,null,cfg))}return A(hr?.personnel).filter(p=>inPayroll(hr,p,y,m)).map(p=>calc(hr,p,y,m,null,cfg))}
 function monthSummary(hr,y,m){const rows=monthRows(hr,y,m),s=k=>rows.reduce((a,r)=>a+r[k],0);return{rows,people:rows.length,net:s('net'),advance:s('advance'),paid:s('paid'),balance:s('balance'),flagged:rows.filter(r=>r.flags.length).length}}
 /* balances of the months before (y,m), from the start month; only months with something left or overpaid */
 function earlierBalances(hr,y,m){const out=[];for(const x of months(hr,`${y}/${pad(m)}/01`)){if(code(x.year,x.month)>=code(y,m))break;const rows=monthRows(hr,x.year,x.month).filter(r=>Math.abs(r.balance)>0.5);if(rows.length)out.push({...x,people:rows.length,balance:rows.reduce((a,r)=>a+r.balance,0),rows})}return out}
@@ -163,6 +167,24 @@ function archive(hr){const s=startDate(hr);if(!s)return null;const before=d=>{co
   adjustments:A(hr.monthlyAdjustments).filter(x=>beforeYM(x.year,x.month)).map(x=>({id:x.id,month:`${x.year}/${pad(x.month)}`,personnelId:x.personnelId,name:nm(x.personnelId),hours:x.hoursOverride??'',overtimeHours:x.overtimeHours??'',undertimeHours:x.undertimeHours??'',otherPayment:x.otherPayment??'',otherDeduction:x.otherDeduction??'',notes:S(x.notes)})),
   settlements:A(hr.monthlySettlements).filter(x=>beforeYM(x.year,x.month)).flatMap(x=>A(x.rows).map(r=>({id:x.id,month:`${x.year}/${pad(x.month)}`,status:S(x.status),notes:S(x.notes),personnelId:r.personnelId,name:r.personnelName||nm(r.personnelId),amount:Math.round(N(r.amount))})))}}
 
+/* ---------- closing a month (stage 6d) ----------
+   standard: a month is closed after it ended and its work is complete; closing keeps every person's salary lines
+   (snapshot) so later changes of contracts or entries do not change it. Blockers: hourly hours missing, no contract,
+   draft penalty/reward. After closing: no work entry and no penalty/reward change in it (late items go to the first
+   open month), payments go on. Reopening needs a reason; the closed version stays as history (active:false). */
+function closeCheck(hr,y,m,today){const st=monthState(hr,y,m,today),nm=id=>A(hr.personnel).find(p=>p.id===id)?.name||id;const rows=st==='open'?monthRows(hr,y,m):[],blockers=[],warnings=[];
+ if(st==='current')blockers.push('ماه هنوز تمام نشده است');else if(st==='closed')blockers.push('این ماه قبلاً قطعی شده است');else if(st!=='open')blockers.push('این ماه قابل قطعی کردن نیست');
+ for(const r of rows)for(const f of r.flags){if(['hours','contract','draft'].includes(f.k))blockers.push(nm(r.personnelId)+': '+f.t);else if(f.k!=='over')warnings.push(nm(r.personnelId)+': '+f.t)}
+ return{state:st,rows,blockers,warnings,people:rows.length,net:rows.reduce((s,r)=>s+r.net,0),paid:rows.reduce((s,r)=>s+r.advance+r.paid,0),balance:rows.reduce((s,r)=>s+r.balance,0)}}
+function closeMonth(hr,ctx,{year,month,today,note}){const c=closeCheck(hr,year,month,today);if(c.blockers.length)throw Error('قبل از قطعی کردن: '+c.blockers.slice(0,3).join('؛ ')+(c.blockers.length>3?` و ${c.blockers.length-3} مورد دیگر`:''));if(!c.rows.length)throw Error('کسی در حقوق این ماه نیست');
+ hr.payrollClosures=A(hr.payrollClosures);const version=hr.payrollClosures.filter(x=>+x.year===+year&&+x.month===+month).length+1,nm=id=>A(hr.personnel).find(p=>p.id===id)?.name||'';
+ const rows=c.rows.map(r=>({personnelId:r.personnelId,personnelName:nm(r.personnelId),contract:r.contract,days:r.days,monthDays:r.monthDays,hours:r.hours,overtimeHours:r.overtimeHours,undertimeHours:r.undertimeHours,menuUsed:r.menuUsed,menuPercent:r.menuPercent,lines:r.lines,base:r.base,overtime:r.overtime,undertime:r.undertime,additions:r.additions,deductions:r.deductions,menu:r.menu,net:r.net,
+  /* fields the current panel reads from a closure row (no carry-forward, no tips in the new payroll) */netToman:r.net,advance:r.advance,paid:r.paid,unpaid:r.balance,previousBalance:0,tips:0,tipsSettled:0,monthSettled:0,status:r.balance<=0.5?'تسویه‌شده':(r.advance+r.paid>0?'پرداخت ناقص':'پرداخت‌نشده')}));
+ const cl={id:uid('PCL',hr.payrollClosures),year:+year,month:+month,engine:'v2',version,active:true,finalizedAt:ctx.at,finalizedBy:ctx.actor,note:S(note),rows,totals:{people:rows.length,net:c.net,paidAtClose:c.paid,balanceAtClose:c.balance},warnings:c.warnings};
+ hr.payrollClosures.push(cl);ctx.auditExtra={entityId:cl.id,year:+year,month:+month,people:rows.length,net:c.net};return cl}
+function reopenMonth(hr,ctx,{year,month,reason}){const cl=closureOf(hr,year,month);if(!cl)throw Error('این ماه قطعی نشده است');if(!S(reason))throw Error('علت بازگشایی لازم است');
+ Object.assign(cl,{active:false,reopenedAt:ctx.at,reopenedBy:ctx.actor,reopenReason:S(reason)});ctx.auditExtra={entityId:cl.id,year:+year,month:+month,reason:S(reason)};return cl}
+
 /* ---------- payments (stage 6b) ----------
    advance → salary month = month of the payment date (not final); salary → a chosen month from the start to today,
    the month in progress only as «تسویهٔ پایان همکاری» (finalSettlement); tip → the tip ledger; other → outside payroll.
@@ -207,5 +229,5 @@ function voidPayment(hr,ctx,{id,reason}){const p=A(hr.payments).find(x=>x.id===i
 
 window.PayrollCore={MONTHS,KINDS,ITEM_KINDS,DEF_REASONS,DEF_ITEMS,DEF_METHODS,N,D,label,code,monthLength,config,reasonKind,itemKind,isManager,monthState,months,closureOf,isClosed,
  termsFor,contractOf,contractText,employedDays,adjOf,itemsOf,salaryPaymentsOf,inPayroll,calc,monthRows,monthSummary,earlierBalances,personMonths,
- tipShares,tipLedger,tipGroupsFrom,tipPaymentsFrom,sig,saveWork,saveSettings,itemSalaryMonth,archive,isVoid,forecast,checkPayment,addPayments,voidPayment};
+ tipShares,tipLedger,tipGroupsFrom,tipPaymentsFrom,sig,saveWork,saveSettings,itemSalaryMonth,archive,isVoid,forecast,checkPayment,addPayments,voidPayment,closeCheck,closeMonth,reopenMonth};
 })();

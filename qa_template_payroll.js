@@ -113,6 +113,26 @@ const a=PC.archive(hr);ok(a.tipShares.length===1&&a.tipShares[0].amount===900000
  q.payrollClosures=[{year:1405,month:8,active:true}];ok(PC.checkPayment(q,{...base,reason:'مساعده'},T).errors.some(e=>/قطعی/.test(e)),'advance for a final month refused')}
 // staff panel: advance requests retired
 {const s22=fs.readFileSync(path.join(__dirname,'js/22-staff-panel.js'),'utf8');ok(!s22.includes("['advance','💰','درخواست مساعده']")&&/async function staffSaveAdvance\(\)\{return toastStaff/.test(s22)&&!/d\.advanceRequests/.test(s22),'staff panel: no advance request menu and no write')}
+// closing a month (stage 6d)
+{let q=clone(hr0);q.personnel=q.personnel.filter(x=>x.id!=='O');
+ let c=PC.closeCheck(q,1405,7,T);ok(c.blockers.some(b=>/پیش‌نویس/.test(b))&&c.state==='open','close check: draft penalty blocks');
+ q.penaltiesRewards.find(x=>x.id==='PR-00003').status='لغوشده';q.monthlyAdjustments=q.monthlyAdjustments.filter(x=>x.personnelId!=='H');c=PC.closeCheck(q,1405,7,T);ok(c.blockers.some(b=>/ساعت/.test(b)),'close check: hourly without hours blocks');
+ throws(()=>PC.closeMonth(q,ctx(),{year:1405,month:7,today:T}),/قبل از قطعی/,'close refused with blockers');
+ PC.saveWork(q,ctx(),{year:1405,month:7,rows:{H:{hours:0}},today:T});c=PC.closeCheck(q,1405,7,T);ok(!c.blockers.length,'explicit 0 hours clears the blocker');
+ throws(()=>PC.closeMonth(q,ctx(),{year:1405,month:8,today:T}),/تمام نشده/,'month in progress cannot be closed');
+ const netF=PC.calc(q,q.personnel[0],1405,7).net,cl=PC.closeMonth(q,ctx(),{year:1405,month:7,today:T});
+ ok(cl.id==='PCL-00001'&&cl.engine==='v2'&&cl.version===1&&cl.finalizedBy==='qa'&&cl.rows.length===c.rows.length&&cl.rows.find(r=>r.personnelId==='F').netToman===netF&&cl.rows[0].previousBalance===0,'closure: snapshot rows (with the fields the current panel reads), actor recorded');
+ ok(PC.monthState(q,1405,7,T)==='closed','month state closed');
+ PW.saveSalaryTerms(q,ctx(),{id:'F',type:'fixedMonthly',monthlySalary:90000000,monthlyShifts:30,hoursPerShift:8,effective:'1405/08'});q.personnel[0].salaryHistory=[{effectiveYear:0,effectiveMonth:0,terms:{salaryContract:{type:'fixedMonthly',monthlySalary:90000000}}}];
+ ok(PC.calc(q,q.personnel[0],1405,7).net===netF&&PC.calc(q,q.personnel[0],1405,7).closed===true,'closed month keeps its salary when the contract changes');
+ throws(()=>PC.saveWork(q,ctx(),{year:1405,month:7,rows:{F:{ot:1}},today:T}),/قطعی/,'work of a closed month refused');
+ throws(()=>PW.setPenaltyStatus(q,ctx(),{id:'PR-00001',status:'لغوشده',reason:'x'}),/قطعی/,'penalty of a closed month cannot change');
+ const late=PW.addPenalty(q,ctx(),{date:'1405/07/25',personnelId:'F',type:'جریمه',amount:1000,status:'تاییدشده',reason:'دیر پیدا شد'});ok(late.month===8&&late.lateFrom==='1405/07','late penalty goes to the first open month');
+ ok(!PC.checkPayment(q,{personnelId:'F',reason:'تسویه حقوق',year:1405,month:7,date:'1405/08/12',amount:1000,method:'نقدی'},T).errors.length,'salary of a closed month can still be paid');
+ PC.addPayments(q,ctx(),[{personnelId:'F',reason:'تسویه حقوق',year:1405,month:7,date:'1405/08/12',amount:1000,method:'نقدی'}],T);ok(PC.calc(q,q.personnel[0],1405,7).paid===20001000&&PC.calc(q,q.personnel[0],1405,7).advance===5000000,'payments after closing count against the snapshot');
+ throws(()=>PC.reopenMonth(q,ctx(),{year:1405,month:7,reason:''}),/علت/,'reopen needs a reason');
+ PC.reopenMonth(q,ctx(),{year:1405,month:7,reason:'اصلاح'});ok(cl.active===false&&cl.reopenReason==='اصلاح'&&PC.monthState(q,1405,7,T)==='open'&&!PC.calc(q,q.personnel[0],1405,7).closed,'reopened: closure kept as history, month live again');
+ const cl2=PC.closeMonth(q,ctx(),{year:1405,month:7,today:T});ok(cl2.version===2&&q.payrollClosures.length===2,'closed again as version 2')}
 // staff panel «انعام‌های من» reads the same tip ledger (js/22 staffTipStart / staffTipPayment)
 {const s22=fs.readFileSync(path.join(__dirname,'js/22-staff-panel.js'),'utf8'),grab=n=>{const i=s22.indexOf('function '+n+'('),j=s22.indexOf('\n',i);return s22.slice(i,j)};
  const mk=new Function('hr','me','A','S','N',grab('staffTipStart')+'\n'+grab('staffTipPayment')+';return{staffTipStart,staffTipPayment}'),Ar=x=>Array.isArray(x)?x:[],Sr=x=>String(x??'').trim(),Nr=v=>Number(v)||0;
