@@ -60,5 +60,115 @@ function addReservation(doc,ctx,x){const date=D(x.date);assertDate(date);const n
 function setReservationStatus(doc,ctx,{id,status}){const r=A(doc.reservations).find(x=>x.id===id);if(!r)throw Error('رزرو پیدا نشد');if(!RES_STATUS.includes(status))throw Error('وضعیت نامعتبر است');if(r.status===status)throw Error('وضعیت تغییری نکرده است');ctx.auditExtra={entityId:id,before:{status:r.status}};Object.assign(r,{status,updatedAt:ctx.at,updatedBy:ctx.actor});return r}
 
 const validPersonnel=doc=>!!doc&&typeof doc==='object'&&Array.isArray(doc.personnel)&&Array.isArray(doc.tipGroups);
-window.PeopleWrite={TIP_TYPES,TIP_STATUS,PAY,PR_TYPES,APPROVAL,RES_STATUS,tipCode,tipDefault,addTip,settleTip,voidTip,addPenalty,setPenaltyStatus,addMessage,archiveMessage,addReservation,setReservationStatus,validPersonnel,list};
+
+/* ---------- staff file, salary terms, panel account, violations and leaves (migration stage 3) ----------
+   Shapes of the current panel: person js/05 savePersonnelV64 + js/06 savePersonnelBankV641 / savePersonnelAccessV954,
+   salary history js/00 recordSalaryTerms, violation js/34 saveViolation (fine → penaltiesRewards, source 'violation'; created «پیش‌نویس» with year/month so the manager approves it in «حقوق ماه» — js/34 used «ثبت‌شده», which payroll never counted),
+   leave review js/19 submitLeaveReview, leave js/00 editLeave. Owner decisions:
+   - a person is never deleted when anything refers to it; «اتمام همکاری» with an end date instead
+   - new salary terms always apply from the current month (salaryHistory keeps earlier months)
+   - violations and their fines are recorded, edited and voided only in the current month; void keeps the row
+   - a leave's days come from its date range (editable for half days); overlaps are refused; an approved leave is
+     cancelled with a reason (count moved to cancelledCount, so every existing sum ignores it)
+   - the stored password stays as today (hashing is a later phase); it is never sent back to the page */
+const GROUPS=['سالن','آشپزخانه','خدمات'],ENDED='اتمام همکاری',HALL='سالن';
+const ACC_ITEMS=['تیشرت','ایپرون','روپوش','کلاه','بیسیم','هندزفری بیسیم','پیجر','تشک','بالش','ملحفه'];
+const PERMS=[['cashReport','ثبت گزارش صندوق روزانه'],['purchaseRequests','ثبت سفارش خرید'],['purchaseInvoices','ثبت فاکتور خرید'],['tips','ثبت انعام'],['surveys','ثبت نظرسنجی مشتری'],['suppliersView','مشاهدهٔ اطلاعات تأمین‌کنندگان']];
+const mainSection=s=>['سالن بالا','سالن پایین','حیاط','تراس'].includes(S(s))?HALL:S(s);
+// js/03 sectionsForGroupV51 / positions lists of the personnel module
+function sectionsFor(doc,g){const all=[...new Set(A(doc?.lists?.sections).map(mainSection).filter(Boolean))];return g==='آشپزخانه'?all.filter(x=>x==='آشپزخانه'):g==='خدمات'?all.filter(x=>x==='خدمات'):all.filter(x=>!['آشپزخانه','خدمات'].includes(x))}
+function positionsFor(doc,g){const k=g==='آشپزخانه'?'kitchenPositions':g==='خدمات'?'servicePositions':'hallPositions';return A(doc?.lists?.[k])}
+const latinD=v=>S(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+const today=()=>window.InvEngine.CAL.today,curMonth=()=>today().slice(0,7);
+const NN=s=>S(s).normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[‌\s]+/g,' ').toLowerCase();
+function personDuplicate(doc,{id,name,phone}){const ph=latinD(phone).replace(/\D/g,'');return A(doc.personnel).find(p=>p.id!==id&&((name&&NN(p.name)===NN(name))||(ph.length>=10&&latinD(p.phone).replace(/\D/g,'')===ph)))||null}
+function savePerson(doc,ctx,x){
+ const old=x.id?person(doc,x.id):null;if(x.id&&!old)throw Error('پرسنل پیدا نشد');const name=S(x.name);if(!name)throw Error('نام و نام خانوادگی الزامی است');
+ const g=GROUPS.includes(x.personnelGroup)?x.personnelGroup:'';if(!g)throw Error('گروه کلی را انتخاب کنید');
+ const section=mainSection(x.section),sub=g===HALL&&section===HALL?S(x.subSection):'';if(!sectionsFor(doc,g).includes(section))throw Error('سکشن با گروه نمی‌خواند');if(section===HALL&&g===HALL&&!A(doc.lists?.hallSubSections).includes(sub))throw Error('محدودهٔ سالن را انتخاب کنید (سالن بالا یا پایین)');
+ const pos=positionsFor(doc,g);if(!pos.includes(S(x.mainPosition)))throw Error('پوزیشن اصلی با گروه نمی‌خواند');if(S(x.backupPosition)&&!pos.includes(S(x.backupPosition)))throw Error('پوزیشن بک‌آپ با گروه نمی‌خواند');
+ const start=D(x.startDate);if(S(x.startDate)&&!start)throw Error('تاریخ شروع معتبر نیست');
+ const status=list(doc,'employmentStatuses',['فعال','مرخصی','غیرفعال',ENDED]).includes(x.status)?x.status:'فعال',end=D(x.employmentEndDate);
+ if(S(x.employmentEndDate)&&!end)throw Error('تاریخ اتمام همکاری معتبر نیست');if(status===ENDED&&!end)throw Error('تاریخ اتمام همکاری الزامی است');if(end&&start&&end<start)throw Error('تاریخ اتمام همکاری نمی‌تواند قبل از تاریخ شروع باشد');
+ const phone=latinD(x.phone).replace(/[\s-]/g,'');if(phone&&!/^0\d{10}$/.test(phone))throw Error('شمارهٔ تماس باید ۱۱ رقم و با ۰ شروع شود');
+ const acc=x.accommodation&&typeof x.accommodation==='object'?{overnight:x.accommodation.overnight===true,equipment:A(x.accommodation.equipment).filter(e=>ACC_ITEMS.includes(S(e.type))).map(e=>({type:S(e.type),quantity:Math.max(0,Math.floor(NUM(e.quantity)||0)),deliveredAt:D(e.deliveredAt)||'',notes:S(e.notes)})).filter(e=>e.quantity>0)}:(old?.accommodation||{overnight:false,equipment:[]});
+ const o={name,personnelGroup:g,section,subSection:sub,mainPosition:S(x.mainPosition),backupPosition:S(x.backupPosition),kitchenRank:g==='آشپزخانه'?S(x.kitchenRank):'',nationality:S(x.nationality),insurance:S(x.insurance),startDate:start||'',phone,employmentType:S(x.employmentType),status,accommodation:acc,notes:S(x.notes)};
+ const before=old?clone(old):null;let p;
+ if(old){p=old;Object.assign(p,o)}else{p={id:uid('EMP',doc.personnel,4),gradeId:'D',experienceMonths:0,hourlyRate:0,transportMonthly:0,fixedAllowance:0,monthlyCredit:0,mealCredit:0,salaryContract:{type:'hourly',monthlySalary:0},...o};doc.personnel=[...A(doc.personnel),p]}
+ p.employmentEndDate=end||'';delete p.tipGroup;
+ p.salaryProfile={position:o.mainPosition,grade:p.gradeId||'D',experienceMonths:p.experienceMonths||0,schedule:{weekdayMorning:0,weekdayEvening:0,thursdayMorning:0,thursdayEvening:0,fridayMorning:0,fridayEvening:0,fullWeekday:0,fullThursday:0,fullFriday:0},returnAid:0,incentive:0,contractMonthly:0,calculationMonth:+today().split('/')[1],updatedAt:ctx.at,...(p.salaryProfile||{}),position:o.mainPosition};
+ ctx.auditExtra={entityId:p.id,before:before&&{name:before.name,status:before.status,section:before.section,mainPosition:before.mainPosition}};return{id:p.id,created:!before}}
+// js/00 SALARY_TERM_KEYS / salaryTermsOf / recordSalaryTerms (effective = current month only)
+const TERM_KEYS=['salaryContract','hourlyRate','transportMonthly','noTransport','fixedAllowance','monthlyCredit','mealCredit','menuCreditDiscountPercent','staffMealMode'];
+const termsOf=p=>{const t={};for(const k of TERM_KEYS)if(p?.[k]!==undefined)t[k]=clone(p[k]);t.salaryProfile={mealPerShift:p?.salaryProfile?.mealPerShift??0,returnAid:p?.salaryProfile?.returnAid??0};return t};
+const termsCode=e=>NUM(e?.effectiveYear)*100+NUM(e?.effectiveMonth);
+function applyLatest(p){const h=A(p.salaryHistory).slice().sort((a,b)=>termsCode(a)-termsCode(b)),e=h.at(-1);if(!e?.terms)return;const t=clone(e.terms);for(const k of TERM_KEYS){if(t[k]!==undefined)p[k]=t[k];else delete p[k]}p.salaryProfile={...(p.salaryProfile||{}),...(t.salaryProfile||{})}}
+function recordTerms(p,before,y,m,ctx){const code=y*100+m,entry={effectiveYear:y,effectiveMonth:m,terms:termsOf(p),savedAt:ctx.at,savedBy:ctx.actor};let h=A(p.salaryHistory).slice();
+ if(!h.length)h.push({effectiveYear:0,effectiveMonth:0,terms:termsOf(before||{}),savedAt:ctx.at,savedBy:ctx.actor,note:'توافق قبل از ثبت تاریخچه'});h=h.filter(e=>termsCode(e)!==code);h.push(entry);p.salaryHistory=h.sort((a,b)=>termsCode(a)-termsCode(b));applyLatest(p)}
+function saveSalaryTerms(doc,ctx,x){const p=person(doc,x.id);if(!p)throw Error('پرسنل پیدا نشد');const type=x.type==='fixedMonthly'?'fixedMonthly':'hourly',monthly=NUM(x.monthlySalary),hourly=NUM(x.hourlyRate);
+ if(type==='fixedMonthly'&&!(monthly>0))throw Error('حقوق ثابت ماهانه باید بیشتر از صفر باشد');if(type==='hourly'&&!(hourly>0))throw Error('نرخ ساعتی توافق‌شده باید بیشتر از صفر باشد');
+ for(const k of ['transportMonthly','fixedAllowance','monthlyCredit','mealCredit','experienceMonths'])if(!(NUM(x[k])>=0))throw Error('مبالغ و سابقه باید صفر یا مثبت باشند');
+ const bank={};for(const k of ['accountHolderName','bankName','cardNumber','accountNumber','iban'])if(x[k]!==undefined)bank[k]=S(x[k]);
+ if(bank.cardNumber!==undefined){bank.cardNumber=latinD(bank.cardNumber).replace(/[\s-]/g,'');if(bank.cardNumber&&!/^\d{16}$/.test(bank.cardNumber))throw Error('شماره کارت باید ۱۶ رقم باشد')}
+ if(bank.iban!==undefined){let b=latinD(bank.iban).replace(/[\s-]/g,'').toUpperCase();if(/^\d{24}$/.test(b))b='IR'+b;if(b&&!/^IR\d{24}$/.test(b))throw Error('شبا باید IR و ۲۴ رقم باشد');bank.iban=b}
+ if(bank.accountNumber!==undefined)bank.accountNumber=latinD(bank.accountNumber).replace(/\s/g,'');
+ const before=clone(p),[y,m]=today().split('/').map(Number);
+ p.salaryContract={...(p.salaryContract||{}),type,monthlySalary:type==='fixedMonthly'?monthly:0,updatedAt:ctx.at};p.hourlyRate=type==='hourly'?hourly:NUM(p.hourlyRate)||0;
+ p.gradeId=['A','B','C','D'].includes(x.gradeId)?x.gradeId:(p.gradeId||'D');p.experienceMonths=NUM(x.experienceMonths)||0;p.transportMonthly=NUM(x.transportMonthly)||0;p.fixedAllowance=NUM(x.fixedAllowance)||0;p.monthlyCredit=NUM(x.monthlyCredit)||0;p.mealCredit=NUM(x.mealCredit)||0;
+ Object.assign(p,bank);p.salaryProfile={schedule:{},...(p.salaryProfile||{}),position:p.mainPosition,grade:p.gradeId,experienceMonths:p.experienceMonths,updatedAt:ctx.at};
+ const changed=JSON.stringify(termsOf(before))!==JSON.stringify(termsOf(p));if(changed)recordTerms(p,before,y,m,ctx);
+ ctx.auditExtra={entityId:p.id,effective:changed?`${y}/${String(m).padStart(2,'0')}`:'',termsChanged:changed,bankChanged:Object.keys(bank).length>0};return{id:p.id,changed,effective:`${y}/${String(m).padStart(2,'0')}`}}
+// js/06 savePersonnelAccessV954; the name must also differ from the management users
+function saveAccount(doc,ctx,x){const p=person(doc,x.id);if(!p)throw Error('پرسنل پیدا نشد');const username=S(x.username),password=S(x.password),enabled=x.enabled===true;
+ if(username&&!/^[A-Za-z0-9_.-]{3,32}$/.test(username))throw Error('نام کاربری ۳ تا ۳۲ حرف لاتین، عدد، نقطه، خط تیره یا زیرخط باشد');
+ const dup=username&&A(doc.personnel).find(o=>o.id!==p.id&&S(o.username).toLowerCase()===username.toLowerCase());if(dup)throw Error(`نام کاربری «${username}» قبلاً برای ${dup.name} ثبت شده است`);
+ if(username&&(A(doc.settings?.adminUsers).some(u=>S(u.username).toLowerCase()===username.toLowerCase())||window.AdminAccess?.isStatic?.(username)))throw Error('این نام کاربری برای یک کاربر مدیریت ثبت شده است');
+ const pass=password||S(p.userPassword);if(enabled&&(!username||!pass))throw Error('برای فعال‌کردن پنل، نام کاربری و رمز عبور لازم است');if(password&&password.length<4)throw Error('رمز عبور حداقل ۴ نویسه باشد');
+ if(enabled&&p.status!=='فعال')throw Error('پنل فقط برای پرسنل با وضعیت «فعال» باز می‌شود');
+ const permissions={};for(const [k] of PERMS)permissions[k]=A(x.permissions).includes(k);p.username=username;if(password)p.userPassword=password;p.userAccess={enabled,permissions,updatedAt:ctx.at};
+ ctx.auditExtra={entityId:p.id,enabled,passwordChanged:!!password};return{id:p.id}}
+// anything that names the person blocks the delete (the file itself excluded); other modules are checked by the page
+function personRefs(doc,id){const out=[],needle=`"${id}"`;for(const [k,v] of Object.entries(doc||{})){if(k==='personnel'||k==='changeLog'||!v||typeof v!=='object')continue;const n=JSON.stringify(v).split(needle).length-1;if(n)out.push([k,n])}return out}
+function removePerson(doc,ctx,{id,external=[]}){const p=person(doc,id);if(!p)throw Error('پرسنل پیدا نشد');const refs=[...personRefs(doc,id),...A(external)];if(refs.length)throw Error('این پرونده سابقه دارد و حذف نمی‌شود؛ «اتمام همکاری» بزنید. ('+refs.map(([k,n])=>`${k}: ${n}`).join('، ')+')');
+ ctx.auditExtra={entityId:id,before:{name:p.name,status:p.status}};doc.personnel=A(doc.personnel).filter(x=>x.id!==id);return true}
+
+/* violations: current month only (js/34) */
+const VIO_VOID='ابطال‌شده';
+function violationRepeats(doc,{personnelId,violationType,date,id}){const d=D(date)||today(),i=window.InvEngine.CAL.i(d);return A(doc.workViolations).filter(v=>v.id!==id&&v.status!==VIO_VOID&&v.personnelId===personnelId&&v.violationType===violationType&&window.InvEngine.CAL.i(v.date)!==null&&i-window.InvEngine.CAL.i(v.date)<=90&&i>=window.InvEngine.CAL.i(v.date)).length}
+function saveViolation(doc,ctx,x){const date=D(x.date);assertDate(date);if(date.slice(0,7)!==curMonth())throw Error('ثبت یا ویرایش تخلف فقط برای ماه جاری مجاز است');if(date>today())throw Error('تاریخ تخلف نمی‌تواند بعد از امروز باشد');
+ const pid=S(x.personnelId),type=S(x.violationType),details=S(x.details);if(!person(doc,pid))throw Error('پرسنل را انتخاب کنید');if(!type)throw Error('نوع تخلف را انتخاب کنید');if(!details)throw Error('شرح تخلف الزامی است');
+ const hasFine=x.hasFine===true,fine=hasFine?NUM(x.fineAmount):0;if(hasFine&&!(fine>0))throw Error('مبلغ جریمه را وارد کنید');
+ doc.workViolations=A(doc.workViolations);let v=x.id?doc.workViolations.find(r=>r.id===x.id):null;if(x.id&&!v)throw Error('تخلف پیدا نشد');if(v&&v.status===VIO_VOID)throw Error('این تخلف ابطال شده است');if(v&&S(v.date).slice(0,7)!==curMonth())throw Error('تخلف ماه‌های قبل ویرایش نمی‌شود');
+ const patch={date,personnelId:pid,violationType:type,details,warningGiven:!!S(x.warningText),warningText:S(x.warningText),hasFine,fineAmount:fine,updatedAt:ctx.at,registeredBy:ctx.actor};
+ if(v)Object.assign(v,patch);else{v={id:uid('VIO',doc.workViolations,4),...patch,createdAt:ctx.at};doc.workViolations.push(v)}
+ doc.penaltiesRewards=A(doc.penaltiesRewards);const [y,m]=date.split('/').map(Number);
+ if(hasFine){let pr=v.penaltyId&&doc.penaltiesRewards.find(r=>r.id===v.penaltyId);if(!pr){pr={id:uid('PR',doc.penaltiesRewards),personnelId:pid,date,type:'جریمه',amount:fine,reason:`تخلف: ${type}`,status:'پیش‌نویس',source:'violation',sourceId:v.id,year:y,month:m,createdAt:ctx.at,createdBy:ctx.actor};doc.penaltiesRewards.push(pr);v.penaltyId=pr.id}else Object.assign(pr,{personnelId:pid,date,amount:fine,reason:`تخلف: ${type}`,status:pr.status==='تاییدشده'?'تاییدشده':'پیش‌نویس',year:y,month:m})}
+ else if(v.penaltyId){const pr=doc.penaltiesRewards.find(r=>r.id===v.penaltyId);if(pr)pr.status='لغوشده'}
+ ctx.auditExtra={entityId:v.id,penaltyId:v.penaltyId||''};return{id:v.id,penaltyId:hasFine?v.penaltyId:''}}
+function voidViolation(doc,ctx,{id,reason}){const v=A(doc.workViolations).find(r=>r.id===id);if(!v)throw Error('تخلف پیدا نشد');if(v.status===VIO_VOID)throw Error('این تخلف قبلاً ابطال شده است');if(S(v.date).slice(0,7)!==curMonth())throw Error('تخلف ماه‌های قبل ابطال نمی‌شود');if(!S(reason))throw Error('علت ابطال لازم است');
+ Object.assign(v,{status:VIO_VOID,voidReason:S(reason),voidedAt:ctx.at,voidedBy:ctx.actor});if(v.penaltyId){const pr=A(doc.penaltiesRewards).find(r=>r.id===v.penaltyId);if(pr)pr.status='لغوشده'}ctx.auditExtra={entityId:id};return true}
+function saveViolationTypes(doc,ctx,{types}){const l=[...new Set(A(types).map(S).filter(Boolean))];if(!l.length)throw Error('حداقل یک نوع تخلف لازم است');doc.lists=doc.lists||{};const before=A(doc.lists.violationTypes);doc.lists.violationTypes=l;ctx.auditExtra={before:before.length,after:l.length};return l.length}
+
+/* leaves */
+const LEAVE_CANCEL='لغوشده';
+const liveLeave=l=>l&&l.status!==LEAVE_CANCEL;
+const dayCount=(from,to)=>{const C=window.InvEngine.CAL,a=C.i(from),b=C.i(to);return a===null||b===null?NaN:b-a+1};
+function leaveOverlap(doc,{personnelId,fromDate,toDate,id,requestId}){return A(doc.leaves).filter(liveLeave).find(l=>l.id!==id&&(!requestId||l.requestId!==requestId)&&l.personnelId===personnelId&&!(D(l.toDate)<fromDate||D(l.fromDate)>toDate))||null}
+function leaveUsed(doc,personnelId,month=curMonth()){const by={};for(const l of A(doc.leaves).filter(liveLeave))if(l.personnelId===personnelId&&S(l.fromDate).slice(0,7)===month)by[l.type||'مرخصی استحقاقی']=(by[l.type||'مرخصی استحقاقی']||0)+(NUM(l.count)||0);return by}
+function checkRange(doc,{personnelId,fromDate,toDate,count,type}){const f=D(fromDate),t=D(toDate);assertDate(f,'تاریخ شروع');assertDate(t,'تاریخ پایان');if(t<f)throw Error('تاریخ پایان قبل از شروع است');
+ const days=dayCount(f,t),c=S(count)===''?days:NUM(count);if(!(c>0))throw Error('تعداد روز باید مثبت باشد');if(c>days)throw Error(`تعداد روز (${c}) بیشتر از روزهای بازه (${days}) است`);if(c<days-1)throw Error(`تعداد روز (${c}) با بازهٔ ${days} روزه نمی‌خواند؛ برای نیم‌روز فقط تا یک روز کمتر مجاز است`);
+ if(!list(doc,'leaveTypes',['مرخصی استحقاقی']).includes(type))throw Error('نوع مرخصی را انتخاب کنید');return{f,t,c}}
+function reviewLeave(doc,ctx,{id,status,note}){const r=A(doc.leaveRequests).find(x=>x.id===id);if(!r)throw Error('درخواست پیدا نشد');if((r.status||'در انتظار')!=='در انتظار')throw Error('این درخواست قبلاً بررسی شده است');
+ if(!['تاییدشده','ردشده'].includes(status))throw Error('نتیجه را انتخاب کنید');if(status==='ردشده'&&!S(note))throw Error('برای رد درخواست، علت رد لازم است');
+ if(status==='تاییدشده'){const {f,t,c}=checkRange(doc,{personnelId:r.personnelId,fromDate:r.fromDate,toDate:r.toDate,count:r.count||'',type:r.type||'مرخصی استحقاقی'}),o=leaveOverlap(doc,{personnelId:r.personnelId,fromDate:f,toDate:t,requestId:r.id});if(o)throw Error(`با مرخصی ${o.fromDate} تا ${o.toDate} هم‌پوشانی دارد`);
+  doc.leaves=A(doc.leaves);if(!doc.leaves.some(x=>x.requestId===r.id))doc.leaves.push({id:uid('LEV',doc.leaves,4),requestId:r.id,personnelId:r.personnelId,type:r.type||'مرخصی استحقاقی',fromDate:f,toDate:t,count:c,notes:`تایید درخواست پرسنل${S(note)?` — ${S(note)}`:''}`,createdAt:ctx.at,createdBy:ctx.actor})}
+ Object.assign(r,{status,managerNote:S(note),reviewedAt:ctx.at,reviewedBy:ctx.actor});ctx.auditExtra={entityId:id,status};return status}
+function addLeave(doc,ctx,x){const pid=S(x.personnelId);if(!person(doc,pid))throw Error('پرسنل را انتخاب کنید');const type=S(x.type)||'مرخصی استحقاقی',{f,t,c}=checkRange(doc,{personnelId:pid,fromDate:x.fromDate,toDate:x.toDate,count:x.count,type});
+ const o=leaveOverlap(doc,{personnelId:pid,fromDate:f,toDate:t});if(o)throw Error(`با مرخصی ${o.fromDate} تا ${o.toDate} هم‌پوشانی دارد`);
+ doc.leaves=A(doc.leaves);const row={id:uid('LEV',doc.leaves,4),personnelId:pid,type,fromDate:f,toDate:t,count:c,notes:S(x.notes),source:'manager',createdAt:ctx.at,createdBy:ctx.actor};doc.leaves.push(row);ctx.auditExtra={entityId:row.id};return row}
+function cancelLeave(doc,ctx,{id,reason}){const l=A(doc.leaves).find(x=>x.id===id);if(!l)throw Error('مرخصی پیدا نشد');if(!liveLeave(l))throw Error('این مرخصی قبلاً لغو شده است');if(!S(reason))throw Error('علت لغو لازم است');
+ Object.assign(l,{status:LEAVE_CANCEL,cancelledCount:NUM(l.count)||0,count:0,cancelReason:S(reason),cancelledAt:ctx.at,cancelledBy:ctx.actor});
+ const r=l.requestId&&A(doc.leaveRequests).find(x=>x.id===l.requestId);if(r)Object.assign(r,{status:LEAVE_CANCEL,managerNote:`لغو پس از تأیید: ${S(reason)}`,reviewedAt:ctx.at,reviewedBy:ctx.actor});ctx.auditExtra={entityId:id};return true}
+
+window.PeopleWrite={GROUPS,ACC_ITEMS,PERMS,ENDED,sectionsFor,positionsFor,personDuplicate,savePerson,saveSalaryTerms,saveAccount,personRefs,removePerson,violationRepeats,saveViolation,voidViolation,saveViolationTypes,LEAVE_CANCEL,dayCount,leaveOverlap,leaveUsed,reviewLeave,addLeave,cancelLeave,TIP_TYPES,TIP_STATUS,PAY,PR_TYPES,APPROVAL,RES_STATUS,tipCode,tipDefault,addTip,settleTip,voidTip,addPenalty,setPenaltyStatus,addMessage,archiveMessage,addReservation,setReservationStatus,validPersonnel,list};
 })();
