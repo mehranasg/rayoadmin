@@ -2,7 +2,7 @@
    Reads the personnel module (live API, or personnel.json next to ?data=) with the same connection as inventory.
    Sensitive fields are removed right after loading and never reach the page: staff passwords (userPassword), card /
    account / IBAN numbers and admin password hashes.
-   Real tabs: «پرسنل» (profiles), «انعام» (tipGroups shared by weight, compared with the tips of the cash reports),
+   Real tabs: «پرسنل» (profiles); «انعام» and «حقوق ماه» are js/pages/payroll-real.js (stage 6),
    «حقوق ماه» is js/pages/payroll-real.js (stage 6), «آموزش و چک‌لیست» (checklist templates), «کاربران و دسترسی» (admin users without hashes), «پیام روز».
    «شیفت و حضور» and «درخواست‌ها» stay on sample data: no punches, shift plan cells, leave or advance requests are
    recorded yet. Nothing is saved here. */
@@ -27,9 +27,6 @@ const tenure=d=>{const a=E.CAL.i(E.D(d)),b=E.CAL.i(E.CAL.today);if(a===null||b==
 
 /* ---------- tips: share of each participant by weight ---------- */
 function tipShares(g){const ps=A(g.participants),w=ps.reduce((a,p)=>a+(Z(p.weight)||1),0)||1;return ps.map(p=>({id:p.personnelId,amount:Z(g.totalAmount)*(Z(p.weight)||1)/w}))}
-const tipMonths=()=>monthsFrom(A(H()?.tipGroups).map(g=>monthKey(g.receiveDate)));
-let tipMonth='';const curTip=()=>{const ms=tipMonths();if(!ms.includes(tipMonth))tipMonth=ms.at(-1)||'';return tipMonth};
-function cashTips(k){const rs=A(IC.state.raw?.cashreport?.reports).filter(r=>r.status!=='void'&&monthKey(r.date)===k);return{days:new Set(rs.map(r=>E.D(r.date))).size,toman:rs.reduce((a,r)=>a+Z(r.tipsTotal),0)/10}}
 
 /* ---------- staff ---------- */
 let sQ='',sOnly='active';
@@ -46,15 +43,7 @@ function profile(id){const p=person(id);if(!p)return;const d=H(),tips=A(d.tipGro
   ${pays.length?P.table(['تاریخ','بابت',{t:'مبلغ',n:1},'روش'],pays.map(x=>[fa(x.date),esc(`${x.type||''} ${x.salaryMonth?'ماه '+fa(x.salaryMonth):''}`),T(x.amount),esc(x.method||'')])):''}</div></div>${P.note('شمارهٔ کارت، حساب، شبا و رمز ورود پرسنل اینجا نمایش داده نمی‌شوند؛ در پنل فعلی ← پرسنل دیده و ویرایش می‌شوند.','lock')}`})}
 
 /* ---------- tips ---------- */
-function tipsView(){const k=curTip();if(!k)return P.note('هنوز انعامی ثبت نشده است.','info');const all=A(H().tipGroups).filter(g=>monthKey(g.receiveDate)===k),gs=all.filter(g=>g.status!=='ابطال‌شده'),tot=gs.reduce((a,g)=>a+Z(g.totalAmount),0),settled=gs.reduce((a,g)=>a+Z(g.settledAmount),0),per=new Map;
- for(const g of gs)for(const s of tipShares(g))per.set(s.id,(per.get(s.id)||0)+s.amount);const ct=cashTips(k),paid=A(H().payments).filter(p=>/انعام/.test(p.type)&&Z(p.salaryMonth)===+k.slice(5)&&Z(p.salaryYear||k.slice(0,4))===+k.slice(0,4)).reduce((a,p)=>a+Z(p.amount),0);
- const types=[...new Set(gs.map(g=>g.type||'—'))];
- return`<div class="row" style="gap:8px;margin-bottom:var(--s3)"><select class="select" id="htMonth" style="width:auto">${tipMonths().slice().reverse().map(m=>`<option value="${m}" ${m===k?'selected':''}>${E.monthLabel(m)}</option>`).join('')}</select><span class="muted" style="font-size:12px">نوع‌ها: ${types.map(esc).join('، ')}</span></div>
- <div class="grid grid-4">${P.kpi({label:'انعام ثبت‌شده',icon:'hand-heart',value:RT.money(tot),unit:'تومان',foot:`${fa(gs.length)} ثبت · ${fa(per.size)} نفر`})}${P.kpi({label:'انعام در گزارش صندوق',icon:'receipt',value:ct.days?RT.money(ct.toman):'—',unit:ct.days?'تومان':'',foot:ct.days?`${fa(ct.days)} روز با گزارش صندوق`:'گزارش صندوقی در این ماه نیست'})}${P.kpi({label:'پرداخت انعام',icon:'banknote',value:RT.money(paid),unit:'تومان',foot:'از پرداخت‌های پرسنل'})}${P.kpi({label:'تسویه‌شده در ثبت‌ها',icon:'check-check',value:RT.money(settled),unit:'تومان',tone:tot-settled>0.5?'warning':'',foot:`مانده ${RT.money(tot-settled)}`})}</div>
- ${ct.days&&Math.abs(ct.toman-tot)>Math.max(100000,tot*0.05)?`<div class="mt">${P.note(`انعام ثبت‌شده در پرسنل (${P.t(Math.round(tot))}) با جمع انعام گزارش‌های صندوق همین ماه (${P.t(Math.round(ct.toman))}) فرق دارد. گزارش صندوق فقط از ۳۱ شهریور ثبت می‌شود و ممکن است همهٔ روزها را نداشته باشد.`,'alert-triangle')}</div>`:''}
- <div class="grid grid-2 mt">${P.card({title:'سهم هر نفر — '+E.monthLabel(k),sub:'جمع سهم از ثبت‌های انعام (تقسیم بر اساس وزن هر نفر)',flush:1,body:P.table(['نام','بخش',{t:'ثبت',n:1},{t:'سهم',n:1}],[...per].sort((a,b)=>b[1]-a[1]).map(([id,v])=>{const p=person(id);return[esc(p?.name||id),esc(p?.section||''),fa(gs.filter(g=>A(g.participants).some(x=>x.personnelId===id)).length),`<b>${T(v)}</b>`]}),{foot:['جمع','',fa(gs.length),T(tot)]})})}
- ${P.card({title:'ثبت‌های انعام',flush:1,body:P.table(['تاریخ','نوع',{t:'مبلغ',n:1},'روش دریافت','نفرات','وضعیت',''],all.slice().sort((a,b)=>String(b.receiveDate).localeCompare(String(a.receiveDate))).slice(0,200).map(g=>[fa(g.receiveDate),esc(g.type||''),T(g.totalAmount),esc(g.receiveMethod||''),esc(A(g.participants).map(x=>person(x.personnelId)?.name||x.personnelId).join('، ')),g.status==='ابطال‌شده'?P.b('ابطال‌شده','danger'):esc(g.status||''),canWrite()&&g.status!=='ابطال‌شده'?`<button class="btn btn-ghost btn-sm" data-tpa="${esc(g.id)}">${P.ic('pencil')}تسویه / ابطال</button>`:'']))})}</div>`}
-function tipsMount(root){const s=P.$('#htMonth',root);if(s)s.onchange=e=>{tipMonth=e.target.value;P.render()};(P.$('#pnTab',root)||root).addEventListener('click',e=>{const b=e.target.closest('[data-tpa]');if(b)tipActionForm(b.dataset.tpa)})}
+/* tips view: js/pages/payroll-real.js (stage 6c) */
 
 /* ---------- salary of the month: js/pages/payroll-real.js (core/js/payroll-core.js) ---------- */
 
@@ -98,10 +87,6 @@ function tipForm(){const d=H(),types=PW.list(d,'tipTypes',PW.TIP_TYPES),pays=PW.
   onMount:m=>{const ty=P.$('[name=type]',m),apply=()=>{for(const c of m.querySelectorAll('[data-tp]')){const p=person(c.dataset.tp);c.checked=PW.tipDefault(ty.value,p)}sum()},sum=()=>{const sel=[...m.querySelectorAll('[data-tp]:checked')],w=sel.reduce((a,c)=>a+(Number(IE.latin(m.querySelector(`[data-tw="${c.dataset.tp}"]`).value))||1),0),t=P.num(P.$('[name=total]',m).value);P.$('#tpSum',m).textContent=sel.length?`${fa(sel.length)} نفر · هر واحد وزن ${P.t(Math.round(t/(w||1)))} تومان`:''};ty.onchange=apply;P.$('.modal-body',m).addEventListener('input',sum);P.$('.modal-body',m).addEventListener('change',e=>{if(e.target.dataset.tp)sum()});apply()},
   onSave:(m,btn)=>{const v=n=>P.$(`[name=${n}]`,m).value,x={date:E.D(v('date')),type:v('type'),totalAmount:P.num(v('total')),receiveMethod:v('method'),notes:v('notes'),participants:[...m.querySelectorAll('[data-tp]:checked')].map(c=>({personnelId:c.dataset.tp,weight:IE.latin(m.querySelector(`[data-tw="${c.dataset.tp}"]`).value)}))};
    saveHr(btn,{action:'TIP_ADDED',details:{date:x.date},mutate:(d,c)=>PW.addTip(d,c,x),done:r=>`انعام ${P.t(r.totalAmount)} تومان برای ${fa(r.participants.length)} نفر ثبت شد`})}})}
-function tipActionForm(id){const g=A(H().tipGroups).find(x=>x.id===id);if(!g)return;const pays=PW.list(H(),'paymentMethods',PW.PAY);
- form({title:'تسویه یا ابطال انعام',ok:'ذخیره روی سرور',body:`<div class="sum-box"><span>${fa(g.receiveDate)} · ${esc(g.type)} · ${fa(A(g.participants).length)} نفر</span><b>${T(g.totalAmount)}</b></div><div class="form-grid">${P.field('کار',`<select class="select" name="act"><option value="settle">ثبت تسویه</option><option value="void">ابطال انعام</option></select>`)}${P.field('وضعیت',`<select class="select" name="st">${opts(['تسویه‌شده','تسویه جزئی','ثبت‌شده'],g.status==='ثبت‌شده'?'تسویه‌شده':g.status)}</select>`)}${P.field('مبلغ تسویه',P.money('amt',g.settledAmount||''))}${P.field('تاریخ تسویه',dateIn('sd',g.settlementDate||E.CAL.today))}${P.field('روش تسویه',`<select class="select" name="sm">${opts(pays,g.settlementMethod||pays[0])}</select>`)}</div>${P.field('علت ابطال (برای ابطال)','<input class="input" name="reason">')}`,
-  onSave:(m,btn)=>{const v=n=>P.$(`[name=${n}]`,m).value;if(v('act')==='void')return saveHr(btn,{action:'TIP_VOIDED',details:{entityId:id},mutate:(d,c)=>PW.voidTip(d,c,{id,reason:v('reason')}),done:()=>'انعام ابطال شد'});
-   saveHr(btn,{action:'TIP_SETTLED',details:{entityId:id},mutate:(d,c)=>PW.settleTip(d,c,{id,status:v('st'),settledAmount:P.num(v('amt')),settlementDate:E.D(v('sd')),settlementMethod:v('sm')}),done:r=>`وضعیت انعام: ${r.status}`})}})}
 function penaltyForm(pre={}){const d=H();const types=window.PayrollCore?PayrollCore.config(d).items.filter(x=>x.active):PW.list(d,'penaltyRewardTypes',PW.PR_TYPES).map(t=>({title:t}));form({title:'ثبت جریمه، کسر تأخیر یا پاداش',ok:'ذخیره روی سرور',body:`<div class="form-grid">${P.field('تاریخ',dateIn())}${P.field('پرسنل',`<select class="select" name="pid"><option value="">انتخاب</option>${personOpts(pre.personnelId)}</select>`)}${P.field('نوع',`<select class="select" name="type">${types.map(t=>`<option value="${esc(t.title)}" ${t.title===pre.type?'selected':''}>${esc(t.title)}${t.kind?' — '+(t.kind==='addition'?'اضافه به حقوق':'کسر از حقوق'):''}</option>`).join('')}</select>`)}${P.field('مبلغ (تومان)',P.money('amount'))}${P.field('وضعیت',`<select class="select" name="status">${opts(['پیش‌نویس','تاییدشده'],'تاییدشده')}</select>`)}${P.field('تأییدکننده',`<input class="input" name="by" value="${esc(IE.ses('rayo_admin_user'))}">`)}</div>${P.field('علت *','<input class="input" name="reason">')}${P.field('توضیح','<input class="input" name="notes">')}${P.note('ثبت تأییدشده در حقوق ماهِ تاریخش حساب می‌شود؛ اگر حقوق آن ماه قطعی شده باشد، در اولین ماه باز (با برچسب ماه اصلی).','info')}`,
   onSave:(m,btn)=>{const v=n=>P.$(`[name=${n}]`,m).value,x={date:E.D(v('date')),personnelId:v('pid'),type:v('type'),amount:P.num(v('amount')),status:v('status'),approvedBy:v('by'),reason:v('reason'),notes:v('notes')};saveHr(btn,{action:'PENALTY_REWARD_ADDED',details:{personnelId:x.personnelId},mutate:(d,c)=>PW.addPenalty(d,c,x),done:r=>`${r.type} ${P.t(r.amount)} تومان برای ${person(r.personnelId)?.name||''} ثبت شد`})}})}
 function penaltyStatusForm(id){const x=A(H().penaltiesRewards).find(r=>r.id===id);if(!x)return;form({title:'تأیید یا لغو',ok:'ذخیره روی سرور',body:`<div class="sum-box"><span>${fa(x.date)} · ${esc(person(x.personnelId)?.name||'')} · ${esc(x.type)}</span><b>${T(x.amount)}</b></div>${P.field('وضعیت جدید',`<select class="select" name="st">${x.status!=='تاییدشده'?'<option value="تاییدشده">تأیید</option>':''}<option value="لغوشده">لغو</option></select>`)}${P.field('علت لغو','<input class="input" name="reason">')}`,
@@ -111,17 +96,17 @@ function messageForm(){form({title:'پیام روز',ok:'ذخیره روی سر�
 async function archiveMsg(btn,id){if(!confirm('این پیام بایگانی شود؟'))return;await saveHr(btn,{action:'DAILY_MESSAGE_ARCHIVED',details:{entityId:id},mutate:(d,c)=>PW.archiveMessage(d,c,{id}),done:()=>'پیام بایگانی شد'})}
 // a save without a button (e.g. a status select): the control is disabled while saving
 async function quickHr(el,{action,details,mutate,done}){el.disabled=true;try{const {out,doc}=await W.edit(ioHr,{action,details,mutate});hr.doc=scrub(doc);P.render();P.toast(done(out),'check')}catch(e){P.toast(e.message||String(e),'alert-triangle');P.render()}finally{el.disabled=false}}
-window.PeopleEntry={quick:quickHr,tip:tipForm,tipAction:tipActionForm,penalty:penaltyForm,penaltyStatus:penaltyStatusForm,message:messageForm,canWrite,whyLocked,saveHr,form};
+window.PeopleEntry={quick:quickHr,tip:tipForm,penalty:penaltyForm,penaltyStatus:penaltyStatusForm,message:messageForm,canWrite,whyLocked,saveHr,form};
 
 /* ---------- wiring ---------- */
 const hint=()=>P.note(`این صفحه <b>دادهٔ نمونه</b> است. برای دیدن دادهٔ واقعی، در «انبار ← داشبورد کنترل» به داده وصل شوید. <a href="#/inventory/control">اتصال</a>`,'database');
 const empty=what=>P.note(`<b>${what}</b> هنوز در پنل جدید نیست؛ از تب «در پنل فعلی» باز کنید. <a href="#/people/legacy">در پنل فعلی</a>`,'info');
-const REAL={staff:{render:gate(staffView),mount:staffMount},tips:{render:gate(tipsView),mount:tipsMount},training:{render:gate(trainingView)},users:{render:gate(usersView),mount:usersMount},messages:{render:gate(messagesView),mount:messagesMount},
+const REAL={staff:{render:gate(staffView),mount:staffMount},training:{render:gate(trainingView)},users:{render:gate(usersView),mount:usersMount},messages:{render:gate(messagesView),mount:messagesMount},
  attendance:{empty:'تردد (ورود و خروج) و برنامهٔ شیفت'},requests:{empty:'مرخصی، مساعده و اصلاح کارکرد'}};
 for(const [id,v] of Object.entries(REAL)){const t=mod.tabs.find(x=>x.id===id);if(!t)continue;const r0=t.render,m0=t.mount,a0=t.actions;
  t.render=r=>IC.ready()?(v.render?v.render(r):empty(v.empty)):hint()+r0(r);
  t.mount=(root,r)=>{if(IC.ready()&&v.render){v.mount&&v.mount(root,r)}else m0&&m0(root,r)};
- const ACT={tips:()=>wbtn('hand-heart','ثبت انعام','onclick="PeopleEntry.tip()"'),messages:()=>wbtn('megaphone','پیام جدید','onclick="PeopleEntry.message()"')};
+ const ACT={messages:()=>wbtn('megaphone','پیام جدید','onclick="PeopleEntry.message()"')};
  if((a0||ACT[id])&&v.render)t.actions=r=>IC.ready()?(ACT[id]?(H()?ACT[id]():''):`<a class="btn btn-secondary" href="#/people/legacy">${P.ic('external-link')}ثبت در پنل فعلی</a>`):(a0?a0(r):'');}
-window.PeopleReal={doc:()=>hr.doc,load:loadHr,state:hr,tipShares,cashTips,scrub,gate,saveHr,tenure,canWrite,whyLocked};
+window.PeopleReal={doc:()=>hr.doc,load:loadHr,state:hr,tipShares,scrub,gate,saveHr,tenure,canWrite,whyLocked};
 })();

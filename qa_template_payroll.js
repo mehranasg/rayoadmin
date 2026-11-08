@@ -113,6 +113,15 @@ const a=PC.archive(hr);ok(a.tipShares.length===1&&a.tipShares[0].amount===900000
  q.payrollClosures=[{year:1405,month:8,active:true}];ok(PC.checkPayment(q,{...base,reason:'مساعده'},T).errors.some(e=>/قطعی/.test(e)),'advance for a final month refused')}
 // staff panel: advance requests retired
 {const s22=fs.readFileSync(path.join(__dirname,'js/22-staff-panel.js'),'utf8');ok(!s22.includes("['advance','💰','درخواست مساعده']")&&/async function staffSaveAdvance\(\)\{return toastStaff/.test(s22)&&!/d\.advanceRequests/.test(s22),'staff panel: no advance request menu and no write')}
+// staff panel «انعام‌های من» reads the same tip ledger (js/22 staffTipStart / staffTipPayment)
+{const s22=fs.readFileSync(path.join(__dirname,'js/22-staff-panel.js'),'utf8'),grab=n=>{const i=s22.indexOf('function '+n+'('),j=s22.indexOf('\n',i);return s22.slice(i,j)};
+ const mk=new Function('hr','me','A','S','N',grab('staffTipStart')+'\n'+grab('staffTipPayment')+';return{staffTipStart,staffTipPayment}'),Ar=x=>Array.isArray(x)?x:[],Sr=x=>String(x??'').trim(),Nr=v=>Number(v)||0;
+ const h=clone(hr0);h.settings.paymentReasons=[{title:'تسویه انعام',kind:'tip',active:true},{title:'مساعده',kind:'advance',active:true}];const fns=mk(h,{id:'F'},Ar,Sr,Nr);
+ ok(fns.staffTipStart()==='1405/07/01','staff panel: tips from the payroll start');
+ ok(fns.staffTipPayment({personnelId:'F',type:'تسویه انعام'})&&fns.staffTipPayment({personnelId:'F',type:'x',reasonKind:'tip'})&&fns.staffTipPayment({personnelId:'F',type:'پرداخت انعام'})&&!fns.staffTipPayment({personnelId:'F',type:'مساعده'})&&!fns.staffTipPayment({personnelId:'F',type:'پرداخت انعام',status:'void'})&&!fns.staffTipPayment({personnelId:'H',type:'پرداخت انعام'}),'staff panel: tip payments by reason kind, own, not void');
+ ok(!s22.includes('tipSettledShareStaff'),'staff panel: no group-status settlement any more')}
+{const pr=fs.readFileSync(path.join(__dirname,'newpanel/js/pages/payroll-real.js'),'utf8'),pe=fs.readFileSync(path.join(__dirname,'newpanel/js/pages/people-real.js'),'utf8');
+ ok(/function tipDays\(/.test(pr)&&/tipsTotal\)\/10/.test(pr)&&!/settleTip/.test(pr)&&!/tipActionForm/.test(pe),'tips tab: daily check against cash report tips (rial → toman); no group settlement')}
 // static checks of the pages
 const pr=fs.readFileSync(path.join(__dirname,'newpanel/js/pages/payroll-real.js'),'utf8'),ix=fs.readFileSync(path.join(__dirname,'newpanel/index.html'),'utf8');
 ok(ix.includes('core/js/payroll-core.js')&&ix.includes('js/pages/payroll-real.js')&&!ix.includes('payroll-engine.js'),'index loads the new payroll files only');
