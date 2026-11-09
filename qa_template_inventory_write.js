@@ -6,6 +6,7 @@ global.window={};
 const sessionStore={};global.sessionStorage={getItem:k=>sessionStore[k]??null,setItem:(k,v)=>{sessionStore[k]=String(v)}};
 eval(fs.readFileSync(path.join(__dirname,'newpanel/core/js/inventory-engine.js'),'utf8'));
 eval(fs.readFileSync(path.join(__dirname,'newpanel/core/js/inventory-write.js'),'utf8'));
+eval(fs.readFileSync(path.join(__dirname,'newpanel/core/js/menu-write.js'),'utf8'));
 const E=window.InvEngine,W=window.InvWrite;
 let pass=0,fail=0;const ok=(c,m)=>{if(c)pass++;else{fail++;console.log('FAIL:',m)}};
 const throws=(f,re,m)=>{try{f();ok(false,m+' (no error)')}catch(e){ok(re.test(e.message),m+' → '+e.message)}};
@@ -123,6 +124,21 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  ok(ev.status==='void'&&ev.voidKind==='edit'&&ne.replacesId===ev.id&&near(ne.quantity,0.5)&&ne.eventType==='EXPIRY'&&ne.reason==='سوختگی','waste edit keeps item and reason');
  const cd=JSON.parse(JSON.stringify(doc)),cv=W.voidCountDate(cd,ctx(),{date:D5,reason:'شمارش اشتباه'});ok(cv.count===1&&cd.stocktakes.filter(s=>s.date===D5).every(s=>s.status==='void'),'count of a date voided');
  throws(()=>W.voidCountDate(cd,ctx(),{date:D1,reason:'x'}),/پایان روز/,'no count on that date refused')}
+
+// 6e. prepared items: conversion, count with direct + prepared share, re-count replaces
+{const MW=window.MenuWrite,pp={...pricing,ingredients:[...pricing.ingredients.map(i=>i.id==='i1'?{...i,wastePercent:20}:i)],preparedItems:[]},pc=()=>({...ctx(),pricing:pp});
+ const it=MW.savePreparedItem(pp,pc(),{name:'پتی',countUnit:'عدد',baseOutputQuantity:'۱۰',components:[{ingredientId:'i1',quantity:500,unit:'گرم',basis:'net'},{ingredientId:'i2',quantity:0.1,unit:'کیلوگرم',basis:'gross'}]});
+ ok(it.id==='PREP-0001'&&it.version===1&&it.components[0].id==='PREPC-0001','prepared item saved');
+ const cv=MW.preparedItemConversion(pp,it,20,'عدد');ok(cv.complete&&near(cv.contributions[0].quantity,1/0.8*1.0)&&near(cv.contributions[1].quantity,0.2),'conversion: scale, g to kg, net to gross');
+ MW.savePreparedItem(pp,pc(),{id:it.id,name:'پتی',countUnit:'عدد',baseOutputQuantity:10,components:[{ingredientId:'i1',quantity:600,unit:'گرم',basis:'net'},{ingredientId:'i2',quantity:0.1,unit:'کیلوگرم',basis:'gross'}]});ok(it.version===2,'formula change raises the version');
+ throws(()=>MW.savePreparedItem(pp,pc(),{name:'x',countUnit:'عدد',baseOutputQuantity:1,components:[{ingredientId:'i2',quantity:1,unit:'عدد',basis:'net'}]}),/تبدیل/,'unit that cannot convert refused');
+ const pd=JSON.parse(JSON.stringify(doc)),dd=E.CAL.k(E.CAL.i(T)-1);
+ W.addCount(pd,pc(),{date:dd,entries:[{itemId:'i1',quantity:3}],prepared:[{preparedItemId:it.id,quantity:10}]});let st=pd.stocktakes.find(s=>s.date===dd),l=st.lines.find(x=>x.ingredientId==='i1');
+ ok(st.preparedLines.length===1&&near(l.actual,3+0.75)&&l.directActual===3&&near(l.preparedActual,0.75)&&l.directlyCounted&&st.lines.some(x=>x.ingredientId==='i2'&&near(x.actual,0.1)&&x.directlyCounted===false),'count = direct + prepared share');
+ W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:20}]});st=pd.stocktakes.find(s=>s.date===dd);l=st.lines.find(x=>x.ingredientId==='i1');
+ ok(st.preparedLines.length===1&&st.preparedLines[0].quantity===20&&near(l.actual,3+1.5)&&st.revisionHistory.at(-1).preparedRemoved.length===1,'re-count of the prepared item replaces it; direct kept');
+ W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:0}]});st=pd.stocktakes.find(s=>s.date===dd);ok(near(st.lines.find(x=>x.ingredientId==='i1').actual,3)&&!st.lines.some(x=>x.ingredientId==='i2'),'zero prepared: ingredient back to its direct count; prepared-only line taken out (js/32)');
+ throws(()=>W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:1.5}]}),/صحیح/,'whole number for «عدد»')}
 
 // 6c. zero for uncounted items; rollback; beverage items
 {const pz={...pricing,ingredients:[...pricing.ingredients,{id:'i4',code:'104',name:'قلم شمرده‌نشده',status:'فعال',itemType:'MENU_INGREDIENT',recipeUnit:'عدد'},{id:'i5',code:'105',name:'کنارگذاشته',status:'فعال',itemType:'MENU_INGREDIENT',recipeUnit:'عدد'}]};

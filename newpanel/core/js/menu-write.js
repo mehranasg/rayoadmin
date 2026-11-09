@@ -160,6 +160,39 @@ function removeMenuItem(doc,ctx,{id,salesCount}){const m=A(doc.menuItems).find(x
    items is entered; each changed price becomes a dated pricing.ingredientPriceHistory row (source manual-bulk) so the
    cost of that day on (recipes, consumption, profit and loss) follows it. The current price changes only when the date
    is not older than the last price date of the item. */
+/* ---------- prepared (composite) items, e.g. burger patties (js/08 pcSavePreparedItem / pcPreparedItemConversion) ----------
+   pricing.preparedItems[{id PREP-####, name, status, countUnit, baseOutputQuantity, standardUnitWeight, stateNote, notes,
+   version, components[{id PREPC-####, ingredientId, quantity, unit, basis net|gross}]}]; the version goes up whenever the
+   formula changes (unit, base quantity or components), so a count keeps the formula it was converted with. */
+const PREP_UNITS=['عدد','کیلوگرم','گرم','لیتر','میلی‌لیتر','بسته'];
+function convertQty(i,qty,from,to){const U=E().UK,f=U(from),t=U(to);if(!(qty>=0))return{value:null,reason:'مقدار نامعتبر است'};if(f===t)return{value:qty,reason:''};
+ const fam=u=>u==='kg'||u==='g'?'mass':u==='l'||u==='ml'?'volume':null,ff=fam(f),ft=fam(t);if(!ff||!ft)return{value:null,reason:'تبدیل بین این دو واحد پشتیبانی نمی‌شود'};
+ const toB=(q,u)=>u==='g'||u==='ml'?q/1000:q,fromB=(q,u)=>u==='g'||u==='ml'?q*1000:q;if(ff===ft)return{value:fromB(toB(qty,f),t),reason:''};
+ const d=Number(i?.densityKgPerLiter);if(!(d>0))return{value:null,reason:'چگالی این ماده تعریف نشده است؛ تبدیل حجم و وزن ممکن نیست'};
+ return ff==='volume'?{value:fromB(toB(qty,f)*d,t),reason:''}:{value:fromB(toB(qty,f)/d,t),reason:''}}
+function preparedItemConversion(pricing,item,countedQuantity,countedUnit){const qty=N(countedQuantity),bad=reason=>({complete:false,reason,contributions:[]});
+ if(!item)return bad('قلم آماده‌سازی تعریف نشده است');if(item.status==='غیرفعال')return bad(`قلم آماده‌سازی «${item.name}» غیرفعال است`);if(!(qty>=0))return bad(`مقدار شمارش «${item.name}» نامعتبر است`);
+ const base=N(item.baseOutputQuantity);if(!(base>0))return bad(`مقدار مبنای فرمول «${item.name}» نامعتبر است`);if(E().UK(countedUnit||item.countUnit)!==E().UK(item.countUnit))return bad(`واحد شمارش «${item.name}» با واحد فرمول متفاوت است`);
+ const comps=A(item.components);if(!comps.length)return bad(`فرمول «${item.name}» ماده‌ای ندارد`);const scale=qty/base,out=[];
+ for(const c of comps){const i=A(pricing?.ingredients).find(x=>x.id===c.ingredientId);if(!i)return bad(`ماده‌ای در فرمول «${item.name}» در کاتالوگ نیست`);if(i.status==='غیرفعال')return bad(`مادهٔ «${i.name}» در فرمول «${item.name}» غیرفعال است`);
+  const cq=N(c.quantity);if(!(cq>0))return bad(`مقدار «${i.name}» در فرمول «${item.name}» نامعتبر است`);if(c.basis!=='gross'&&c.basis!=='net')return bad(`مبنای مقدار «${i.name}» در فرمول «${item.name}» تعیین نشده است`);
+  const cv=convertQty(i,cq*scale,c.unit,i.recipeUnit);if(cv.value===null)return bad(`تبدیل واحد «${i.name}»: ${cv.reason}`);let g=cv.value,yf=null;
+  if(c.basis==='net'){const wp=Number(i.wastePercent)||0;if(!(wp>=0&&wp<100))return bad(`درصد افت «${i.name}» معتبر نیست`);yf=1-wp/100;g=g/yf}
+  out.push({ingredientId:i.id,ingredientNameSnapshot:i.name,ingredientCodeSnapshot:i.code||'',unit:i.recipeUnit,quantity:g,componentQuantity:cq,componentUnit:c.unit,basis:c.basis,yieldFactorApplied:yf})}
+ return{complete:true,reason:'',scale,contributions:out,preparedItemId:item.id,preparedItemNameSnapshot:item.name,preparedItemVersion:item.version||1,baseOutputQuantitySnapshot:base,countUnitSnapshot:item.countUnit}}
+function savePreparedItem(doc,ctx,x){doc.preparedItems=A(doc.preparedItems);const ings=A(doc.ingredients),name=S(x.name);if(!name)throw Error('نام قلم آماده‌سازی الزامی است');
+ if(!PREP_UNITS.includes(S(x.countUnit)))throw Error('واحد شمارش معتبر انتخاب کنید');const base=N(x.baseOutputQuantity);if(!(base>0))throw Error('مقدار مبنای فرمول باید عدد مثبت باشد');
+ const cur=x.id?doc.preparedItems.find(p=>p.id===x.id):null;if(x.id&&!cur)throw Error('قلم آماده‌سازی پیدا نشد');if(doc.preparedItems.some(p=>p.id!==x.id&&NORM(p.name)===NORM(name)))throw Error('این نام قبلاً تعریف شده است');
+ const comps=A(x.components).filter(c=>S(c.ingredientId)).map((c,k)=>{const i=ings.find(v=>v.id===c.ingredientId);if(!i)throw Error(`ردیف ${k+1}: ماده در کاتالوگ نیست`);const q=N(c.quantity);if(!(q>0))throw Error(`ردیف ${k+1} («${i.name}»): مقدار مثبت لازم است`);const basis=c.basis==='gross'?'gross':'net',unit=S(c.unit)||i.recipeUnit;
+  const cv=convertQty(i,q,unit,i.recipeUnit);if(cv.value===null)throw Error(`«${i.name}»: ${cv.reason}`);const old=A(cur?.components).find(o=>o.ingredientId===i.id);return{id:old?.id||'',ingredientId:i.id,quantity:q,unit,basis}});
+ if(!comps.length)throw Error('حداقل یک ماده در فرمول لازم است');if(new Set(comps.map(c=>c.ingredientId)).size!==comps.length)throw Error('یک ماده دو بار در فرمول آمده است');
+ let m=0;for(const p of doc.preparedItems)for(const c of A(p.components)){const q=S(c.id).match(/(\d+)$/);if(q)m=Math.max(m,+q[1])}for(const c of comps)if(!c.id)c.id=`PREPC-${String(++m).padStart(4,'0')}`;
+ const w=S(x.standardUnitWeight)===''?null:N(x.standardUnitWeight);if(w!==null&&!(w>0))throw Error('وزن استاندارد هر عدد باید مثبت یا خالی باشد');
+ const formula=c=>JSON.stringify({u:c?.countUnit,b:N(c?.baseOutputQuantity),c:A(c?.components).map(z=>[z.ingredientId,N(z.quantity),z.unit,z.basis])});
+ const o={name,status:S(x.status)==='غیرفعال'?'غیرفعال':'فعال',countUnit:S(x.countUnit),baseOutputQuantity:base,standardUnitWeight:w,stateNote:S(x.stateNote),notes:S(x.notes),components:comps,updatedAt:ctx.at,updatedBy:ctx.actor};
+ if(cur){const before=clone(cur);if(formula(cur)!==formula(o))o.version=(cur.version||1)+1;Object.assign(cur,o);ctx.auditExtra={entityId:cur.id,before};return cur}
+ const it={id:pcUid('PREP',doc.preparedItems),version:1,createdAt:ctx.at,createdBy:ctx.actor,...o};doc.preparedItems.push(it);ctx.auditExtra={entityId:it.id};return it}
+
 /* prices from an Excel sheet (js/08 pcReadIngredientsExcel mode «prices»): header row found in the first 25 rows of any
    sheet by the same column names; item by code, else by name; a raw Sepidz goods sheet (ضریب مصرف + نوع کالا + واحد
    مصرف) is in rial and divided by 10; an optional price-date column gives each row its own date. Nothing is written here. */
@@ -183,5 +216,5 @@ function setLatestPrices(doc,ctx,{date,rows,source='manual-bulk'}){const d0=E().
   doc.ingredientPriceHistory.push({id:pcUid('IPH',doc.ingredientPriceHistory),ingredientId:i.id,date:d,priceToman:p,source,purchaseUnit:i.purchaseUnit,recipeUnit:i.recipeUnit,packageQuantity:Z(i.packageQuantity),createdAt:ctx.at,createdBy:ctx.actor});
   if(!last||d>=last)Object.assign(i,{lastPurchasePriceToman:p,lastPurchaseDate:d,lastPurchaseSource:source==='excel'?'excel':'manual',lastPurchaseInvoiceId:''});out.push({id:i.id,price:p,date:d,current:!last||d>=last})}
  if(!out.length)throw Error('قیمت تازه‌ای وارد نشده است');ctx.auditExtra={date:d0,count:out.length,source};return out}
-window.MenuWrite={setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+window.MenuWrite={PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();
