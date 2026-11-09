@@ -59,6 +59,39 @@ ok(fin.settings.performanceTaxPercent===2.5&&fin.settings.vatIncludedInSales===t
 throws(()=>FW.saveSettings(fin,ctx(),{expenseCategories:fin.settings.expenseCategories,incomeCategories:['سایر درآمد'],obligationCategories:['وام'],vatPercent:10,performanceReservePercent:2.5,vatIncluded:true}),/تغییری/,'no-op settings refused');
 throws(()=>FW.saveSettings(fin,ctx(),{expenseCategories:['a'],incomeCategories:['b'],obligationCategories:['c'],vatPercent:50,performanceReservePercent:2.5}),/ارزش افزوده/,'VAT range checked');
 ok(fin.entries.length===5&&fin.obligations.length===4,'nothing removed (voided records stay)');
+// staff meals (stage 7b)
+{const f2={settings:{},entries:[]};const n=FW.saveMeals(f2,ctx(),{rows:{'1405/08/01':{portions:'۲۵',suggested:22},'1405/08/02':{portions:'20',notes:'+۲ مدیر'}},today:'1405/08/18'});
+ ok(n===2&&f2.staffMeals.length===2&&f2.staffMeals[0].id==='SML-00001'&&f2.staffMeals[0].portions===25&&f2.staffMeals[0].suggested===22,'daily portions saved (Persian digits, suggestion kept)');
+ FW.saveMeals(f2,ctx(),{rows:{'1405/08/01':{portions:'27'}},today:'1405/08/18'});ok(f2.staffMeals[0].portions===27&&f2.staffMeals[0].history.length===1&&f2.staffMeals[0].history[0].portions===25&&f2.staffMeals.length===2,'change keeps the previous value in history');
+ throws(()=>FW.saveMeals(f2,ctx(),{rows:{'1405/08/01':{portions:'27'}},today:'1405/08/18'}),/تغییری/,'no-op refused');
+ throws(()=>FW.saveMeals(f2,ctx(),{rows:{'1405/08/03':{portions:'2.5'}},today:'1405/08/18'}),/صحیح/,'portions must be whole numbers');
+ throws(()=>FW.saveMeals(f2,ctx(),{rows:{'1405/08/25':{portions:'2'}},today:'1405/08/18'}),/آینده/,'future day refused');
+ FW.saveMeals(f2,ctx(),{rows:{'1405/08/02':{portions:''}},today:'1405/08/18'});ok(f2.staffMeals[1].status==='void'&&FW.mealsOfMonth(f2,'1405/08').length===1,'emptied day voided, not removed');
+ FW.addEntry(f2,ctx(),{type:'expense',date:'1405/08/05',category:'غذای پرسنل',amountToman:2700000,accountKey:'cash:C1'});const mc=FW.mealCost(f2,'1405/08',1350000);
+ ok(mc.docs===2700000&&mc.stock===1350000&&mc.total===4050000&&mc.portions===27&&mc.perPortion===150000,'meal cost = staff-meal purchases + staff use from stock; cost per portion')}
+// other costs outside the ledger
+{const f3={settings:{pettyCash:{categories:[{id:'C1',name:'نظافت'}]}},entries:[{id:'CUST-9',type:'expense',custodyKind:'expense',date:'1405/08/03',amountToman:400000,status:'active'},{id:'CUST-8',type:'personalWithdrawal',custodyKind:'personalWithdrawal',date:'1405/08/03',amountToman:999,status:'active'}],
+  pettyCash:{expenses:[{id:'PCE-1',date:'1405/08/04',amountToman:1000000,categoryId:'C1',lines:[{name:'گوجه',ingredientId:'ING-1',qty:2,unitPrice:300000},{name:'دستمال',qty:1,unitPrice:400000}],decision:{status:'approved'},status:'submitted'},{id:'PCE-2',date:'1405/08/04',amountToman:500000,categoryId:'C1',lines:[],decision:{status:'personal'},status:'submitted'}]}};
+ ok(FW.custodyExpenses(f3,'1405/08')===400000,'restaurant expenses paid from money held by people count; personal withdrawals do not');
+ const pe=FW.pettyExpenses(f3,'1405/08');ok(pe.length===1&&pe[0].category==='تنخواه: نظافت'&&pe[0].amount===400000,'petty cash: approved, without catalog items (those are material cost)')}
+// profit and loss
+{const r=FW.pnl({grossSales:1100000000,vatPercent:10,vatIncluded:true,reservePercent:2.5,otherIncome:5000000,material:{std:300000000,waste:10000000,variance:-20000000,coverage:0.9},staffMeal:{total:15000000},payroll:{net:250000000,state:'open'},expenses:[{category:'اجاره',amount:100000000},{category:'برق',amount:10000000},{category:'x',amount:0}]});
+ ok(Math.round(r.vat)===100000000&&Math.round(r.sales)===1000000000,'VAT inside the sales amount is taken out');
+ ok(r.materials===330000000&&r.materialParts.shortage===20000000,'material cost = standard cost of sales + waste + stock shortage');
+ ok(r.expenses.length===2&&r.expenseTotal===110000000&&Math.round(r.reserve)===25000000,'other expenses by category (zero lines dropped); 2.5% reserve of net sales');
+ ok(Math.round(r.profit)===1000000000+5000000-330000000-15000000-250000000-110000000-25000000&&Math.round(r.pct(r.materials))===33,'profit and percentages of net sales');
+ ok(r.flags.some(f=>/قطعی نشده/.test(f))&&!r.flags.some(f=>/شمارش/.test(f)),'flags: payroll not final');
+ const r2=FW.pnl({grossSales:110,vatPercent:10,vatIncluded:false,material:{std:null},payroll:null});ok(r2.vat===0&&r2.sales===110&&r2.flags.length===3,'VAT not included; missing material, count and payroll flagged')}
+// latest ingredient prices (menu-write)
+{global.window.InvEngine={CAL:{today:'1405/08/18'},D:s=>{const q=String(s).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);return q?`${q[1]}/${q[2].padStart(2,'0')}/${q[3].padStart(2,'0')}`:''}};
+ eval(fs.readFileSync(path.join(__dirname,'newpanel/core/js/menu-write.js'),'utf8'));const MW=window.MenuWrite;
+ const pr={ingredients:[{id:'ING-1',name:'گوجه',lastPurchasePriceToman:50000,lastPurchaseDate:'1405/08/01',purchaseUnit:'کیلوگرم',recipeUnit:'گرم',packageQuantity:1000},{id:'ING-2',name:'پنیر',lastPurchasePriceToman:0,lastPurchaseDate:'',purchaseUnit:'کیلوگرم',recipeUnit:'گرم',packageQuantity:1000}],ingredientPriceHistory:[{id:'IPH-0007',ingredientId:'ING-1',date:'1405/08/01',priceToman:50000}]};
+ const out=MW.setLatestPrices(pr,ctx(),{date:'۱۴۰۵/۰۸/۱۵',rows:[{id:'ING-1',price:'۶۵٬۰۰۰'},{id:'ING-2',price:'400000'}]});
+ ok(out.length===2&&pr.ingredients[0].lastPurchasePriceToman===65000&&pr.ingredients[0].lastPurchaseDate==='1405/08/15'&&pr.ingredients[0].lastPurchaseSource==='manual'&&pr.ingredientPriceHistory.length===3&&pr.ingredientPriceHistory[1].id==='IPH-0008'&&pr.ingredientPriceHistory[1].source==='manual-bulk','latest prices: current price and a dated history row');
+ const old=MW.setLatestPrices(pr,ctx(),{date:'1405/07/20',rows:[{id:'ING-1',price:60000}]});ok(old[0].current===false&&pr.ingredients[0].lastPurchasePriceToman===65000&&pr.ingredientPriceHistory.length===4,'an older date only adds history');
+ throws(()=>MW.setLatestPrices(pr,ctx(),{date:'1405/08/15',rows:[{id:'ING-1',price:65000}]}),/تازه/,'same price and date refused');
+ throws(()=>MW.setLatestPrices(pr,ctx(),{date:'1405/08/15',rows:[{id:'ING-1',price:0}]}),/مثبت/,'price must be positive');
+ throws(()=>MW.setLatestPrices(pr,ctx(),{date:'1405/09/01',rows:[{id:'ING-1',price:1}]}),/بعد از امروز/,'future date refused')}
 // pages
 const lr=fs.readFileSync(path.join(__dirname,'newpanel/js/pages/ledger-real.js'),'utf8'),ix=fs.readFileSync(path.join(__dirname,'newpanel/index.html'),'utf8');
 ok(/id:'ledger'/.test(lr)&&/id:'debts'/.test(lr)&&/id:'finset'/.test(lr)&&ix.includes('core/js/finance-write.js')&&ix.includes('js/pages/ledger-real.js'),'finance tabs wired');

@@ -30,7 +30,7 @@ function months(){const k=String(R().inventory?.meta?.updatedAt||'')+'|'+String(
   const purchases=A(inv.purchaseInvoices).filter(x=>PW.isFinal(x)&&monthOf(x.date)===k).reduce((s,x)=>s+PW.invoiceTotal(x),0);
   const [y,mo]=k.split('/').map(Number),staff=hr?A(hr.payments).filter(p=>p.salaryYear?Z(p.salaryYear)===y&&Z(p.salaryMonth)===mo:monthOf(p.date)===k).reduce((s,p)=>s+Z(p.amount),0)+A(hr.monthlySettlements).filter(x=>Z(x.year)===y&&Z(x.month)===mo).reduce((s,x)=>s+Z(x.total),0):null;
   const tips=hr?A(hr.tipGroups).filter(g=>monthOf(g.receiveDate)===k).reduce((s,g)=>s+Z(g.totalAmount),0):null;
-  return{k,label:E.monthLabel(k),days,cashDays,salesSource:src,sales,itemSales,cash,std:calStd(rg),waste:a?a.calTot.waste+a.calTot.staff:null,receipts:a?a.calTot.receipt:null,variance:a?a.tot.variance:null,coverage:a?a.coverage:0,counted:a?a.counted:0,purchases,staff,tips,
+  return{k,label:E.monthLabel(k),days,cashDays,salesSource:src,sales,itemSales,cash,std:calStd(rg),waste:a?a.calTot.waste+a.calTot.staff:null,wasteOnly:a?a.calTot.waste:null,staffUse:a?a.calTot.staff:null,receipts:a?a.calTot.receipt:null,variance:a?a.tot.variance:null,coverage:a?a.coverage:0,counted:a?a.counted:0,purchases,staff,tips,
    variance0:a&&a.coverage>0?a.tot.variance:null,open:a?a.tot.open:null,close:a?a.tot.close:null}});
  cache={key:k,months:out};return out}
 const SRC={cash:'گزارش صندوق',items:'فایل فروش آیتم‌ها'};

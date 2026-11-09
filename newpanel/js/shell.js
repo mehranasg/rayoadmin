@@ -308,7 +308,7 @@ P.pay=({party,dir='out',docs,title,date,amount,ref,method}={})=>{
    Writes are checked again inside every save (InvEntry.allowed); this is a browser-side guard, not server security. */
 const AAx=()=>window.AdminAccess;
 const MOD_KEYS={home:['dashboard','monitor'],finance:['financeLedger','purchase','cash','assets'],inventory:['inventory','inventoryEdit'],people:['personnel','payroll','shift','training'],menu:['menu','pricing'],customers:['reports','personnel'],reports:['reports','sales'],settings:['settings']};
-const TAB_KEYS={finance:{overview:['financeLedger'],ledger:['financeLedger'],debts:['financeLedger'],finset:['financeLedger'],docs:['purchase','financeLedger'],payments:['purchase','financeLedger'],parties:['purchase','financeLedger'],cash:['cash','financeLedger'],petty:['financeLedger'],assets:['assets'],reports:['financeLedger'],legacy:['financeLedger','purchase','cash']},
+const TAB_KEYS={finance:{overview:['financeLedger'],ledger:['financeLedger'],debts:['financeLedger'],pnl:['financeLedger'],meals:['financeLedger'],finset:['financeLedger'],docs:['purchase','financeLedger'],payments:['purchase','financeLedger'],parties:['purchase','financeLedger'],cash:['cash','financeLedger'],petty:['financeLedger'],assets:['assets'],reports:['financeLedger'],legacy:['financeLedger','purchase','cash']},
  people:{shifts:['shift'],presence:['personnel','payroll','shift'],violations:['personnel'],leaves:['personnel'],payroll:['payroll'],work:['payroll'],payments:['payroll'],payset:['payroll'],tips:['payroll','personnel'],training:['training','personnel'],users:['settings'],attendance:['personnel','payroll','shift']},menu:{pricing:['pricing','menu']},reports:{sales:['sales','reports']},inventory:{requests:['inventory','purchase']}};
 P.session=()=>AAx()?.session?.()||null;
 P.owner=()=>P.session()?.role==='owner';
@@ -323,7 +323,7 @@ const sampleTab=(mod,id)=>P.live()&&(SAMPLE_TABS[mod]||[]).includes(id);
 /* features of the current panel that are not in the new panel yet: one «در پنل فعلی» tab per section, opened in the same tab
    (the sign-in is kept for the browser tab, so the current panel opens signed in) */
 P.LEGACY={
- finance:[['ماندهٔ اول حساب‌ها','finance.html?view=opening','financeLedger'],['سود و زیان ماهانه','finance.html?view=monthly','financeLedger'],['پیش‌بینی','finance.html?view=forecast','financeLedger'],['محاسبه‌گر مالی','finance.html?view=calculator','financeLedger'],['تأمین‌کنندگان: فهرست کامل و Excel','suppliers.html','purchase']],
+ finance:[['ماندهٔ اول حساب‌ها','finance.html?view=opening','financeLedger'],['پیش‌بینی','finance.html?view=forecast','financeLedger'],['محاسبه‌گر مالی','finance.html?view=calculator','financeLedger'],['تأمین‌کنندگان: فهرست کامل و Excel','suppliers.html','purchase']],
  people:[['رتبه‌بندی حقوق و سالن (گزارشات پرسنلی)','personnel.html?view=personnelReports','personnel'],
   
   ['گزارش چاپی حضور و غیاب هر نفر','personnel.html?view=attendanceReport','personnel'],

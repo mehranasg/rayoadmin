@@ -156,5 +156,16 @@ function removeMenuItem(doc,ctx,{id,salesCount}){const m=A(doc.menuItems).find(x
  if(salesCount||versions){Object.assign(m,{status:'غیرفعال',siteStatus:'غیرفعال',archivedAt:ctx.at,archivedBy:ctx.actor,archiveReason:salesCount?`دارای ${salesCount} ردیف فروش ثبت‌شده`:'دارای نسخه تاریخ‌دار رسپی'});return'deactivated'}
  doc.menuItems=A(doc.menuItems).filter(x=>x.id!==id);doc.recipes=A(doc.recipes).filter(r=>r.menuItemId!==id);return'removed'}
 
-window.MenuWrite={NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+/* «آخرین قیمت» (stage 7b, owner request): when no purchase invoice is recorded, only the latest purchase price of
+   items is entered; each changed price becomes a dated pricing.ingredientPriceHistory row (source manual-bulk) so the
+   cost of that day on (recipes, consumption, profit and loss) follows it. The current price changes only when the date
+   is not older than the last price date of the item. */
+function setLatestPrices(doc,ctx,{date,rows}){const d=E().D(date);if(!d)throw Error('تاریخ قیمت معتبر نیست');if(d>E().CAL.today)throw Error('تاریخ قیمت بعد از امروز است');
+ const ings=A(doc.ingredients),out=[];doc.ingredientPriceHistory=A(doc.ingredientPriceHistory);
+ for(const r of A(rows)){const i=ings.find(x=>x.id===r.id);if(!i)throw Error('قلم پیدا نشد: '+r.id);const p=N(r.price);if(!(p>0))throw Error('قیمت «'+i.name+'» باید عدد مثبت باشد');
+  const last=S(i.lastPurchaseDate);if(p===Z(i.lastPurchasePriceToman)&&last===d)continue;
+  doc.ingredientPriceHistory.push({id:pcUid('IPH',doc.ingredientPriceHistory),ingredientId:i.id,date:d,priceToman:p,source:'manual-bulk',purchaseUnit:i.purchaseUnit,recipeUnit:i.recipeUnit,packageQuantity:Z(i.packageQuantity),createdAt:ctx.at,createdBy:ctx.actor});
+  if(!last||d>=last)Object.assign(i,{lastPurchasePriceToman:p,lastPurchaseDate:d,lastPurchaseSource:'manual',lastPurchaseInvoiceId:''});out.push({id:i.id,price:p,current:!last||d>=last})}
+ if(!out.length)throw Error('قیمت تازه‌ای وارد نشده است');ctx.auditExtra={date:d,count:out.length};return out}
+window.MenuWrite={setLatestPrices,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();

@@ -97,5 +97,35 @@ function saveSettings(fin,ctx,x){ensure(fin);const clean=l=>[...new Set(A(l).map
  const s=fin.settings,before=JSON.stringify([s.expenseCategories,s.incomeCategories,s.obligationCategories,s.vatPercent,s.vatIncludedInSales,s.performanceTaxPercent]);
  Object.assign(s,{expenseCategories:exp,incomeCategories:inc,obligationCategories:obl,vatPercent:vat,vatIncludedInSales:x.vatIncluded!==false,performanceTaxPercent:res});
  if(JSON.stringify([s.expenseCategories,s.incomeCategories,s.obligationCategories,s.vatPercent,s.vatIncludedInSales,s.performanceTaxPercent])===before)throw Error('تغییری برای ذخیره نیست');ctx.auditExtra={vat,reserve:res};return s}
-window.FinanceWrite={DEF,STAFF_MEAL,N,D,YM,active,ensure,config,calcObligation,addObligation,voidObligation,addSettlement,voidSettlement,addCheck,clearCheck,returnCheck,voidCheck,entryShare,isDoc,addEntry,voidEntry,payState,monthEntries,dueList,saveSettings};
+/* ---------- staff meals (stage 7b): portions entered per day (owner: extra portions for managers on some days) ----------
+   finance.staffMeals {id SML-#####, date, portions, suggested, notes, status active|void, history[{portions,notes,at,by}]}
+   one active row per day; a change keeps the previous value in history; an emptied day is voided. */
+const mealRow=(fin,date)=>A(fin?.staffMeals).find(x=>x.date===date&&active(x))||null;
+function saveMeals(fin,ctx,{rows,today:t}){fin.staffMeals=A(fin.staffMeals);let n=0;
+ for(const [date,r] of Object.entries(rows||{})){const d=reqDate(date);if(t&&d>t)throw Error(d+': روز آینده است');const raw=latin(S(r.portions)).replace(/[٬,\s]/g,''),cur=mealRow(fin,d),notes=S(r.notes),sug=S(r.suggested)===''?'':N(r.suggested);
+  if(raw===''){if(cur){Object.assign(cur,{status:'void',voidReason:'خالی شد',voidedAt:ctx.at,voidedBy:ctx.actor});n++}continue}
+  const p=Number(raw);if(!Number.isInteger(p)||p<0||p>500)throw Error(d+': تعداد پرس باید عدد صحیح ۰ تا ۵۰۰ باشد');
+  if(cur){if(N(cur.portions)===p&&S(cur.notes)===notes)continue;cur.history=A(cur.history);cur.history.push({portions:cur.portions,notes:cur.notes,at:cur.updatedAt||cur.createdAt,by:cur.updatedBy||cur.createdBy});Object.assign(cur,{portions:p,notes,suggested:sug,updatedAt:ctx.at,updatedBy:ctx.actor})}
+  else fin.staffMeals.push({id:uid('SML',fin.staffMeals),date:d,portions:p,suggested:sug,notes,status:'active',createdAt:ctx.at,createdBy:ctx.actor});n++}
+ if(!n)throw Error('تغییری برای ذخیره نیست');ctx.auditExtra={days:Object.keys(rows||{}).length};return n}
+const mealsOfMonth=(fin,ym)=>A(fin?.staffMeals).filter(x=>active(x)&&S(x.date).startsWith(ym+'/'));
+/* cost of staff meals in a month: purchases with the «غذای پرسنل» category (their month share) + what was taken from stock
+   as staff use (inventory engine, at cost) */
+function mealCost(fin,ym,stockUse){const docs=monthEntries(fin,ym).filter(e=>e.type==='expense'&&e.category===STAFF_MEAL).reduce((s,e)=>s+e.share,0),stock=Math.max(0,N(stockUse)),portions=mealsOfMonth(fin,ym).reduce((s,x)=>s+N(x.portions),0),total=docs+stock;
+ return{docs,stock,total,portions,days:mealsOfMonth(fin,ym).length,perPortion:portions?total/portions:null}}
+/* ---------- other costs of a month outside this ledger ---------- */
+function custodyExpenses(fin,ym){return A(fin?.entries).filter(e=>active(e)&&e.custodyKind==='expense'&&D(e.date).startsWith(ym+'/')).reduce((s,e)=>s+N(e.amountToman),0)}
+/* approved petty-cash expenses: the part that is not catalog items (items bought are material cost through consumption) */
+function pettyExpenses(fin,ym){const cats=A(fin?.settings?.pettyCash?.categories),out=new Map;for(const e of A(fin?.pettyCash?.expenses)){if(!active(e)||e.decision?.status!=='approved'||!D(e.date).startsWith(ym+'/'))continue;const items=A(e.lines).filter(l=>S(l.ingredientId)).reduce((s,l)=>s+N(l.qty)*N(l.unitPrice),0),rest=Math.max(0,N(e.amountToman)-items);if(!rest)continue;const k='تنخواه: '+(cats.find(c=>c.id===e.categoryId)?.name||'سایر');out.set(k,(out.get(k)||0)+rest)}return[...out].map(([category,amount])=>({category,amount}))}
+/* ---------- profit and loss of a month (pure) ----------
+   x: {grossSales, vatPercent, vatIncluded, reservePercent, otherIncome, material:{std,waste,variance,coverage},
+       staffMeal:{total}, payroll:{net,state} | null, expenses:[{category,amount}]} */
+function pnl(x){const g=Math.max(0,N(x.grossSales)),v=Math.max(0,N(x.vatPercent)),vat=x.vatIncluded!==false?g*v/(100+v):0,sales=g-vat,mat=x.material||{},flags=[];
+ const std=mat.std===null||mat.std===undefined?null:N(mat.std),shortage=N(mat.coverage)>0?-N(mat.variance):0,materials=(std||0)+N(mat.waste)+shortage;
+ if(std===null)flags.push('بهای مواد فروش حساب نشد (فایل فروش یا رسپی نیست)');if(!(N(mat.coverage)>0))flags.push('مغایرت انبار حساب نشد (شمارش ابتدا و انتهای ماه نیست)');
+ const pay=x.payroll?N(x.payroll.net):0;if(!x.payroll)flags.push('حقوق این ماه در نرم‌افزار حساب نمی‌شود (قبل از شروع حقوق)');else if(x.payroll.state!=='closed')flags.push('حقوق این ماه قطعی نشده؛ عدد حقوق ممکن است تغییر کند');
+ const meal=N(x.staffMeal?.total),exp=A(x.expenses).filter(e=>N(e.amount)),expTotal=exp.reduce((s,e)=>s+N(e.amount),0),other=N(x.otherIncome),reserve=sales*Math.max(0,N(x.reservePercent))/100;
+ const income=sales+other,costs=materials+meal+pay+expTotal,before=income-costs,profit=before-reserve,pct=a=>sales?a/sales*100:null;
+ return{grossSales:g,vat,sales,otherIncome:other,income,materials,materialParts:{std:std||0,waste:N(mat.waste),shortage},staffMeal:meal,payroll:pay,expenses:exp.sort((a,b)=>N(b.amount)-N(a.amount)),expenseTotal:expTotal,costs,beforeReserve:before,reserve,profit,pct,flags}}
+window.FinanceWrite={DEF,STAFF_MEAL,saveMeals,mealsOfMonth,mealCost,custodyExpenses,pettyExpenses,pnl,N,D,YM,active,ensure,config,calcObligation,addObligation,voidObligation,addSettlement,voidSettlement,addCheck,clearCheck,returnCheck,voidCheck,entryShare,isDoc,addEntry,voidEntry,payState,monthEntries,dueList,saveSettings};
 })();
