@@ -327,7 +327,7 @@ const sampleTab=(mod,id)=>P.live()&&(SAMPLE_TABS[mod]||[]).includes(id);
 P.LEGACY={
  people:[['آموزش‌ها و پروتکل‌ها (ویرایش)','personnel.html?view=protocols','training'],['تعریف چک‌لیست‌ها','personnel.html?view=checklistTemplates','training'],['گزارش چک‌لیست‌ها','personnel.html?view=checklistReports','training']],
  inventory:[['شروع دوباره انبارداری از یک تاریخ و بازنشانی شمارش‌ها (با پشتیبان)','inventory.html','inventoryEdit']],
- settings:[['بازگرداندن بکاپ (Restore)','settings.html?view=dataManagement','settings']]};
+ settings:[['بازنشانی جداول برای رستوران جدید و بارگذاری اولیه (Initialize)','settings.html?view=dataManagement','settings']]};
 function legacyTab(mod){return{id:'legacy',label:'در پنل فعلی',icon:'external-link',liveOnly:true,desc:'امکاناتی از پنل فعلی که هنوز به پنل جدید منتقل نشده‌اند',
  render:()=>{const L=P.LEGACY[mod].filter(x=>P.owner()||AAx()?.has?.(x[2]));return P.card({title:'هنوز در پنل فعلی',sub:'روی دادهٔ مشترک کار می‌کنند؛ با همین ورود در همین زبانه باز می‌شوند',flush:1,body:P.table(['امکان',''],L.map(([l,h])=>[l,`<a class="btn btn-secondary btn-sm" href="${P.CUR()}${h}">${P.ic('external-link')}باز کردن</a>`]),{empty:'موردی برای دسترسی شما نیست'})})}}}
 function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
