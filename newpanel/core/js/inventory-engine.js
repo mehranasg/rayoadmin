@@ -98,14 +98,14 @@ function analyze(M,from,to,opts={}){
   if(resp==='staff'){r.staff+=q;r.staffV+=c===null?0:q*c;r.flags.add('staffAsWaste')}else{r.waste+=q;r.wasteV+=c===null?0:q*c}
   r.events.push({...x,qty:q,origQty:x.qty,suspect:bad,cost:c,resp})}
  // sales (aggregated periods are spread evenly over their days; day d counts if inside the item's window)
- let salesAmount=0,soldUnits=0;const covered=new Set,noRecipe=new Map,badRecipe=new Map,menuSold=new Map;
+ let salesAmount=0,soldUnits=0;const covered=new Set,noRecipe=new Map,badRecipe=new Map,menuSold=new Map,menuAmt=new Map,menuUse=new Map;
  for(const s of M.sales){const len=s.b-s.a+1;for(let d=Math.max(s.a,f);d<=Math.min(s.b,t1-1);d++)covered.add(d);
   for(const l of A(s.lines)){const ld=l.date?CAL.i(l.date):null,a=ld??s.a,b=ld??s.b,n=b-a+1,q=N(l.quantity),amt=N(l.saleAmountToman)||q*N(l.salePriceToman||M.menu.get(l.menuItemId)?.currentPriceToman),m=M.menu.get(l.menuItemId),date=ld!==null?D(l.date):D(s.to||s.date);
-   const share=Math.max(0,Math.min(b,t1-1)-Math.max(a,f)+1)/n;if(share>0){salesAmount+=amt*share;soldUnits+=q*share;menuSold.set(l.menuItemId,(menuSold.get(l.menuItemId)||0)+q*share)}
+   const share=Math.max(0,Math.min(b,t1-1)-Math.max(a,f)+1)/n;if(share>0){salesAmount+=amt*share;soldUnits+=q*share;menuSold.set(l.menuItemId,(menuSold.get(l.menuItemId)||0)+q*share);menuAmt.set(l.menuItemId,(menuAmt.get(l.menuItemId)||0)+amt*share)}
    const lines=M.recipeAt(l.menuItemId,date);
    if(!lines.length){if(share>0){const k=m?.name||l.menuItemId,o=noRecipe.get(k)||{name:k,code:m?.code||'',qty:0,amount:0};o.qty+=q*share;o.amount+=amt*share;noRecipe.set(k,o)}continue}
    for(const rl of lines){const i=M.ing.get(rl.ingredientId),per=M.gross(i,rl,1);if(!Number.isFinite(per)){if(share>0){const k=m?.name||l.menuItemId,o=badRecipe.get(k)||{name:k,qty:0,amount:0,lines:new Set};o.qty+=q*share;o.amount+=amt*share;o.lines.add(i?.name||rl.ingredientId);badRecipe.set(k,o)}continue}
-    if(!M.recipeDeducts(rl.ingredientId,date))continue;const r=row(rl.ingredientId),w=winOf(r),part=Math.max(0,Math.min(b,w.b-1)-Math.max(a,w.a)+1)/n;if(part<=0)continue;const used=per*q*part,c=M.costAt(r.id,date);r.sales+=used;r.salesV+=c===null?0:used*c;if(n>1&&(a<w.a||b>=w.b))r.flags.add('salesSplit')}}}
+    if(!M.recipeDeducts(rl.ingredientId,date))continue;const r=row(rl.ingredientId),w=winOf(r),part=Math.max(0,Math.min(b,w.b-1)-Math.max(a,w.a)+1)/n;if(part<=0)continue;const used=per*q*part,c=M.costAt(r.id,date);r.sales+=used;r.salesV+=c===null?0:used*c;{let u=menuUse.get(l.menuItemId);if(!u)menuUse.set(l.menuItemId,u=new Map);u.set(r.id,(u.get(r.id)||0)+(c===null?0:used*c))}if(n>1&&(a<w.a||b>=w.b))r.flags.add('salesSplit')}}}
  for(const o of noRecipe.values())addIssue('noRecipe',{name:o.name,code:o.code,qty:o.qty,amount:o.amount});
  for(const o of badRecipe.values())addIssue('badRecipe',{name:o.name,qty:o.qty,amount:o.amount,detail:[...o.lines].join('، ')});
  const days=t1-f,coverage=days?covered.size/days:0;if(coverage<0.999)addIssue('salesGap',{covered:covered.size,days});
@@ -133,7 +133,7 @@ function analyze(M,from,to,opts={}){
  const bev=list.filter(r=>r.bev),bevV=bev.reduce((a,r)=>a+(r.varianceV||0),0);
  const calReceipts=M.receipts.filter(x=>inCal(x.day)).map(x=>{const r=items.get(x.item)||{name:M.ing.get(x.item)?.name||x.item,unit:M.ing.get(x.item)?.recipeUnit||''},e=r.events?.find(e=>e.id===x.id),c=M.costAt(x.item,x.date);return{...x,name:r.name,unit:r.unit,qty:e?e.qty:x.qty,origQty:x.qty,suspect:!!e?.suspect,cost:c}});
  const calTot={waste:calWaste.filter(e=>e.resp!=='staff').reduce((a,e)=>a+(e.value||0),0),staff:calWaste.filter(e=>e.resp==='staff').reduce((a,e)=>a+(e.value||0),0),receipt:calReceipts.reduce((a,e)=>a+(e.cost===null?0:e.qty*e.cost),0)},openOld=list.filter(r=>r.flags.has('openOld')).length;
- return{calReceipts,calTot,openOld,from,to,days,coverage,salesAmount,soldUnits,menuSold,items:list,issues,tot,counted,wasteEvents,resp,bevVariance:bevV,bevItems:bev,
+ return{calReceipts,calTot,openOld,from,to,days,coverage,salesAmount,soldUnits,menuSold,menuAmt,menuUse,items:list,issues,tot,counted,wasteEvents,resp,bevVariance:bevV,bevItems:bev,
   pct:v=>salesAmount?v/salesAmount*100:null};
 }
 

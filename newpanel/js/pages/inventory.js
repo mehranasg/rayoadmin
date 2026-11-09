@@ -209,7 +209,7 @@ P.mod({id:'inventory',label:'انبار',icon:'package',desc:'تک‌انبار:
     {id:'count',label:'شمارش و مغایرت',icon:'scale',desc:'شمارش موجودی و مقایسه با مصرف تئوریک',render:count,actions:()=>`<button class="btn btn-primary" onclick="P.startCount()">${P.ic('clipboard-list')}شروع شمارش</button>`},
     {id:'beverage',label:'کنترل روزانهٔ نوشیدنی',icon:'cup-soda',desc:'نوشیدنی‌های آمادهٔ فروشی — کنترل روزانه',render:beverage},
     {id:'reorder',label:'سفارش مجدد',icon:'refresh-cw',desc:'پیشنهاد خرید بر اساس حداقل و حداکثر',render:reorder,badge:()=>D.ITEMS.filter(i=>i.qty<i.min).length},
-    {id:'consumption',label:'مدیریت مصرف',icon:'gauge',desc:'سطح کنترل، روغن، نمک و اقلام سربار — فقط خواندنی',render:consumption},
+    {id:'consumption',label:'مدیریت مصرف',icon:'gauge',desc:'پرتی و کسری هر قلم با مرز هشدار، اثر اتلاف روی آیتم‌های منو، روغن و اقلام سر میز',render:consumption},
     {id:'reports',label:'گزارش‌ها',icon:'chart-pie',desc:'گزارش‌های انبار',render:reports,mount:mountReports},
     {id:'settings',label:'تنظیمات',icon:'settings-2',desc:'سطح کنترل، شمارش، علت‌ها و واحدها',render:settings},
     {id:'catalog',label:'کالاها و مواد',icon:'book-open',hidden:true,desc:'مرجع اصلی کالاها — قیمت‌گذاری و رسپی از همین فهرست می‌خوانند',render:catalog}
