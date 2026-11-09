@@ -309,7 +309,7 @@ P.pay=({party,dir='out',docs,title,date,amount,ref,method}={})=>{
 const AAx=()=>window.AdminAccess;
 const MOD_KEYS={home:['dashboard','monitor'],finance:['financeLedger','purchase','cash','assets'],inventory:['inventory','inventoryEdit'],people:['personnel','payroll','shift','training'],menu:['menu','pricing'],customers:['reports','personnel'],reports:['reports','sales'],settings:['settings']};
 const TAB_KEYS={finance:{overview:['financeLedger'],ledger:['financeLedger'],debts:['financeLedger'],pnl:['financeLedger'],meals:['financeLedger'],accounts:['financeLedger'],plan:['financeLedger'],finset:['financeLedger'],docs:['purchase','financeLedger'],payments:['purchase','financeLedger'],parties:['purchase','financeLedger'],cash:['cash','financeLedger'],petty:['financeLedger'],assets:['assets'],reports:['financeLedger'],legacy:['financeLedger','purchase','cash']},
- people:{shifts:['shift'],presence:['personnel','payroll','shift'],violations:['personnel'],leaves:['personnel'],payroll:['payroll'],work:['payroll'],payments:['payroll'],payset:['payroll'],tips:['payroll','personnel'],training:['training','personnel'],users:['settings'],attendance:['personnel','payroll','shift']},menu:{pricing:['pricing','menu']},reports:{sales:['sales','reports']},inventory:{requests:['inventory','purchase']}};
+ people:{shifts:['shift'],presence:['personnel','payroll','shift'],violations:['personnel'],leaves:['personnel'],payroll:['payroll'],work:['payroll'],payments:['payroll'],payset:['payroll'],tips:['payroll','personnel'],staffreport:['personnel','payroll'],training:['training','personnel'],users:['settings'],attendance:['personnel','payroll','shift']},menu:{pricing:['pricing','menu']},reports:{sales:['sales','reports']},inventory:{requests:['inventory','purchase']}};
 P.session=()=>AAx()?.session?.()||null;
 P.owner=()=>P.session()?.role==='owner';
 /* the signed-in owner, also while viewing the panel as another role */
@@ -326,10 +326,7 @@ const sampleTab=(mod,id)=>P.live()&&(SAMPLE_TABS[mod]||[]).includes(id);
    (the sign-in is kept for the browser tab, so the current panel opens signed in) */
 P.LEGACY={
  finance:[['تأمین‌کنندگان: فهرست کامل و Excel','suppliers.html','purchase']],
- people:[['رتبه‌بندی حقوق و سالن (گزارشات پرسنلی)','personnel.html?view=personnelReports','personnel'],
-  
-  ['گزارش چاپی حضور و غیاب هر نفر','personnel.html?view=attendanceReport','personnel'],
-  ['آموزش‌ها و پروتکل‌ها (ویرایش)','personnel.html?view=protocols','training'],['تعریف چک‌لیست‌ها','personnel.html?view=checklistTemplates','training'],['گزارش چک‌لیست‌ها','personnel.html?view=checklistReports','training']],
+ people:[['آموزش‌ها و پروتکل‌ها (ویرایش)','personnel.html?view=protocols','training'],['تعریف چک‌لیست‌ها','personnel.html?view=checklistTemplates','training'],['گزارش چک‌لیست‌ها','personnel.html?view=checklistReports','training']],
  inventory:[['شروع دوباره انبارداری از یک تاریخ و بازنشانی شمارش‌ها (با پشتیبان)','inventory.html','inventoryEdit']],
  reports:[['گزارش‌های مدیریتی کامل','reports.html','reports'],['آنالیز فروش','sales-analysis.html','sales'],['نظرسنجی مشتریان (فرم)','survey.html','reports']],
  settings:[['تنظیمات نرم‌افزار','settings.html?view=softwareSettings','settings'],['اطلاعات پایه و مدیریت اقلام','base-data.html','settings'],['بازگرداندن بکاپ (Restore)','settings.html?view=dataManagement','settings'],['تنظیمات پنل و امکانات','settings.html?view=settings','settings'],['تنظیمات تخلفات','settings.html?view=violationSettings','settings']]};

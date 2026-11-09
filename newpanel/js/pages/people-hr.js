@@ -148,7 +148,34 @@ function cancelForm(id){const x=A(H().leaves).find(l=>l.id===id);if(!x)return;fo
 const IC_=()=>IC.ready();
 const st=mod.tabs.find(t=>t.id==='staff');
 if(st){const r0=st.render,m0=st.mount;st.render=r=>IC_()?PR.gate(staffView)(r):r0(r);st.mount=(root,r)=>IC_()?staffMount(P.$('#pnTab',root)||root):m0&&m0(root,r);st.actions=()=>IC_()&&H()?btn('personnel','user-plus','پرسنل جدید','onclick="PeopleHR.personForm()"'):''}
+/* ---------- staff report (js/23 personnelReports): salary ranking and hall comparison in a date range ----------
+   salary = salary payments (PayrollCore.reasonKind 'salary', not void) dated in the range; tips = shares of tip groups
+   received in the range (not void); fines = deductions (not cancelled, rejected or void), lateness deductions apart;
+   leave days of leaves overlapping the range; violations (not void); legacy delay minutes when recorded */
+const rs={from:'',to:'',pid:'',sort:'tips'};
+function repMetrics(hr,pid,from,to){const PC=window.PayrollCore,inR=d=>{d=E.D(d);return!!d&&d>=from&&d<=to},dead=x=>/لغو|رد|ابطال|void/.test(S(x?.status));
+ const salary=A(hr.payments).filter(p=>p.personnelId===pid&&!dead(p)&&inR(p.date)&&PC.reasonKind(hr,p)==='salary').reduce((a,p)=>a+Z(p.amount),0);
+ let tips=0;for(const g of A(hr.tipGroups))if(!dead(g)&&inR(g.receiveDate)){const sh=PC.tipShares(g).find(x=>x.personnelId===pid);if(sh)tips+=sh.amount}
+ const items=A(hr.penaltiesRewards).filter(x=>x.personnelId===pid&&!dead(x)&&inR(x.date)),late=items.filter(x=>S(x.type)==='کسر تأخیر').reduce((a,x)=>a+Z(x.amount),0),fines=items.filter(x=>S(x.type)!=='کسر تأخیر'&&PC.itemKind(hr,x)==='deduction').reduce((a,x)=>a+Z(x.amount),0),rewards=items.filter(x=>PC.itemKind(hr,x)==='addition').reduce((a,x)=>a+Z(x.amount),0);
+ const leaves=A(hr.leaves).filter(l=>l.personnelId===pid&&S(l.status)!=='لغوشده'&&E.D(l.toDate||l.fromDate)>=from&&E.D(l.fromDate||l.toDate)<=to).reduce((a,l)=>a+(Z(l.count)||1),0);
+ const violations=A(hr.workViolations).filter(x=>x.personnelId===pid&&S(x.status)!=='ابطال‌شده'&&inR(x.date)).length;
+ const delay=A(hr.delays).filter(x=>x.personnelId===pid&&inR(x.date)).reduce((a,x)=>a+Z(x.minutes??x.delayMinutes),0);
+ return{salary,tips,fines,late,rewards,leaves,violations,delay}}
+function reportView(){const hr=H(),t=today();if(!rs.to)rs.to=t;if(!rs.from)rs.from=t.slice(0,8)+'01';const all=staff(),inScope=p=>rs.pid?p.id===rs.pid:active(p);
+ const rows=all.filter(inScope).map(p=>({p,m:repMetrics(hr,p.id,rs.from,rs.to)})),hall=rows.filter(x=>S(x.p.personnelGroup||x.p.section)==='سالن'),sk=rs.sort;
+ const pick=`<div class="row" style="gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:var(--s3)">${P.field('از تاریخ',`<input class="input num" id="rpF" value="${esc(fa(rs.from))}" style="width:120px">`)}${P.field('تا تاریخ',`<input class="input num" id="rpT" value="${esc(fa(rs.to))}" style="width:120px">`)}${P.field('پرسنل',`<select class="select" id="rpP"><option value="">همهٔ پرسنل فعال</option>${all.map(p=>`<option value="${esc(p.id)}" ${p.id===rs.pid?'selected':''}>${esc(p.name)}${active(p)?'':' (غیرفعال)'}</option>`).join('')}</select>`)}</div>`;
+ const one=rs.pid&&rows[0]?`<div class="grid grid-4">${[['banknote','حقوق دریافتی',T(rows[0].m.salary)],['hand-coins','انعام',T(rows[0].m.tips)],['gavel','جریمه',T(rows[0].m.fines),`کسر تأخیر ${T(rows[0].m.late)}`],['gift','پاداش و اضافه',T(rows[0].m.rewards)],['calendar-days','مرخصی',fa(rows[0].m.leaves)+' روز'],['alert-octagon','تخلف',fa(rows[0].m.violations)+' مورد']].map(([i,l,v,f])=>P.kpi({label:l,icon:i,value:v,foot:f||''})).join('')}</div>`:'';
+ const sal=rows.slice().sort((a,b)=>b.m.salary-a.m.salary);
+ const salCard=P.card({title:'حقوق دریافتی در بازه',sub:'پرداخت‌های ثبت‌شده با علت «حقوق»؛ مساعده و پرداخت انعام جدا هستند',flush:1,body:P.table(['رتبه','پرسنل','گروه / سکشن',{t:'حقوق دریافتی',n:1}],sal.map((x,i)=>[fa(i+1),`<b>${esc(x.p.name)}</b>`,loc(x.p)||esc(x.p.personnelGroup||'—'),T(x.m.salary)]),{empty:'پرسنلی در این بازه نیست'})});
+ const SORTS=[['tips','بیشترین انعام'],['fines','بیشترین جریمه'],['late','بیشترین کسر تأخیر'],['leaves','بیشترین مرخصی'],['violations','بیشترین تخلف']],hs=hall.slice().sort((a,b)=>b.m[sk]-a.m[sk]||a.p.name.localeCompare(b.p.name,'fa'));
+ const hallCard=P.card({title:'مقایسهٔ پرسنل سالن',sub:'انعام، جریمه، کسر تأخیر، مرخصی و تخلف در بازه',actions:`<select class="select" id="rpS" style="width:auto">${SORTS.map(([k,l])=>`<option value="${k}" ${k===sk?'selected':''}>${l}</option>`).join('')}</select>`,flush:1,
+  body:P.table(['رتبه','پرسنل','پوزیشن',{t:'انعام',n:1},{t:'جریمه',n:1},{t:'کسر تأخیر',n:1},{t:'مرخصی (روز)',n:1},{t:'تخلف',n:1}],hs.map((x,i)=>[fa(i+1),`<b>${esc(x.p.name)}</b>`,esc(x.p.mainPosition||x.p.subSection||'—'),T(x.m.tips),T(x.m.fines),T(x.m.late),fa(x.m.leaves),fa(x.m.violations)]),{empty:'پرسنل سالن در این بازه نیست'})});
+ return pick+one+`<div class="mt">${salCard}</div><div class="mt">${hallCard}</div>`}
+function reportMount(root){const re=()=>P.render(),dt=id=>{const x=P.$(id,root);return x?E.D(P.en(x.value)):''};
+ for(const [id,k] of [['#rpF','from'],['#rpT','to']]){const x=P.$(id,root);if(x)x.onchange=()=>{const d=dt(id);if(!d||E.CAL.i(d)===null)return P.toast('تاریخ معتبر نیست (مثال ۱۴۰۵/۰۸/۰۱)','alert-triangle');rs[k]=d;re()}}
+ const p=P.$('#rpP',root);if(p)p.onchange=()=>{rs.pid=p.value;re()};const s=P.$('#rpS',root);if(s)s.onchange=()=>{rs.sort=s.value;re()}}
 const at=mod.tabs.findIndex(t=>t.id==='tips')+1||mod.tabs.length;
+mod.tabs.push({id:'staffreport',label:'گزارش پرسنل',icon:'chart-column',liveOnly:true,desc:'حقوق دریافتی، انعام، جریمه، مرخصی و تخلف هر نفر در یک بازه؛ رتبه‌بندی پرسنل سالن',render:r=>PR.gate(reportView)(r),mount:root=>reportMount(P.$('#pnTab',root)||root)});
 mod.tabs.splice(at,0,{id:'violations',label:'تخلفات',icon:'gavel',liveOnly:true,desc:'ثبت، ویرایش و ابطال تخلف ماه جاری؛ جریمه به حقوق ماه می‌رود',render:r=>PR.gate(violationsView)(r),mount:root=>violationsMount(P.$('#pnTab',root)||root),actions:()=>H()?btn('personnel','gavel','ثبت تخلف','onclick="PeopleHR.violationForm()"'):''},
  {id:'leaves',label:'مرخصی',icon:'calendar-days',liveOnly:true,desc:'درخواست‌های پرسنل، ثبت مستقیم و لغو مرخصی',render:r=>PR.gate(leavesView)(r),mount:root=>leavesMount(P.$('#pnTab',root)||root),actions:()=>H()?btn('personnel','calendar-plus','ثبت مرخصی','onclick="PeopleHR.leaveForm()"'):'',badge:()=>A(H()?.leaveRequests).filter(r=>(r.status||'در انتظار')==='در انتظار').length});
 window.PeopleHR={personForm,dossier,salaryForm,accountForm,violationForm,leaveForm};
