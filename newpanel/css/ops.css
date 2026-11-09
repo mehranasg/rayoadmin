@@ -220,3 +220,5 @@ body.ops.kds{background:#141311;color:#f3efe8;--kb:#1f1d1a;--kl:#2c2925}
 .modal-body{max-height:calc(100vh - 200px);overflow:auto}
 .section-title{font-size:14px}
 .check{display:flex;gap:8px;align-items:flex-start;font-size:13px;cursor:pointer}
+.login .who-pick{display:flex;flex-direction:column;gap:6px}
+.login .who-pick select{font:inherit;padding:12px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text)}

@@ -25,7 +25,7 @@ const topbar=(title,sub,back,right='')=>`<header class="w-top">${back?`<button c
 function login(){
   return`<div class="login"><div style="text-align:center"><span class="brand-mark" style="width:56px;height:56px;border-radius:16px;display:inline-grid;place-items:center;background:var(--accent);color:#fff;font-weight:800;font-size:24px">ر</span>
     <h2 style="margin:10px 0 2px">سفارش‌گیر رایو</h2><small class="muted">ورود ویتر · نمونهٔ استاتیک</small></div>
-    <div class="stack" style="gap:8px">${O.WAITERS.map(id=>{const s=O.staff(id);return`<button class="who-btn ${W.pick===id?'sel':''}" data-who="${id}"><span class="av">${s.name[0]}</span><div><b>${s.name}</b><small class="muted" style="display:block">${s.role}</small></div></button>`}).join('')}</div>
+    <label class="who-pick"><b>کاربر</b><select id="wWho" aria-label="انتخاب کاربر"><option value="">— انتخاب کنید —</option>${O.WAITERS.map(id=>{const s=O.staff(id);return`<option value="${id}" ${W.pick===id?'selected':''}>${s.name} — ${s.role}</option>`}).join('')}</select></label>
     ${W.pick?`<div class="pin-dots">${[0,1,2,3].map(i=>`<i class="${W.pin.length>i?'on':''}"></i>`).join('')}</div>
     <div class="pin">${[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(k=>k===''?'<span></span>':`<button data-k="${k}">${typeof k==='number'?fa(k):k}</button>`).join('')}</div>
     <small class="muted" style="text-align:center">رمز چهاررقمی (در نمونه هر رمزی پذیرفته می‌شود)</small>`:''}</div>`;
@@ -180,6 +180,7 @@ const SH={
 function draw(){
   let h;if(!me)h=login();else if(W.scr==='detail')h=detail();else if(W.scr==='menu')h=menu();else h=W.tab==='alerts'?alerts():tables(W.tab==='mine');
   const keep=$('.sheet-backdrop',app());app().innerHTML=h;if(keep)app().appendChild(keep);RT.icons();
+  const who=$('#wWho');if(who)who.onchange=()=>{W.pick=who.value||null;W.pin='';draw()};
   const q=$('#wq');if(q)q.oninput=()=>{W.q=q.value;const p=q.selectionStart;draw();const n=$('#wq');n.focus();n.setSelectionRange(p,p)};
 }
 app().addEventListener('click',e=>{

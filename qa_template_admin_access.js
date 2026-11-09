@@ -28,4 +28,11 @@ throws(()=>AA.saveUser(doc,c,{username:'Store1',password:'abcdef',sections:['men
 const h0=rec.passwordHash;AA.saveUser(doc,c,{id:u.id,username:'store1',password:'',status:'غیرفعال',sections:['inventory']});ok(rec.passwordHash===h0&&!AA.verify(doc,'store1','secret1'),'edit keeps password; disabled user cannot sign in');
 AA.signIn({username:'store1',role:'user',sections:['inventory']});ok(AA.has('inventory')&&!AA.has('menu')&&!AA.canManage(),'session sections');
 ok(!AA.stillValid(doc),'disabled user is no longer valid');AA.signOut();ok(!AA.session(),'sign out clears the session');
+// owner «view as»: only the owner may preview; sections narrow has(); the stored role keys of the current panel stay owner
+AA.signIn({username:'store1',role:'user',sections:['inventory']});throws(()=>AA.setPreview(AA.PRESETS[0]),/فقط مالک/,'a non-owner cannot preview');AA.signOut();
+AA.signIn({username:owner,role:'owner',sections:'*'});const cashier=AA.PRESETS.find(p=>p.id==='cashier');ok(cashier&&AA.PRESETS.some(p=>p.id==='accountant')&&AA.PRESETS.some(p=>p.id==='manager'),'preset roles');
+AA.setPreview(cashier);const ps=AA.session();ok(ps.role==='user'&&ps.preview.label==='صندوقدار'&&ps.user===owner&&AA.has('cash')&&!AA.has('payroll')&&!AA.canManage(),'preview narrows the session');
+ok(store.rayo_admin_role==='owner'&&AA.realSession().role==='owner','current-panel keys stay owner');ok(AA.stillValid(doc),'preview is not signed out by the users check');
+AA.setPreview({id:'x',label:'x',sections:['menu','bogus']});ok(JSON.stringify(AA.session().sections)==='["menu"]','unknown sections dropped');
+AA.setPreview(null);ok(AA.session().role==='owner'&&AA.has('payroll'),'back to owner');AA.setPreview(cashier);AA.signOut();ok(!AA.preview()&&!('rayo_np_preview' in store),'sign out clears the preview');
 console.log(`qa_template_admin_access: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

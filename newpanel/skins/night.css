@@ -1,0 +1,72 @@
+/* =========================================================
+   Rayo panel skin «شب» (Night) — approach 2 of 3
+   Dark, dense "control room": navy surfaces, mint accent, icon rail that expands on hover,
+   compact cards, glowing KPIs. For long working sessions and the cashier desk.
+   Only tokens + layout; no change to markup or JS.
+   ========================================================= */
+html[data-skin="night"]:root{
+  --font:'IRANSansX','Vazirmatn',system-ui,sans-serif;
+  --bg:#0d1220; --surface:#141b2b; --surface-2:#182033; --surface-3:#1f2940;
+  --border:#253049; --border-strong:#33405e;
+  --text:#e9eef7; --text-2:#a8b3c7; --text-3:#6e7a92;
+  --accent:#3fd0b3; --accent-hover:#5fe0c6; --accent-soft:rgba(63,208,179,.13); --accent-text:#06231d;
+  --success:#4cd08a; --success-soft:rgba(76,208,138,.13);
+  --warning:#f2b84b; --warning-soft:rgba(242,184,75,.13);
+  --danger:#ff6b6b;  --danger-soft:rgba(255,107,107,.13);
+  --info:#6aa8ff;    --info-soft:rgba(106,168,255,.13);
+  --c1:#3fd0b3; --c2:#6aa8ff; --c3:#f2b84b; --c4:#b48cff; --c5:#7d8aa5; --c6:#ff7aa8;
+  --radius-sm:6px; --radius:9px; --radius-lg:12px;
+  --shadow-sm:none; --shadow:0 0 0 1px rgba(63,208,179,.04),0 12px 30px -18px rgba(0,0,0,.8); --shadow-lg:0 30px 70px -20px rgba(0,0,0,.85);
+  --s5:16px; --s6:20px; --s7:24px;
+  --sidebar-w:76px; --topbar-h:56px;
+  color-scheme:dark;
+}
+html[data-skin="night"] body{background:radial-gradient(1200px 500px at 85% -10%,rgba(63,208,179,.07),transparent 60%),var(--bg);font-size:13.5px}
+
+/* icon rail → expands over the content on hover */
+@media (min-width:961px){
+  html[data-skin="night"] .sidebar{position:fixed;inset-block:0;inset-inline-start:0;width:76px;transition:width .2s var(--ease),box-shadow .2s;overflow:hidden;background:#0a0f1b;border-inline-end:1px solid var(--border)}
+  html[data-skin="night"] .sidebar:hover{width:264px;box-shadow:var(--shadow-lg)}
+  html[data-skin="night"] .main{margin-inline-start:76px}
+  html[data-skin="night"] .sidebar:not(:hover) .brand>div:not(.brand-mark),
+  html[data-skin="night"] .sidebar:not(:hover) .nav-link>span,
+  html[data-skin="night"] .sidebar:not(:hover) .nav-label,
+  html[data-skin="night"] .sidebar:not(:hover) .proto-flag,
+  html[data-skin="night"] .sidebar:not(:hover) .role-chip .grow,
+  html[data-skin="night"] .sidebar:not(:hover) .role-chip>[data-lucide]:last-child,
+  html[data-skin="night"] .sidebar:not(:hover) .role-chip>svg:last-child{display:none}
+  html[data-skin="night"] .sidebar:not(:hover) .nav-link{justify-content:center;padding:11px 0}
+  html[data-skin="night"] .sidebar:not(:hover) .nav-link .badge{position:absolute;margin:0;transform:translate(-14px,-12px);height:16px;padding:0 5px;font-size:10px}
+  html[data-skin="night"] .sidebar:not(:hover) .nav-link .badge>*{display:inline}
+  html[data-skin="night"] .sidebar:not(:hover) .role-chip{justify-content:center;padding:6px}
+  html[data-skin="night"] .sidebar:not(:hover) .brand{justify-content:center;padding-inline:0}
+}
+html[data-skin="night"] .nav-link{position:relative;white-space:nowrap;color:var(--text-3)}
+html[data-skin="night"] .nav-link:hover{background:var(--surface-3);color:var(--text)}
+html[data-skin="night"] .nav-link.active{background:var(--accent-soft);color:var(--accent)}
+html[data-skin="night"] .nav-link.active::before{content:"";position:absolute;inset-inline-start:-12px;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+html[data-skin="night"] .brand-mark{background:linear-gradient(135deg,#3fd0b3,#2b7de9);color:#04121a;border-radius:12px}
+
+/* top bar: flat, thin */
+html[data-skin="night"] .topbar{background:rgba(13,18,32,.75);padding:0 var(--s6)}
+html[data-skin="night"] .search{background:var(--surface-2);border-color:var(--border)}
+html[data-skin="night"] .icon-btn{background:var(--surface-2)}
+html[data-skin="night"] .content{padding:var(--s5) var(--s6) var(--s7);max-width:1600px}
+
+/* cards & KPIs */
+html[data-skin="night"] .card{background:linear-gradient(180deg,var(--surface),var(--surface-2));border-color:var(--border)}
+html[data-skin="night"] .card-head{border-bottom:1px solid var(--border)}
+html[data-skin="night"] .kpi{border-top:2px solid transparent;background:linear-gradient(180deg,rgba(63,208,179,.05),transparent 70%),var(--surface)}
+html[data-skin="night"] .kpi:hover{border-top-color:var(--accent)}
+html[data-skin="night"] .kpi-value{font-size:23px;color:#fff;text-shadow:0 0 18px rgba(63,208,179,.18)}
+html[data-skin="night"] .kpi-icon{border-radius:8px}
+html[data-skin="night"] .page-head h1{font-size:20px;letter-spacing:-.2px}
+html[data-skin="night"] .table th{background:var(--surface-2);color:var(--text-3);font-size:11.5px;text-transform:none;letter-spacing:.3px}
+html[data-skin="night"] .table td{padding-block:9px}
+html[data-skin="night"] .table tbody tr:hover td{background:rgba(63,208,179,.04)}
+html[data-skin="night"] .btn-primary{box-shadow:0 0 0 1px rgba(63,208,179,.4),0 6px 20px -8px rgba(63,208,179,.6)}
+html[data-skin="night"] .tabs,.page-tabs{border-color:var(--border)}
+html[data-skin="night"] .tile{background:var(--surface-2)}
+html[data-skin="night"] .tile:hover{box-shadow:0 0 0 1px var(--accent),0 10px 30px -15px rgba(63,208,179,.5)}
+html[data-skin="night"] .modal{background:var(--surface);border:1px solid var(--border)}
+html[data-skin="night"] .proto-flag{background:rgba(242,184,75,.1)}

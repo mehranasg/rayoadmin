@@ -29,13 +29,24 @@ function verify(doc,username,password){username=S(username);if(!username||!passw
  return{username:rec.username,role:'user',sections:rec.fullAccess?'*':A(rec.sections)}}
 const KEYS=['rayo_admin_user','rayo_admin_role','rayo_admin_sections'];
 const ss=(k,v)=>{try{if(v===undefined)return sessionStorage.getItem(k)||'';if(v===null)sessionStorage.removeItem(k);else sessionStorage.setItem(k,v)}catch(_){return ''}};
-function session(){const user=ss('rayo_admin_user');if(!user)return null;let sections=null;try{sections=JSON.parse(ss('rayo_admin_sections')||'null')}catch(_){}const role=ss('rayo_admin_role')||(isStatic(user)?'owner':'user');return{user,role,sections:role==='owner'?'*':sections}}
+function realSession(){const user=ss('rayo_admin_user');if(!user)return null;let sections=null;try{sections=JSON.parse(ss('rayo_admin_sections')||'null')}catch(_){}const role=ss('rayo_admin_role')||(isStatic(user)?'owner':'user');return{user,role,sections:role==='owner'?'*':sections}}
+/* owner «view as»: the panel shows and allows only the sections of a preset role or of a real admin user; the owner
+   stays the signed-in user (saves carry the owner name). Kept in its own sessionStorage key, which the current panel does not read. */
+const PRESETS=[
+ {id:'manager',label:'مدیر میانی',icon:'briefcase',desc:'عملیات روزانه، پرسنل، شیفت، انبار و منو؛ بدون حقوق، امور مالی و تنظیمات',sections:['dashboard','monitor','cash','sales','personnel','shift','menu','pricing','inventory','purchase','training','reports','assets']},
+ {id:'accountant',label:'حسابدار',icon:'calculator',desc:'صندوق، خرید، امور مالی، حقوق و گزارش‌ها',sections:['dashboard','cash','sales','payroll','purchase','financeLedger','reports','assets','pricing']},
+ {id:'storekeeper',label:'انباردار',icon:'package',desc:'انبار، دریافت کالا و قیمت مواد',sections:['inventory','purchase','pricing']},
+ {id:'cashier',label:'صندوقدار',icon:'banknote',desc:'فقط گزارش صندوق',sections:['cash']}];
+function preview(){const r=realSession();if(!r||r.role!=='owner')return null;try{const p=JSON.parse(ss('rayo_np_preview')||'null');return p&&Array.isArray(p.sections)?p:null}catch(_){return null}}
+function setPreview(p){if(!p){ss('rayo_np_preview',null);return}const r=realSession();if(!r||r.role!=='owner')throw Error('فقط مالک می‌تواند پنل را از دید نقش‌ها ببیند');
+ ss('rayo_np_preview',JSON.stringify({id:S(p.id),label:S(p.label),icon:S(p.icon)||'user',sections:A(p.sections).map(S).filter(k=>SECTIONS.some(x=>x[0]===k))}))}
+function session(){const r=realSession();if(!r)return null;const p=preview();return p?{user:r.user,role:'user',sections:p.sections,preview:p}:r}
 function signIn(r){ss('rayo_admin_user',r.username);ss('rayo_admin_role',r.role);ss('rayo_admin_sections',JSON.stringify(r.sections))}
-function signOut(){KEYS.forEach(k=>ss(k,null))}
+function signOut(){KEYS.forEach(k=>ss(k,null));ss('rayo_np_preview',null)}
 function has(key){const s=session();if(!s)return false;if(s.role==='owner'||s.sections==='*')return true;return Array.isArray(s.sections)&&s.sections.includes(key)}
 const canManage=()=>{const s=session();return !!s&&(s.role==='owner'||s.sections==='*')};
 /* a signed-in user that was disabled or removed in the live personnel data is signed out (js/44 guardPage) */
-function stillValid(doc){const s=session();if(!s||s.role==='owner')return true;const rec=users(doc).find(x=>sameName(x.username,s.user));if(!rec||S(rec.status)==='غیرفعال')return false;ss('rayo_admin_sections',JSON.stringify(rec.fullAccess?'*':A(rec.sections)));return true}
+function stillValid(doc){const s=session();if(!s||s.role==='owner'||s.preview)return true;const rec=users(doc).find(x=>sameName(x.username,s.user));if(!rec||S(rec.status)==='غیرفعال')return false;ss('rayo_admin_sections',JSON.stringify(rec.fullAccess?'*':A(rec.sections)));return true}
 /* add or edit a user inside the personnel document (js/44 saveUser rules) */
 function saveUser(doc,ctx,x){const id=S(x.id),username=S(x.username),password=x.password||'',full=!!x.fullAccess,sections=A(x.sections).map(S).filter(k=>SECTIONS.some(s=>s[0]===k));
  if(!/^[A-Za-z0-9_.-]{3,32}$/.test(username))throw Error('نام کاربری ۳ تا ۳۲ حرف انگلیسی، عدد، نقطه، خط تیره یا زیرخط باشد');
@@ -48,5 +59,5 @@ function saveUser(doc,ctx,x){const id=S(x.id),username=S(x.username),password=x.
  Object.assign(rec,{displayName:S(x.displayName),status:S(x.status)==='غیرفعال'?'غیرفعال':'فعال',fullAccess:full,sections:full?[]:sections,updatedAt:ctx.at,updatedBy:ctx.actor});
  if(password){rec.salt=sha256(`${Math.random()}:${Date.now()}:${username}`).slice(0,16);rec.passwordHash=passwordHash(rec.salt,password)}
  ctx.auditExtra={entityId:rec.id};return{id:rec.id,username:rec.username}}
-window.AdminAccess={SECTIONS,verify,session,signIn,signOut,has,canManage,stillValid,saveUser,isStatic,sha256,passwordHash};
+window.AdminAccess={SECTIONS,PRESETS,preview,setPreview,realSession,verify,session,signIn,signOut,has,canManage,stillValid,saveUser,isStatic,sha256,passwordHash};
 })();

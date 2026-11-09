@@ -312,7 +312,9 @@ const TAB_KEYS={finance:{overview:['financeLedger'],ledger:['financeLedger'],deb
  people:{shifts:['shift'],presence:['personnel','payroll','shift'],violations:['personnel'],leaves:['personnel'],payroll:['payroll'],work:['payroll'],payments:['payroll'],payset:['payroll'],tips:['payroll','personnel'],training:['training','personnel'],users:['settings'],attendance:['personnel','payroll','shift']},menu:{pricing:['pricing','menu']},reports:{sales:['sales','reports']},inventory:{requests:['inventory','purchase']}};
 P.session=()=>AAx()?.session?.()||null;
 P.owner=()=>P.session()?.role==='owner';
-P.role=()=>{const s=P.session();return s?{id:s.role==='owner'?'owner':'user',name:s.user,desc:s.role==='owner'?'مالک — دسترسی کامل':'کاربر پنل — بخش‌های مجاز',icon:s.role==='owner'?'crown':'user'}:{id:'none',name:'',desc:'',icon:'user'}};
+/* the signed-in owner, also while viewing the panel as another role */
+P.realOwner=()=>AAx()?.realSession?.()?.role==='owner';
+P.role=()=>{const s=P.session();if(s&&s.preview)return{id:'preview',name:s.user,desc:'از دید: '+s.preview.label,icon:s.preview.icon||'eye'};return s?{id:s.role==='owner'?'owner':'user',name:s.user,desc:s.role==='owner'?'مالک — دسترسی کامل':'کاربر پنل — بخش‌های مجاز',icon:s.role==='owner'?'crown':'user'}:{id:'none',name:'',desc:'',icon:'user'}};
 P.can=(mod,need='view')=>{const s=P.session();if(!s)return false;if(s.role==='owner')return true;if(mod==='plan')return false;if(mod==='home')return true;const ks=MOD_KEYS[mod];return !!ks&&ks.some(k=>AAx().has(k))};
 P.tabOk=(mod,tab)=>{const s=P.session();if(!s||s.role==='owner')return true;const ks=TAB_KEYS[mod]?.[tab];return !ks||ks.some(k=>AAx().has(k))};
 P.live=()=>!!window.InvControl?.ready?.();
@@ -362,7 +364,7 @@ P.render=()=>{
     m._t=t;
   }
   view.innerHTML=html;
-  buildSidebar(r.mod);
+  buildSidebar(r.mod);previewBar();
   RT.icons();
   if(m.render&&m.mount)m.mount(view,r);
   else if(m._t&&m._t.mount)m._t.mount(view,r);
@@ -378,28 +380,47 @@ function buildSidebar(active){
   const side=$('#pnSide'),role=P.role();
   const item=id=>{const m=P.mods[id];if(!m||!P.can(id))return'';if(BASE_LINKS.some(([href])=>(location.hash||'').startsWith(href))&&P.live())active='';const bd=m.badge&&m.badge();
     return`<a class="nav-link ${id===active?'active':''}" href="#/${id}">${P.ic(m.icon)}<span>${m.label}</span>${bd?`<span class="badge badge-danger plain">${P.fa(bd)}</span>`:''}</a>`};
+  const group=(label,html)=>html.trim()?`<div class="nav-label">${label}</div>${html}`:'';
   side.innerHTML=`
     <div class="brand"><div class="brand-mark">ر</div><div><strong>رایو</strong><small>پنل مدیریت رستوران</small></div></div>
     <nav class="nav">
       ${item('home')}
-      <div class="nav-label">کار روزانه و ماهانه</div>
-      ${['finance','inventory','people','menu','customers'].map(item).join('')}
-      <div class="nav-label">تحلیل و پیکربندی</div>
-      ${baseLinks()}
-      ${['reports','settings'].map(item).join('')}
+      ${group('کار روزانه و ماهانه',['finance','inventory','people','menu','customers'].map(item).join(''))}
+      ${group('تحلیل و پیکربندی',baseLinks()+['reports','settings'].map(item).join(''))}
       ${P.owner()?`<div class="nav-label">طرح</div>${item('plan')}`:''}
       ${P.live()?`<div class="nav-label">پنل فعلی</div><a class="nav-link" href="${P.CUR()}index.html">${P.ic('external-link')}<span>امکانات منتقل‌نشده</span></a>`:''}
+      ${P.realOwner()&&!AAx().preview()?`<div class="nav-label">نرم‌افزارهای داخل مجموعه (دمو)</div>${DEMOS.map(([h,l,i])=>`<a class="nav-link" href="${h}" target="_blank" rel="noopener">${P.ic(i)}<span>${l}</span><span class="nav-meta">نمونه</span></a>`).join('')}`:''}
     </nav>
     <div class="sidebar-foot"><div class="role-chip" style="cursor:default">
       <div class="avatar">${P.ic(role.icon)}</div><div class="grow"><b dir="auto">${P.esc(role.name)}</b><small>${role.desc}</small></div>
+      ${P.realOwner()?`<button class="icon-btn" id="pnRole" title="دیدن پنل از دید نقش‌ها" aria-label="دیدن پنل از دید نقش‌ها">${P.ic('repeat')}</button>`:''}
       <button class="icon-btn" id="pnLogout" title="خروج" aria-label="خروج">${P.ic('log-out')}</button></div></div>`;
   $('#pnLogout').onclick=()=>{AAx().signOut();P.close&&P.close();P.render()};
+  if($('#pnRole'))$('#pnRole').onclick=rolePicker;
   side.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>setMenu(false)));
 }
 
+/* in-house apps: static prototypes on sample data (ops-data.js), for the owner to try; they do not touch the live data */
+const DEMOS=[['pos.html','صندوق','monitor-smartphone'],['waiter.html','سفارش‌گیر (ویتر)','smartphone'],['kds.html','مانیتور آشپزخانه','monitor'],['staff.html','پنل کاربر (پرسنل)','user-round']];
+/* owner: view the panel as a preset role or as one of the admin users (AdminAccess.setPreview) */
+function rolePicker(){
+  const pv=AAx().preview(),users=(window.PeopleReal?.doc?.()?.settings?.adminUsers||[]).filter(u=>u.status!=='غیرفعال');
+  const sec=k=>(AAx().SECTIONS.find(x=>x[0]===k)||[k,k])[1];
+  const row=(id,label,icon,desc,on)=>`<button type="button" class="role-chip pick-role" data-role="${P.esc(id)}" style="margin-bottom:6px;color:var(--text);background:var(--surface-2);border-color:${on?'var(--accent)':'var(--border)'}"><div class="avatar">${P.ic(icon)}</div><div class="grow" style="text-align:start"><b dir="auto">${P.esc(label)}</b><small style="color:var(--text-3)">${P.esc(desc)}</small></div>${on?P.ic('check'):''}</button>`;
+  const list=[{id:'',label:'مالک (خودم)',icon:'crown',desc:'دسترسی کامل',sections:null},...AAx().PRESETS,
+    ...users.map(u=>({id:'user:'+u.id,label:(u.displayName||u.username)+' — کاربر واقعی',icon:'user',desc:u.fullAccess?'دسترسی کامل':(u.sections||[]).map(sec).join('، '),sections:u.fullAccess?AAx().SECTIONS.map(x=>x[0]):(u.sections||[])}))];
+  P.modal({title:'دیدن پنل از دید نقش‌ها',size:'md',body:`<p class="muted" style="margin-top:0">پنل فقط بخش‌ها و ثبت‌های همان نقش را نشان می‌دهد. ورود همچنان با شماست و هر ثبت به نام شما ذخیره می‌شود. ${users.length?'':'کاربرهای واقعی بعد از خوانده شدن دادهٔ پرسنل اینجا می‌آیند.'}</p>
+    <div class="list">${list.map(r=>row(r.id,r.label,r.icon,r.desc||'',(pv?pv.id:'')===r.id)).join('')}</div>`,
+    onMount:m=>m.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>{const r=list.find(x=>x.id===b.dataset.role);AAx().setPreview(r.sections?r:null);P.close();P.go('#/home');P.render();P.toast(r.sections?'نمای '+r.label:'بازگشت به نمای مالک',r.icon)})});
+}
+function previewBar(){const pv=AAx()?.preview?.();let el=$('#pnPreview');if(!pv){el&&el.remove();return}
+  if(!el){el=document.createElement('div');el.id='pnPreview';el.className='pn-preview';document.body.prepend(el)}
+  el.innerHTML=`${P.ic('eye')}<span>در حال دیدن پنل از دید <b>${P.esc(pv.label)}</b></span><button class="btn btn-sm" id="pnPreviewOff">${P.ic('crown')}بازگشت به نمای مالک</button>`;RT.icons();
+  $('#pnPreviewOff').onclick=()=>{AAx().setPreview(null);P.render();P.toast('بازگشت به نمای مالک','crown')}}
+
 /* ---------- sign-in (same static owners and admin users as the current panel) ---------- */
 function showLogin(){
-  document.body.classList.add('pn-locked');
+  document.body.classList.add('pn-locked');$('#pnPreview')?.remove();
   let el=$('#pnLogin');
   if(!el){el=document.createElement('div');el.id='pnLogin';el.className='pn-login';document.body.appendChild(el)}
   el.innerHTML=`<form class="card pn-login-card" id="pnLoginForm" autocomplete="on">
@@ -454,11 +475,15 @@ function buildTopbar(){
     <div class="topbar-spacer"></div>
     ${today?`<span class="badge badge-accent plain" title="امروز">${P.ic('calendar')}${P.fa(today)}</span>`:''}
     <div class="quick-wrap"><button class="btn btn-primary" id="quickBtn">${P.ic('plus')}<span class="quick-label">ثبت جدید</span></button><div class="quick-menu" id="quickMenu"></div></div>
-    <button class="icon-btn" id="pnTheme" aria-label="تغییر تم روشن / تیره" title="تم روشن / تیره">${P.ic('moon')}</button>
+    <div class="quick-wrap"><button class="icon-btn" id="pnTheme" aria-label="تم و پوسته" title="تم و پوسته">${P.ic('palette')}</button><div class="quick-menu" id="themeMenu"></div></div>
     <button class="icon-btn" aria-label="کارهای امروز" title="کارهای امروز" onclick="P.go('#/home')">${P.ic('bell')}</button>`;
   $('#pnMenu').onclick=()=>setMenu(!$('#pnSide').classList.contains('open'));
   $('#pnBack').onclick=()=>setMenu(false);
-  $('#pnTheme').onclick=()=>{const n=curTheme()==='dark'?'light':'dark';document.documentElement.dataset.theme=n;store('rt_theme',n);themeIcon();setTimeout(()=>RT.refreshCharts(),30)};
+  const tm=$('#themeMenu');
+  $('#pnTheme').onclick=e=>{e.stopPropagation();const cur=curLook();
+    tm.innerHTML=LOOKS.map(([k,l,i,d])=>`<button data-look="${k}"><span class="thumb kpi-icon">${P.ic(i)}</span><span><b>${l}${k===cur?' ✓':''}</b><small>${d}</small></span></button>`).join('');RT.icons();tm.classList.toggle('open')};
+  tm.onclick=e=>{const b=e.target.closest('[data-look]');if(!b)return;tm.classList.remove('open');setLook(b.dataset.look);P.toast('ظاهر: '+LOOKS.find(x=>x[0]===b.dataset.look)[1],'palette')};
+  document.addEventListener('click',e=>{if(!e.target.closest('#pnTheme'))tm.classList.remove('open')});
   const qm=$('#quickMenu');
   const liveList=()=>QUICK_LIVE.filter(q=>P.can(q.mod)&&(P.owner()||AAx().has(q.key)));
   $('#quickBtn').onclick=e=>{e.stopPropagation();
@@ -472,12 +497,20 @@ function buildTopbar(){
   themeIcon();
 }
 const curTheme=()=>document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
-function themeIcon(){const b=$('#pnTheme');if(!b)return;b.innerHTML=P.ic(curTheme()==='dark'?'sun':'moon');RT.icons()}
+/* look = light or dark theme, or one of the skins (skins/*.css: tokens and layout only, each on a light or dark base) */
+const LOOKS=[['light','روشن','sun','تم اصلی، روشن'],['dark','تیره','moon','تم اصلی، تیره'],['night','شب','sparkles','تیره و فشرده؛ منوی آیکونی که با نشانگر باز می‌شود'],['bazaar','بازار','store','روشن و کرم با نقش گره؛ منو در بالای صفحه']];
+const SKIN_BASE={night:'dark',bazaar:'light'};
+const curLook=()=>document.documentElement.dataset.skin||curTheme();
+function applySkin(sk){const de=document.documentElement;let ln=document.getElementById('pnSkin');
+  if(!SKIN_BASE[sk]){ln&&ln.remove();delete de.dataset.skin;return}
+  if(!ln){ln=document.createElement('link');ln.rel='stylesheet';ln.id='pnSkin';document.head.appendChild(ln)}ln.href='skins/'+sk+'.css';de.dataset.skin=sk;de.dataset.theme=SKIN_BASE[sk]}
+function setLook(k){if(SKIN_BASE[k]){applySkin(k);store('pn_skin',k)}else{applySkin('');store('pn_skin','');document.documentElement.dataset.theme=k;store('rt_theme',k)}setTimeout(()=>RT.refreshCharts(),150)}
+function themeIcon(){RT.icons()}
 function setMenu(o){$('#pnSide').classList.toggle('open',o);$('#pnBack').classList.toggle('open',o)}
 
 P.start=()=>{
-  /* the old visual skins are retired: one theme, light or dark */
-  try{localStorage.removeItem('pn_skin')}catch(_){}
+  /* skin chosen in the look menu (night / bazaar), else the light or dark theme */
+  const sk=store('pn_skin');if(SKIN_BASE[sk])applySkin(sk);
   for(const id of Object.keys(P.LEGACY)){const m=P.mods[id];if(m&&m.tabs&&!m.tabs.some(t=>t.id==='legacy'))m.tabs.push(legacyTab(id))}
   buildTopbar();
   window.addEventListener('hashchange',()=>{P.render();window.scrollTo(0,0)});

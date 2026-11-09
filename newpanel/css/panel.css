@@ -208,3 +208,6 @@ body.pn-locked .app{display:none}
 .pn-combo-empty,.pn-combo-more{padding:8px 10px;color:var(--text-2);font-size:12px}
 .input.combo-miss{border-color:var(--warning);box-shadow:0 0 0 3px var(--warning-soft)}
 .pn-sfilter{margin-bottom:4px;padding-block:4px;font-size:12.5px}
+/* owner «view as» bar (shell previewBar) */
+.pn-preview{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:var(--s3);flex-wrap:wrap;padding:6px var(--s4);background:var(--warning-soft);color:var(--text);border-bottom:1px solid var(--warning);font-size:13px}
+.pn-preview .btn{background:var(--surface);border:1px solid var(--border)}

@@ -14,7 +14,7 @@ const T=v=>v===null||v===undefined||!Number.isFinite(v)?'—':RT.money(v);
 
 /* ---------- write access (stage 2) ---------- */
 const ses=k=>{try{return sessionStorage.getItem(k)||''}catch(_){return ''}};
-const allowed=k=>{if(!ses('rayo_admin_user'))return false;if(ses('rayo_admin_role')==='owner')return true;let s=null;try{s=JSON.parse(ses('rayo_admin_sections')||'null')}catch(_){}return s==='*'||(Array.isArray(s)&&s.includes(k))};
+const allowed=k=>{if(window.AdminAccess)return AdminAccess.has(k);if(!ses('rayo_admin_user'))return false;if(ses('rayo_admin_role')==='owner')return true;let s=null;try{s=JSON.parse(ses('rayo_admin_sections')||'null')}catch(_){}return s==='*'||(Array.isArray(s)&&s.includes(k))};
 const live=()=>IC.ready()&&IC.source()==='live';
 const canWrite=()=>live()&&allowed('inventory');
 const canVoid=()=>canWrite()&&allowed('inventoryEdit');
