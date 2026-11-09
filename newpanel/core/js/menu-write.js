@@ -160,12 +160,28 @@ function removeMenuItem(doc,ctx,{id,salesCount}){const m=A(doc.menuItems).find(x
    items is entered; each changed price becomes a dated pricing.ingredientPriceHistory row (source manual-bulk) so the
    cost of that day on (recipes, consumption, profit and loss) follows it. The current price changes only when the date
    is not older than the last price date of the item. */
-function setLatestPrices(doc,ctx,{date,rows}){const d=E().D(date);if(!d)throw Error('تاریخ قیمت معتبر نیست');if(d>E().CAL.today)throw Error('تاریخ قیمت بعد از امروز است');
+/* prices from an Excel sheet (js/08 pcReadIngredientsExcel mode «prices»): header row found in the first 25 rows of any
+   sheet by the same column names; item by code, else by name; a raw Sepidz goods sheet (ضریب مصرف + نوع کالا + واحد
+   مصرف) is in rial and divided by 10; an optional price-date column gives each row its own date. Nothing is written here. */
+const PX_COLS={code:['کد ماده','کد ماده اولیه','کد کالا','کد'],name:['نام ماده','نام ماده اولیه','نام کالا','شرح'],price:['آخرین قیمت خرید تومان','آخرین قیمت خرید','قیمت خرید تومان','قیمت خرید','قیمت'],date:['تاریخ آخرین قیمت','تاریخ خرید','تاریخ قیمت']};
+const pxH=s=>NORM(s).replace(/[\s‌]/g,'');
+function pxDate(v){const s=S(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)),z=s.replace(/\D/g,'');if(z.length===8)return`${z.slice(0,4)}/${z.slice(4,6)}/${z.slice(6,8)}`;const m=s.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);return m?`${m[1]}/${m[2].padStart(2,'0')}/${m[3].padStart(2,'0')}`:''}
+function parsePriceSheets(sheets,ingredients){let best=null;
+ for(const [sheet,rows] of A(sheets))for(let r=0;r<Math.min(A(rows).length,25);r++){const h=A(rows[r]).map(pxH),find=al=>{const as=al.map(pxH);return h.findIndex(x=>x&&as.some(a=>x===a||x.includes(a)))},map={code:find(PX_COLS.code),name:find(PX_COLS.name),price:find(PX_COLS.price),date:find(PX_COLS.date)},score=(map.name>=0?3:0)+(map.code>=0?2:0)+(map.price>=0?3:0);if(!best||score>best.score)best={sheet,rows,r,map,h,score}}
+ if(!best||best.map.price<0||(best.map.name<0&&best.map.code<0))throw Error('ستون قیمت و کد یا نام کالا در فایل پیدا نشد');
+ const sep=['ضریبمصرف','نوعکالا','واحدمصرف'].every(k=>best.h.includes(k)),ings=A(ingredients),out={sheet:best.sheet,sepidz:sep,rows:[],notFound:[],bad:[]},seen=new Set;
+ for(const row of best.rows.slice(best.r+1)){const g=k=>best.map[k]>=0?row[best.map[k]]:'',code=S(g('code')),name=S(g('name'));if(!code&&!name)continue;
+  const i=ings.find(x=>code&&NORM(x.code)===NORM(code))||ings.find(x=>name&&NORM(x.name)===NORM(name));if(!i){out.notFound.push(name||code);continue}
+  const raw=N(g('price'));if(!(raw>0)){out.bad.push(i.name);continue}if(seen.has(i.id))continue;seen.add(i.id);
+  out.rows.push({id:i.id,name:i.name,price:Math.round((sep?raw/10:raw)*100)/100,date:pxDate(g('date'))})}
+ return out}
+function setLatestPrices(doc,ctx,{date,rows,source='manual-bulk'}){const d0=E().D(date);if(!d0)throw Error('تاریخ قیمت معتبر نیست');if(d0>E().CAL.today)throw Error('تاریخ قیمت بعد از امروز است');
  const ings=A(doc.ingredients),out=[];doc.ingredientPriceHistory=A(doc.ingredientPriceHistory);
  for(const r of A(rows)){const i=ings.find(x=>x.id===r.id);if(!i)throw Error('قلم پیدا نشد: '+r.id);const p=N(r.price);if(!(p>0))throw Error('قیمت «'+i.name+'» باید عدد مثبت باشد');
+  const d=r.date?E().D(r.date):d0;if(!/^\d{4}\/\d{2}\/\d{2}$/.test(d||''))throw Error('تاریخ قیمت «'+i.name+'» معتبر نیست');if(d>E().CAL.today)throw Error('تاریخ قیمت «'+i.name+'» بعد از امروز است');
   const last=S(i.lastPurchaseDate);if(p===Z(i.lastPurchasePriceToman)&&last===d)continue;
-  doc.ingredientPriceHistory.push({id:pcUid('IPH',doc.ingredientPriceHistory),ingredientId:i.id,date:d,priceToman:p,source:'manual-bulk',purchaseUnit:i.purchaseUnit,recipeUnit:i.recipeUnit,packageQuantity:Z(i.packageQuantity),createdAt:ctx.at,createdBy:ctx.actor});
-  if(!last||d>=last)Object.assign(i,{lastPurchasePriceToman:p,lastPurchaseDate:d,lastPurchaseSource:'manual',lastPurchaseInvoiceId:''});out.push({id:i.id,price:p,current:!last||d>=last})}
- if(!out.length)throw Error('قیمت تازه‌ای وارد نشده است');ctx.auditExtra={date:d,count:out.length};return out}
-window.MenuWrite={setLatestPrices,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+  doc.ingredientPriceHistory.push({id:pcUid('IPH',doc.ingredientPriceHistory),ingredientId:i.id,date:d,priceToman:p,source,purchaseUnit:i.purchaseUnit,recipeUnit:i.recipeUnit,packageQuantity:Z(i.packageQuantity),createdAt:ctx.at,createdBy:ctx.actor});
+  if(!last||d>=last)Object.assign(i,{lastPurchasePriceToman:p,lastPurchaseDate:d,lastPurchaseSource:source==='excel'?'excel':'manual',lastPurchaseInvoiceId:''});out.push({id:i.id,price:p,date:d,current:!last||d>=last})}
+ if(!out.length)throw Error('قیمت تازه‌ای وارد نشده است');ctx.auditExtra={date:d0,count:out.length,source};return out}
+window.MenuWrite={setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();

@@ -91,7 +91,14 @@ ok(fin.entries.length===5&&fin.obligations.length===4,'nothing removed (voided r
  const old=MW.setLatestPrices(pr,ctx(),{date:'1405/07/20',rows:[{id:'ING-1',price:60000}]});ok(old[0].current===false&&pr.ingredients[0].lastPurchasePriceToman===65000&&pr.ingredientPriceHistory.length===4,'an older date only adds history');
  throws(()=>MW.setLatestPrices(pr,ctx(),{date:'1405/08/15',rows:[{id:'ING-1',price:65000}]}),/تازه/,'same price and date refused');
  throws(()=>MW.setLatestPrices(pr,ctx(),{date:'1405/08/15',rows:[{id:'ING-1',price:0}]}),/مثبت/,'price must be positive');
- throws(()=>MW.setLatestPrices(pr,ctx(),{date:'1405/09/01',rows:[{id:'ING-1',price:1}]}),/بعد از امروز/,'future date refused')}
+ throws(()=>MW.setLatestPrices(pr,ctx(),{date:'1405/09/01',rows:[{id:'ING-1',price:1}]}),/بعد از امروز/,'future date refused');
+ // prices from Excel: header search, code then name, Sepidz rial sheet ÷ 10, own row date, source excel
+ const sh=[['خالی',[['x']]],['قیمت‌ها',[['گزارش'],['کد کالا','نام کالا','آخرین قیمت خرید تومان','تاریخ قیمت'],[pr.ingredients[0].code||'zz',pr.ingredients[0].name,'۷۰٬۰۰۰','14050816'],['',pr.ingredients[1].name,'abc',''],['999','ناموجود','5000','']]]];
+ const px=MW.parsePriceSheets(sh,pr.ingredients);ok(px.sheet==='قیمت‌ها'&&px.rows.length===1&&px.rows[0].price===70000&&px.rows[0].date==='1405/08/16'&&px.bad.length===1&&px.notFound[0]==='ناموجود'&&!px.sepidz,'price sheet parsed');
+ const sp=MW.parsePriceSheets([['s',[['کد کالا','نام کالا','ضریب مصرف','نوع کالا','واحد مصرف','قیمت خرید'],['',pr.ingredients[1].name,'1','x','عدد','4500000']]]],pr.ingredients);ok(sp.sepidz&&sp.rows[0].price===450000,'Sepidz goods sheet in rial ÷ 10');
+ const hx=pr.ingredientPriceHistory.length,ex=MW.setLatestPrices(pr,ctx(),{date:'1405/08/10',rows:[{id:'ING-1',price:70000,date:'1405/08/16'}],source:'excel'});
+ ok(ex[0].date==='1405/08/16'&&pr.ingredientPriceHistory.length===hx+1&&pr.ingredientPriceHistory.at(-1).source==='excel'&&pr.ingredients[0].lastPurchaseSource==='excel'&&pr.ingredients[0].lastPurchaseDate==='1405/08/16','row date and excel source');
+ throws(()=>MW.parsePriceSheets([['s',[['a','b']]]],pr.ingredients),/پیدا نشد/,'sheet without columns refused')}
 // accounts and flows (stage 7c)
 {const fin4={settings:{},entries:[],obligations:[{id:'OBL-1',title:'اجاره',direction:'payable',amountToman:9e6,status:'active'}],settlements:[{id:'SET-1',obligationId:'OBL-1',direction:'payment',date:'1405/08/06',amountToman:3e6,accountKey:'account:A1',status:'active'},{id:'SET-2',obligationId:'OBL-1',direction:'payment',date:'1405/08/06',amountToman:1,accountKey:'account:A1',status:'void'}]};
  const cash={transferAccounts:[{id:'A1',name:'بانک اصلی'},{id:'A2',name:'کارت مهران'}],cashRecipients:[{id:'C1',name:'مهران'}],reports:[{id:'R1',date:'1405/08/02',pos1:500000000,pos2:100000000,cardToCardItems:[{amount:20000000,accountId:'A2'}],cashItems:[{amount:10000000,recipientId:'C1'}]},{id:'R2',date:'1405/08/03',pos1:10,status:'void'}]};
