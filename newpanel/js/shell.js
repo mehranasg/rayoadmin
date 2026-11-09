@@ -330,7 +330,7 @@ P.LEGACY={
   
   ['گزارش چاپی حضور و غیاب هر نفر','personnel.html?view=attendanceReport','personnel'],
   ['آموزش‌ها و پروتکل‌ها (ویرایش)','personnel.html?view=protocols','training'],['تعریف چک‌لیست‌ها','personnel.html?view=checklistTemplates','training'],['گزارش چک‌لیست‌ها','personnel.html?view=checklistReports','training']],
- inventory:[['شمارش با تاریخ قبل از یک شمارش کل بعدی، و بازمحاسبهٔ شمارش‌ها','inventory.html','inventoryEdit'],['تنظیمات کامل انبار (محل‌ها، اقلام کنترل، نوشیدنی‌های کنترل روزانه)','inventory.html','inventory']],
+ inventory:[['گزارش کامل مدیریت مصرف و هشدارهای آن','inventory.html','inventory'],['شروع دوباره انبارداری از یک تاریخ و بازنشانی شمارش‌ها (با پشتیبان)','inventory.html','inventoryEdit']],
  menu:[['ورود اقلام و قیمت‌ها از Excel','pricing.html','pricing']],
  reports:[['گزارش‌های مدیریتی کامل','reports.html','reports'],['آنالیز فروش','sales-analysis.html','sales'],['نظرسنجی مشتریان (فرم)','survey.html','reports']],
  settings:[['تنظیمات نرم‌افزار','settings.html?view=softwareSettings','settings'],['اطلاعات پایه و مدیریت اقلام','base-data.html','settings'],['بازگرداندن بکاپ (Restore)','settings.html?view=dataManagement','settings'],['تنظیمات پنل و امکانات','settings.html?view=settings','settings'],['تنظیمات تخلفات','settings.html?view=violationSettings','settings']]};

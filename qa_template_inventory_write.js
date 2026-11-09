@@ -67,7 +67,7 @@ ok(near(l1.expected,27.1)&&near(l1.variance,-2.1)&&l1.baseDate===D0&&near(l1.pur
 ok(near(l1.varianceValueToman,-2.1*40000),'variance value at item cost');
 const c2=W.addCount(doc,ctx(),{date:D5,entries:[{itemId:'i1',quantity:2.6,unit:'کارتن'}]});
 ok(!c2.created&&c2.replaced===1&&st.lines.length===1&&near(st.lines[0].actual,26)&&st.revisionHistory.length===1&&st.revisionHistory[0].replaced[0].actual===25,'same-date count merges and keeps the replaced line');
-throws(()=>W.addCount(doc,ctx(),{date:D3,entries:[{itemId:'i1',quantity:1}]}),/پنل فعلی/,'count before a later whole count refused');
+throws(()=>W.addCount(doc,ctx(),{date:D3,entries:[{itemId:'i1',quantity:1}]}),/تأیید لازم/,'count before a later whole count needs confirmation');
 throws(()=>W.addCount(doc,ctx(),{date:D5,entries:[{itemId:'i1',quantity:-1}]}),/نامنفی/,'negative count blocked');
 
 // 5. engine sees the new records
@@ -100,6 +100,39 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  const inv2=baseDoc();inv2.trackedIngredients=[{ingredientId:'i1',reorderPoint:100}];const Mx=E.build({inventory:inv2,pricing:pr2}),p1=E.positions(Mx,T).find(x=>x.id==='i1');
  ok(p1.reorderPoint===5&&p1.target===12,'the item reorder point wins over the legacy tracked value (js/40)')}
 
+// 6b. order-independent variance: a receipt or an earlier count inside a later count's period re-derives that count
+{const d0=JSON.parse(JSON.stringify(doc)),cx=ctx();
+ ok(W.affectedFrom(d0,doc)==='','no change → nothing affected');
+ const d1=JSON.parse(JSON.stringify(doc));W.addReceipts(d1,ctx(),{date:D3,lines:[{itemId:'i1',quantity:4}]});ok(W.affectedFrom(doc,d1)===D3,'affected from the receipt date');
+ const r=W.recalcCounts(d1,cx,{from:D3}),s1=d1.stocktakes.find(s=>s.id===c1.id),l=s1.lines[0];
+ const Mx=E.build({inventory:{...d1,stocktakes:d1.stocktakes.filter(x=>x.id!==c1.id)},pricing}),px=E.positions(Mx,D5).find(x=>x.id==='i1').qty,old=doc.stocktakes.find(s=>s.id===c1.id).lines[0].expected;
+ ok(r.lines===1&&r.counts[0]===c1.id&&near(l.expected,px)&&near(l.variance,26-px)&&s1.varianceRecalcHistory.length===1&&near(s1.varianceRecalcHistory[0].lines[0].expected,old)&&s1.varianceRecalculatedAt===cx.at,'later count recalculated; previous figures kept');
+ ok(W.recalcCounts(d1,ctx(),{from:D3}).lines===0,'second recalc changes nothing');
+ const d2=JSON.parse(JSON.stringify(doc));d2.stocktakes.find(s=>s.id===c1.id).lines[0].varianceReview={status:'reviewed'};
+ const e=W.addCount(d2,ctx(),{date:D3,entries:[{itemId:'i1',quantity:30}],allowEarlier:true});const r2=W.recalcCounts(d2,ctx(),{from:D3}),l2=d2.stocktakes.find(s=>s.id===c1.id).lines[0];
+ ok(e.created&&r2.counts.includes(c1.id)&&l2.baseDate===D3&&!l2.varianceReview,'earlier count becomes the base of the later one; its review reopens');
+ const d3=JSON.parse(JSON.stringify(doc));d3.stocktakes.push({id:'ST-OLD',date:day(40),inventoryScope:'RAYO',baselineBoundary:'END',status:'approved',lines:[{ingredientId:'i1',actual:1,expected:9,variance:-8}]});
+ W.recalcCounts(d3,ctx(),{});ok(d3.stocktakes.find(s=>s.id==='ST-OLD').lines[0].expected===9,'closed period keeps its figures');
+ const op=JSON.parse(JSON.stringify(doc)).stocktakes.find(s=>s.id==='ST-A');ok(!W.recalcCounts({...JSON.parse(JSON.stringify(doc)),stocktakes:[op]},ctx(),{}).lines,'baseline-only data: nothing to recalc')}
+
+// 6c. zero for uncounted items; rollback; beverage items
+{const pz={...pricing,ingredients:[...pricing.ingredients,{id:'i4',code:'104',name:'قلم شمرده‌نشده',status:'فعال',itemType:'MENU_INGREDIENT',recipeUnit:'عدد'},{id:'i5',code:'105',name:'کنارگذاشته',status:'فعال',itemType:'MENU_INGREDIENT',recipeUnit:'عدد'}]};
+ const zd=JSON.parse(JSON.stringify(doc));zd.settings.itemControlLevels={i2:'PRECISE',i5:'PARKED'};const zc=()=>({...ctx(),pricing:pz});
+ throws(()=>W.zeroFillPlan(zd,pz,{date:D3,boundary:'END'}),/آخرین مبنا/,'zero-fill only on the latest baseline');
+ const plan=W.zeroFillPlan(zd,pz,{date:D5,boundary:'END'});ok(plan.target&&plan.items.map(i=>i.id).sort().join()==='i2,i4','plan: never-counted and missing precise items, not parked');
+ const zx=zc();const z=W.zeroFill(zd,zx,{date:D5,boundary:'END'}),zt=zd.stocktakes.find(s=>s.id===z.targetId);
+ ok(z.count===2&&!z.createdId&&zt.lines.filter(l=>l.assumedZero&&l.actual===0&&l.expected===null).length===2,'zero lines added to the same-date count');
+ zd.changeLog.push({id:'ICT-Z',action:'INVENTORY_ZERO_FILLED',at:zx.at,...zx.auditExtra});ok(W.recalcCounts(zd,zc(),{}).lines===0||zt.lines.filter(l=>l.assumedZero).every(l=>l.expected===null),'recalc keeps assumed zeros without expected');
+ const rb=W.zeroFillRollbackPlan(zd);ok(rb.lines.length===2,'rollback plan lists the added lines');
+ const rr=W.zeroFillRollback(zd,zc());ok(rr.count===2&&!zt.lines.some(l=>l.assumedZero)&&zd.changeLog.find(e=>e.id==='ICT-Z').revertedAt,'rollback removes only the zero lines');
+ throws(()=>W.zeroFillRollbackPlan(zd),/قابل بازگردانی/,'nothing left to roll back');
+ const zn=JSON.parse(JSON.stringify(doc)),nx=zc(),zn2=W.zeroFill(zn,nx,{date:T,boundary:'END'});zn.changeLog.push({id:'ICT-N',action:'INVENTORY_ZERO_FILLED',at:nx.at,...nx.auditExtra});
+ ok(zn2.createdId&&zn.stocktakes.some(s=>s.id===zn2.createdId&&s.status==='approved'),'zero-fill creates a baseline when the date has none');
+ W.zeroFillRollback(zn,zc());ok(zn.stocktakes.find(s=>s.id===zn2.createdId).status==='void','rollback voids a created baseline (not deleted)');
+ const bd=JSON.parse(JSON.stringify(doc));bd.settings.beverageControl={itemIds:['i2','i1'],note:'x'};const bx=ctx();W.saveBeverageItems(bd,bx,{itemIds:['i1','i2','i9','i1']});
+ ok(bd.settings.beverageControl.itemIds.join()==='i2,i1'&&bd.settings.beverageControl.note==='x','beverage items: saved order kept, unknown ids dropped');
+ W.saveBeverageItems(bd,ctx(),{itemIds:['i1']});ok(bd.settings.beverageControl.itemIds.join()==='i1','beverage items: unchecked removed')}
+
 // 7. protected save protocol
 (async()=>{
  const server={text:JSON.stringify(baseDoc()),saves:0};
@@ -108,6 +141,10 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  const saved=JSON.parse(server.text);
  ok(server.saves===1&&saved.stockReceipts.length===1&&r.doc.meta.serverSaveToken===saved.meta.serverSaveToken,'edit saves once and verifies by reload');
  ok(saved.changeLog.some(x=>x.action==='RECEIPT_ADDED'&&x.actor==='qa-admin'&&x.via==='ui-template'),'audit row in changeLog');
+ {const srv={text:server.text,saves:0},io2={...io,load:async()=>JSON.parse(srv.text),save:async d=>{srv.saves++;srv.text=JSON.stringify(d)}},sv=JSON.parse(srv.text);sv.stocktakes.push({id:'ST-L',date:D5,inventoryScope:'RAYO',baselineBoundary:'END',status:'approved',lines:[{ingredientId:'i1',actual:20,expected:0,variance:20}]});srv.text=JSON.stringify(sv);
+  const r3=await W.edit(io2,{action:'RECEIPT_ADDED',mutate:(d,cx)=>W.addReceipts(d,cx,{date:D3,lines:[{itemId:'i1',quantity:1}]})}),s3=JSON.parse(srv.text),lg=s3.changeLog.at(-1);
+  ok(r3.out.recalculated===1&&s3.stocktakes.find(s=>s.id==='ST-L').lines[0].expected!==0&&lg.recalculatedLaterLines===1&&lg.recalculatedCounts[0]==='ST-L','edit recalculates the later count and records it in the audit row');
+  const n0=srv.saves;await W.edit({...io2,recalcAll:true},{action:'COUNT_VARIANCE_RECALCULATED_ALL',mutate:()=>({})});ok(srv.saves===n0+1,'recalc-all saves once')}
  const rid=saved.stockReceipts[0].id;await W.edit(io,{action:'RECEIPT_VOIDED',details:{entityId:rid},mutate:(d,cx)=>W.voidReceipt(d,cx,{id:rid,reason:'آزمون'})});
  const vlog=JSON.parse(server.text).changeLog.filter(x=>x.action==='RECEIPT_VOIDED');
  ok(server.saves===2&&vlog.length===1&&vlog[0].before.status==='posted'&&vlog[0].reason==='آزمون','void through edit: one audit row with the record before the change');

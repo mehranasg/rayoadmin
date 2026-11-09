@@ -100,10 +100,10 @@ function addOilChange(doc,ctx,input){const s=oilSettings(doc,ctx.pricing),f=s.fr
 /* ---------- whole count, end of day (js/32 whole count + wholeLine) ----------
    Expected = the item's position at the end of the date from its own latest approved whole count (same engine rules).
    A count of the same date is merged (the replaced line stays in revisionHistory). A count dated before a later whole
-   count is refused here: it changes later variances, so it stays in the current panel which recalculates them. */
+   count needs input.allowEarlier (the form asks first); the later counts are then recalculated by edit() (recalcCounts). */
 function countInfo(doc,date){date=D(date);const later=A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&rank(s)>`${date}|1`),same=A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&rank(s)===`${date}|1`);return{later,same,counted:new Map(same.flatMap(s=>A(s.lines).map(l=>[l.ingredientId,{st:s,line:l}])))}}
-function addCount(doc,ctx,{date,entries,note}){date=D(date);checkDate(doc,date,'تاریخ شمارش');const ing=ingredients(ctx.pricing),info=countInfo(doc,date);
- if(info.later.length)throw Error(`بعد از ${date} شمارش کل ثبت شده است (${[...new Set(info.later.map(s=>s.date))].sort().pop()}). شمارش با تاریخ قبلی را از پنل فعلی ثبت کنید تا مغایرت شمارش‌های بعدی بازمحاسبه شود.`);
+function addCount(doc,ctx,{date,entries,note,allowEarlier}){date=D(date);checkDate(doc,date,'تاریخ شمارش');const ing=ingredients(ctx.pricing),info=countInfo(doc,date);
+ if(info.later.length&&!allowEarlier)throw Error(`بعد از ${date} شمارش کل ثبت شده است (${[...new Set(info.later.map(s=>s.date))].sort().pop()}); برای ثبت با تاریخ قبلی تأیید لازم است.`);
  const rows=A(entries).map(x=>{const i=ing.get(S(x.itemId));if(!stockItem(i))throw Error('قلم شمارش معتبر نیست');const u=unitsOf(i).find(u=>u.name===S(x.unit))||unitsOf(i)[0],q=N(x.quantity);if(!(q>=0))throw Error(`مقدار شمارش «${i.name}» باید عدد نامنفی باشد`);return{i,actual:r3(q*u.factor),entry:u.factor!==1?{entryQuantity:q,entryUnit:u.name,entryUnitFactor:u.factor}:null}});
  if(!rows.length)throw Error('حداقل یک مقدار شمارش وارد کنید');if(new Set(rows.map(r=>r.i.id)).size!==rows.length)throw Error('یک قلم دو بار وارد شده است');
  if(rows.some(x=>A(doc.openingBalances).some(o=>wholeScope(o)&&o.status!=='void'&&rank(o)===`${date}|1`&&o.ingredientId===x.i.id)))throw Error('برای این قلم در همین تاریخ موجودی اولیهٔ قدیمی ثبت شده است؛ از پنل فعلی اقدام کنید');
@@ -118,6 +118,56 @@ function addCount(doc,ctx,{date,entries,note}){date=D(date);checkDate(doc,date,'
  const total=trackedItems(ctx.pricing).length;
  for(const [id,rv] of touched){const s=byId.get(id)||target;s.coverage={counted:s.lines.length,total};if(created&&s===target)continue;s.revisionHistory=A(s.revisionHistory);s.revisionHistory.push(rv);s.updatedAt=ctx.at;s.updatedBy=ctx.actor;if(S(note)&&s===target)s.notes=S(s.notes)?`${S(s.notes)} | ${S(note)}`:S(note)}
  return{id:target.id,created,count:rows.length,replaced}}
+
+/* ---------- order-independent count variance (js/32 recalcStocktakeLines + refreshStaleCountVariance) ----------
+   A whole count stores expected and variance per line. Any inventory save that adds, changes or voids a record dated
+   on or before a later whole count re-derives those counts from the saved document (same engine and line fields as
+   addCount); the previous figures go to varianceRecalcHistory and a changed line's review is reopened. Opening (START)
+   counts and counts in a closed period keep their figures. affectedFrom = the earliest date among changed records. */
+const DATED=['stockReceipts','wasteRecords','consumptionRecords','salesPeriods','inventoryMovements','stocktakes','openingBalances'];
+function affectedFrom(before,after){let min='';const dateOf=r=>[D(r?.date),D(r?.from)].filter(d=>d&&validDate(d)).sort()[0]||'';
+ for(const k of DATED){const a=new Map(A(before?.[k]).map(r=>[S(r.id),r])),b=new Map(A(after?.[k]).map(r=>[S(r.id),r]));
+  for(const id of new Set([...a.keys(),...b.keys()])){const x=a.get(id),y=b.get(id);if(x&&y&&JSON.stringify(x)===JSON.stringify(y))continue;for(const d of [dateOf(x),dateOf(y)])if(d&&(!min||d<min))min=d}}
+ return min}
+function recalcCounts(doc,ctx,{from=''}={}){const groups=new Map;
+ for(const s of A(doc.stocktakes)){if(!wholeScope(s)||s.status!=='approved'||boundary(s)==='START'||s.isOpeningBaseline)continue;const d=D(s.date);if(from&&d<from)continue;if(closedPeriod(doc,d))continue;const k=rank(s);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(s)}
+ let n=0;const counts=[];
+ for(const [k,list] of [...groups].sort((a,b)=>a[0].localeCompare(b[0]))){const date=k.split('|')[0],mdoc={...doc,stocktakes:A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&!list.includes(s))},M=E().build({inventory:mdoc,pricing:ctx.pricing}),pos=new Map(E().positions(M,date).map(r=>[r.id,r]));
+  for(const s of list){const changes=[];
+   for(const l of A(s.lines)){if(l.assumedZero)continue;const p=pos.get(l.ingredientId),known=!!p&&p.base!==null&&p.qty!==null,expected=known?r3(p.qty):null,actual=Number(l.actual);if(!Number.isFinite(actual))continue;const variance=expected===null?null:r3(actual-expected);
+    const same=(a,b)=>(a===null||a===undefined)?(b===null||b===undefined):(b!==null&&b!==undefined&&Math.abs(Number(a)-Number(b))<1e-9);if(same(l.expected,expected)&&same(l.variance,variance))continue;
+    const unitCost=M.costAt(l.ingredientId,date);changes.push({ingredientId:l.ingredientId,expected:l.expected??null,variance:l.variance??null,varianceReview:l.varianceReview||null});
+    Object.assign(l,{expected,variance,variancePercent:expected===null?null:expected?variance/expected*100:variance?100:0,baseQuantity:p?.base??null,salesConsumption:p?r3(p.sales):null,movementNet:p?r3(p.receipt-p.waste-p.auth):null,purchaseQty:p?r3(p.receipt):null,wasteQty:p?r3(p.waste):null,otherOutQty:p?r3(p.auth):null,unitCost:Number.isFinite(unitCost)?unitCost:null,varianceValueToman:variance===null||!Number.isFinite(unitCost)?null:variance*unitCost,baseDate:p?.basePt?.date||'',baselineIds:A(p?.basePt?.ids),baselineBoundary:p?.basePt?.boundary||''});delete l.varianceReview}
+   s.varianceCheckedAt=ctx.at;if(changes.length){s.varianceRecalcHistory=A(s.varianceRecalcHistory);s.varianceRecalcHistory.push({at:ctx.at,by:ctx.actor,lines:changes});s.varianceRecalculatedAt=ctx.at;n+=changes.length;counts.push(s.id)}}}
+ return{lines:n,counts}}
+
+/* ---------- zero for uncounted items (js/32 previewZeroFill / previewZeroFillRollback) ----------
+   Items that were never in any whole count, and «دقیق» items missing from this baseline, are added to the baseline of
+   the date with actual 0 and assumedZero:true. Only on the latest baseline (nothing whole later). Rollback of the last
+   zero-fill: the lines it added are taken out again, or the baseline it created is voided (never deleted). */
+function zeroFillPlan(doc,pricing,{date,boundary:b}){date=D(date);b=b==='START'?'START':'END';if(!validDate(date)||date>E().CAL.today)throw Error('تاریخ معتبر (نه آینده) لازم است');if(closedPeriod(doc,date))throw Error('دورهٔ این تاریخ بسته است');
+ const rk=`${date}|${b==='START'?'0':'1'}`,whole=[...A(doc.stocktakes).filter(x=>wholeScope(x)&&x.status==='approved').map(x=>({r:x,ids:A(x.lines).map(l=>l.ingredientId)})),...A(doc.openingBalances).filter(x=>wholeScope(x)&&x.status!=='void').map(x=>({r:x,ids:[x.ingredientId]}))];
+ if(whole.some(x=>rank(x.r)>rk))throw Error('بعد از این تاریخ مبنای کل دیگری هست؛ صفرگذاری فقط روی آخرین مبنا معنا دارد');
+ const have=new Set(whole.filter(x=>rank(x.r)===rk).flatMap(x=>x.ids)),ever=new Set(whole.flatMap(x=>x.ids));
+ const items=trackedItems(pricing).filter(i=>levelOf(doc,i.id)!=='PARKED'&&!have.has(i.id)&&(levelOf(doc,i.id)==='PRECISE'||!ever.has(i.id)));
+ const target=A(doc.stocktakes).find(x=>wholeScope(x)&&x.status==='approved'&&rank(x)===rk)||null;return{date,boundary:b,items,target}}
+function zeroFill(doc,ctx,input){const p=zeroFillPlan(doc,ctx.pricing,input);if(!p.items.length)throw Error('همهٔ اقلام در این مبنا شمرده شده‌اند؛ چیزی برای صفرگذاری نیست');
+ const opening=p.boundary==='START',lines=p.items.map(i=>({ingredientId:i.id,actual:0,itemNameSnapshot:i.name,itemCodeSnapshot:i.code||'',unitSnapshot:unitName(i),expected:null,variance:null,variancePercent:null,varianceValueToman:null,isOpeningBaseline:opening,assumedZero:true}));
+ doc.stocktakes=A(doc.stocktakes);let target=p.target?doc.stocktakes.find(x=>x.id===p.target.id):null,createdId=null;
+ if(target)target.lines=[...A(target.lines),...lines];else{createdId=`ST-WHOLE-${ctx.reqId}`;target={id:createdId,date:p.date,locationId:'',inventoryScope:'RAYO',baselineBoundary:p.boundary,status:'approved',isOpeningBaseline:opening,notes:'صفرگذاری اقلام شمارش‌نشده',lines,createdAt:ctx.at,createdBy:ctx.actor,approvedAt:ctx.at,approvedBy:ctx.actor,countedBy:ctx.actor,source:'ui-template'};doc.stocktakes.push(target)}
+ target.updatedAt=ctx.at;target.updatedBy=ctx.actor;target.coverage={counted:target.lines.length,total:trackedItems(ctx.pricing).length};
+ ctx.auditExtra={targetId:target.id,createdId,date:p.date,boundary:p.boundary,ingredientIds:p.items.map(i=>i.id)};return{count:lines.length,targetId:target.id,createdId}}
+function lastZeroFill(doc){return A(doc.changeLog).filter(e=>e.action==='INVENTORY_ZERO_FILLED'&&!e.revertedAt).at(-1)||null}
+function zeroFillRollbackPlan(doc){const e=lastZeroFill(doc);if(!e)throw Error('صفرگذاری قابل بازگردانی وجود ندارد');
+ if(A(doc.stocktakes).some(x=>wholeScope(x)&&S(x.createdAt)>e.at&&x.id!==e.createdId)||A(doc.periodClosures).some(c=>c.status==='closed'&&S(c.closedAt)>=e.at))throw Error('بعد از این صفرگذاری شمارش کل یا بستن دوره ثبت شده است؛ بازگردانی خودکار ممکن نیست');
+ const t=A(doc.stocktakes).find(x=>x.id===e.targetId);if(!t)throw Error('سند مبنا پیدا نشد');const ids=new Set(A(e.ingredientIds));return{entry:e,target:t,lines:A(t.lines).filter(l=>l.assumedZero&&ids.has(l.ingredientId))}}
+function zeroFillRollback(doc,ctx){const p=zeroFillRollbackPlan(doc),e=A(doc.changeLog).find(x=>x.id===p.entry.id),t=doc.stocktakes.find(x=>x.id===p.target.id),ids=new Set(A(e.ingredientIds));
+ if(e.createdId){t.status='void';t.voidReason='بازگردانی صفرگذاری';t.voidedAt=ctx.at;t.voidedBy=ctx.actor}else{t.lines=A(t.lines).filter(l=>!(l.assumedZero&&ids.has(l.ingredientId)));t.coverage={counted:t.lines.length,total:trackedItems(ctx.pricing).length};t.updatedAt=ctx.at;t.updatedBy=ctx.actor}
+ e.revertedAt=ctx.at;ctx.auditExtra={reverts:e.id};return{count:p.lines.length,voided:!!e.createdId}}
+
+/* ---------- daily beverage control items (js/46 bevSaveSettings): settings.beverageControl.itemIds, order kept ---------- */
+function saveBeverageItems(doc,ctx,{itemIds}){const ing=ingredients(ctx.pricing),ids=[...new Set(A(itemIds).map(S))].filter(id=>ing.has(id));doc.settings=doc.settings||{};const old=A(doc.settings.beverageControl?.itemIds);
+ const next=[...old.filter(id=>ids.includes(id)),...ids.filter(id=>!old.includes(id))];doc.settings.beverageControl={...(doc.settings.beverageControl||{}),itemIds:next,updatedAt:ctx.at,updatedBy:ctx.actor};ctx.auditExtra={before:old,after:next};return{count:next.length}}
 
 /* ---------- inventory settings (stage 11) ----------
    control levels (js/32 saveControlLevels): settings.itemControlLevels {id: LIGHT|PRECISE|PARKED}, lightMaxGapDays 7…730
@@ -158,7 +208,10 @@ async function edit(io,{action,details={},mutate}){
   const after=clone(before);after.settings=after.settings&&typeof after.settings==='object'?after.settings:{};
   const ctx={actor,at:now(),reqId:requestId(),pricing:io.pricing(),module:io.module||'inventory'};
   // one audit row per save; a void adds the record as it was before the change (ctx.auditExtra)
-  const out=mutate(after,ctx);audit(after,action,{...details,...(ctx.auditExtra||{})},ctx);
+  const out=mutate(after,ctx);
+  // inventory saves: later whole counts follow the change (opt out with io.recalc===false, e.g. pure settings)
+  if((io.module||'inventory')==='inventory'&&io.recalc!==false){const from=io.recalcAll?'':affectedFrom(before,after);if(from||io.recalcAll){const r=recalcCounts(after,ctx,{from});if(r.lines){ctx.auditExtra={...(ctx.auditExtra||{}),recalculatedLaterLines:r.lines,recalculatedCounts:r.counts};if(out&&typeof out==='object')out.recalculated=r.lines}}}
+  audit(after,action,{...details,...(ctx.auditExtra||{})},ctx);
   after.meta=after.meta&&typeof after.meta==='object'?after.meta:{};after.meta.serverSaveToken=`${String(io.module||'inventory').toUpperCase()}-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;after.meta.updatedAt=now();
   let sent=false;
   try{sent=true;await io.save(after);const doc=await verify(io,after);return{out,doc}}
@@ -166,5 +219,5 @@ async function edit(io,{action,details={},mutate}){
  }finally{state.busy=false}}
 
 window.InvWrite={LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
- addReceipts,voidReceipt,addEvent,voidEvent,addOilChange,addCount,findEvent,edit};
+ addReceipts,voidReceipt,addEvent,voidEvent,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems};
 })();
