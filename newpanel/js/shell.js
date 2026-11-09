@@ -462,6 +462,7 @@ const QUICK_LIVE=[
   {mod:'people',key:'payroll',icon:'gavel',t:'جریمه / کسر تأخیر / پاداش',s:'برای حقوق همان ماه',go:'#/people/payroll',ready:()=>!!window.PeopleReal?.doc?.(),open:()=>PeopleEntry.penalty()},
   {mod:'people',key:'payroll',icon:'banknote',t:'پرداخت به پرسنل',s:'مساعده، حقوق، انعام — با مانده و هشدار',go:'#/people/payments',ready:()=>!!window.PeopleReal?.doc?.()&&!!window.PayrollReal,open:()=>PayrollReal.pay()}
 ];
+P.openLive=q=>openLive(q);
 function openLive(q){if(location.hash!==q.go)P.go(q.go);if(!q.open)return;let n=0;const tick=()=>{const ok=P.live()&&(!q.ready||q.ready());if(ok){try{q.open()}catch(e){P.toast(e.message||String(e),'alert-triangle')}return}if(++n>60)return P.toast('داده هنوز خوانده نشده؛ چند لحظه بعد دوباره بزنید','alert-triangle');setTimeout(tick,250)};setTimeout(tick,150)}
 function buildTopbar(){
   const top=$('#pnTop'),E=window.InvEngine,today=E?.CAL?.today||'';

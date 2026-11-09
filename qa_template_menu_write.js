@@ -38,6 +38,12 @@ ok(c.auditExtra.before.lines.length===2&&c.auditExtra.before.lines[0].quantity==
 throws(()=>MW.saveRecipe(d,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:0.25},{ingredientId:'ING-2',quantity:1}],effectiveFrom:T}),/تغییری/,'unchanged recipe refused');
 throws(()=>MW.saveRecipe(d,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:0.3}],effectiveFrom:day(5)}),/آخرین نسخه/,'date before the latest version refused');
 throws(()=>MW.saveRecipe(d,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:0.3}],effectiveFrom:E.CAL.k(E.CAL.i(T)+1)}),/آینده/,'future date refused');
+// fryer oil share per item and writing it into recipes
+{const sh=MW.oilShare({oilKg:20,items:[{menuId:'A',qty:100,weight:1},{menuId:'B',qty:50,weight:2},{menuId:'C',qty:0,weight:1}]});ok(Math.abs(sh.perWeight-0.1)<1e-9&&Math.abs(sh.rows[1].perPortion-0.2)<1e-9&&sh.rows.length===2,'oil shared by sold × weight');
+ ok(MW.oilShare({oilKg:0,items:[{menuId:'A',qty:1,weight:1}]}).perWeight===null,'no oil → no share');
+ const od=doc();MW.saveRecipe(od,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:0.25}],effectiveFrom:T});const out=MW.setOilInRecipes(od,ctx(),{oilId:'ING-2',rows:[{menuId:'MENU-1',perPortion:0.035}],effectiveFrom:T});
+ ok(out.length===1&&od.recipes.some(r=>r.menuItemId==='MENU-1'&&r.ingredientId==='ING-2'&&Math.abs(r.quantity-0.035)<1e-9)&&od.recipes.some(r=>r.menuItemId==='MENU-1'&&r.ingredientId==='ING-1'),'oil line added, other lines kept');
+ throws(()=>MW.setOilInRecipes(od,ctx(),{oilId:'ING-2',rows:[{menuId:'MENU-1',perPortion:0.035}],effectiveFrom:T}),/تغییری/,'same oil again refused')}
 throws(()=>MW.saveRecipe(d,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:1},{ingredientId:'ING-1',quantity:2}]}),/دو بار/,'duplicate ingredient refused');
 throws(()=>MW.saveRecipe(d,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-4',quantity:1}]}),/مادهٔ رسپی/,'operational consumable not allowed in a recipe');
 throws(()=>MW.saveRecipe(d,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:0}]}),/مثبت/,'zero quantity refused');

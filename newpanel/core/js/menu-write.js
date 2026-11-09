@@ -193,6 +193,19 @@ function savePreparedItem(doc,ctx,x){doc.preparedItems=A(doc.preparedItems);cons
  if(cur){const before=clone(cur);if(formula(cur)!==formula(o))o.version=(cur.version||1)+1;Object.assign(cur,o);ctx.auditExtra={entityId:cur.id,before};return cur}
  const it={id:pcUid('PREP',doc.preparedItems),version:1,createdAt:ctx.at,createdBy:ctx.actor,...o};doc.preparedItems.push(it);ctx.auditExtra={entityId:it.id};return it}
 
+/* ---------- fryer oil per fried item ----------
+   oil poured in a period (FRYER_OIL_CHANGE records, kg) is shared over the fried items sold in that period by their
+   relative fried weight (a 4-piece portion takes more oil than an extra portion); per portion kg = weight × oil ÷ Σ(sold ×
+   weight). setOilInRecipes writes that kg as the oil line of each item's recipe (new recipe version from the date), so
+   it is part of the item's cost; the fryer-oil log start (settings.fryerOil.logFrom) keeps recipe oil out of the stock. */
+function oilShare({oilKg,items}){const w=A(items).filter(x=>x.qty>0&&x.weight>0),tot=w.reduce((a,x)=>a+x.qty*x.weight,0);if(!(oilKg>0)||!(tot>0))return{perWeight:null,rows:w.map(x=>({...x,perPortion:null}))};
+ const per=oilKg/tot;return{perWeight:per,rows:w.map(x=>({...x,perPortion:x.weight*per,used:x.qty*x.weight*per}))}}
+function setOilInRecipes(doc,ctx,{oilId,rows,effectiveFrom}){const oil=A(doc.ingredients).find(i=>i.id===oilId);if(!oil)throw Error('قلم روغن سرخ‌کردنی پیدا نشد');const out=[];
+ for(const r of A(rows)){const kg=Math.round(N(r.perPortion)*1e5)/1e5;if(!(kg>0))continue;const cur=recipeLines(doc,r.menuId);if(!cur.length)continue;const old=cur.find(l=>l.ingredientId===oilId);if(old&&Math.abs(Z(old.quantity)-kg)<1e-6)continue;
+  const lines=cur.filter(l=>l.ingredientId!==oilId).map(l=>({ingredientId:l.ingredientId,quantity:l.quantity,notes:l.notes})).concat([{ingredientId:oilId,quantity:kg,notes:'سهم روغن سرخ‌کن از تعویض‌های روغن'}]);
+  const sub={...ctx,auditExtra:null};saveRecipe(doc,sub,{menuId:r.menuId,lines,effectiveFrom,note:'به‌روزرسانی سهم روغن'});out.push({menuId:r.menuId,kg,before:old?Z(old.quantity):null})}
+ if(!out.length)throw Error('تغییری در رسپی‌ها نیست (آیتم بدون رسپی یا مقدار برابر)');ctx.auditExtra={oilId,effectiveFrom,items:out};return out}
+
 /* prices from an Excel sheet (js/08 pcReadIngredientsExcel mode «prices»): header row found in the first 25 rows of any
    sheet by the same column names; item by code, else by name; a raw Sepidz goods sheet (ضریب مصرف + نوع کالا + واحد
    مصرف) is in rial and divided by 10; an optional price-date column gives each row its own date. Nothing is written here. */
@@ -216,5 +229,5 @@ function setLatestPrices(doc,ctx,{date,rows,source='manual-bulk'}){const d0=E().
   doc.ingredientPriceHistory.push({id:pcUid('IPH',doc.ingredientPriceHistory),ingredientId:i.id,date:d,priceToman:p,source,purchaseUnit:i.purchaseUnit,recipeUnit:i.recipeUnit,packageQuantity:Z(i.packageQuantity),createdAt:ctx.at,createdBy:ctx.actor});
   if(!last||d>=last)Object.assign(i,{lastPurchasePriceToman:p,lastPurchaseDate:d,lastPurchaseSource:source==='excel'?'excel':'manual',lastPurchaseInvoiceId:''});out.push({id:i.id,price:p,date:d,current:!last||d>=last})}
  if(!out.length)throw Error('قیمت تازه‌ای وارد نشده است');ctx.auditExtra={date:d0,count:out.length,source};return out}
-window.MenuWrite={PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+window.MenuWrite={oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();
