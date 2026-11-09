@@ -448,6 +448,7 @@ const QUICK=[
 ];
 /* live data: the real entry forms; each opens on its own page once that page's data is loaded */
 const QUICK_LIVE=[
+  {mod:'inventory',key:'pricing',icon:'tag',t:'آخرین قیمت خرید',s:'قیمت تازهٔ چند قلم، یا از فایل Excel',go:'#/inventory/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.pricesForm()},
   {mod:'inventory',key:'inventory',icon:'package-plus',t:'ورود کالا به انبار',s:'چند ردیف، واحد انبار یا خرید',go:'#/inventory/receipt',open:()=>InvEntry.receipt()},
   {mod:'inventory',key:'inventory',icon:'trash-2',t:'پرتی / مصرف',s:'ماده یا آیتم منو طبق رسپی',go:'#/inventory/waste',open:()=>InvEntry.event()},
   {mod:'inventory',key:'inventory',icon:'clipboard-check',t:'شمارش انبار',s:'شمارش کور پایان روز',go:'#/inventory/count',open:()=>InvEntry.count()},
@@ -505,6 +506,10 @@ function setMenu(o){$('#pnSide').classList.toggle('open',o);$('#pnBack').classLi
 P.start=()=>{
   /* skin chosen in the look menu (night / bazaar), else the light or dark theme */
   const sk=store('pn_skin');if(SKIN_BASE[sk])applySkin(sk);
+  /* short tab labels (the page title keeps the full name) so all tabs of a section fit on one line */
+  const SHORT={finance:{docs:'فاکتورها',payments:'پرداخت‌ها',cash:'صندوق',ledger:'هزینه‌ها',debts:'بدهی و چک',accounts:'حساب‌ها',plan:'محاسبه‌گر',finset:'تنظیمات'},
+   inventory:{receipt:'ورود کالا',count:'شمارش',beverage:'شمارش نوشیدنی',consumption:'مصرف',reorder:'سفارش',requests:'درخواست خرید'}};
+  for(const [mid,map] of Object.entries(SHORT))for(const t of P.mods[mid]?.tabs||[])if(map[t.id]&&t.label!==map[t.id]){t.title=t.title||t.label;t.label=map[t.id]}
   for(const id of Object.keys(P.LEGACY)){const m=P.mods[id];if(m&&m.tabs&&!m.tabs.some(t=>t.id==='legacy'))m.tabs.push(legacyTab(id))}
   buildTopbar();
   window.addEventListener('hashchange',()=>{P.render();window.scrollTo(0,0)});

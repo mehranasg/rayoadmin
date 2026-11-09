@@ -89,6 +89,21 @@ function voidEvent(doc,ctx,{id,reason}){reason=S(reason);if(!reason)throw Error(
  Object.assign(r,{status:'void',reviewStatus:'ردشده',voidReason:reason,voidedAt:ctx.at,voidedBy:ctx.actor,updatedAt:ctx.at});
  A(doc.inventoryMovements).filter(m=>m.id===r.movementId||S(m.sourceKey)===base||S(m.sourceKey).startsWith(base+':')).forEach(m=>Object.assign(m,{status:'void',reviewStatus:'ردشده',updatedAt:ctx.at}));return r}
 
+/* ---------- edit (js/46 edit = void with voidKind 'edit' + a new record that replaces it) ----------
+   The old record stays as «باطل» with voidKind 'edit' and replacedById; the new one carries replacesId, so the history
+   shows both. Same checks as a new entry; one save, one audit row. Delete = void (never physical). */
+function editReceipt(doc,ctx,{id,date,quantity,unit,note,reason}){const old=A(doc.stockReceipts).find(x=>x.id===id);if(!old)throw Error('ورود پیدا نشد');
+ voidReceipt(doc,ctx,{id,reason:S(reason)||'ویرایش'});const before=ctx.auditExtra?.before;const out=addReceipts(doc,ctx,{date,lines:[{itemId:old.ingredientId,quantity,unit,note:note===undefined?old.notes:note}]}),nu=doc.stockReceipts.find(x=>x.id===out.ids[0]);
+ old.voidKind='edit';old.replacedById=nu.id;nu.replacesId=old.id;ctx.auditExtra={entityId:nu.id,replaces:old.id,before,reason:S(reason)||'ویرایش'};return nu}
+function editEvent(doc,ctx,{id,reason,...input}){const old=findEvent(doc,id);if(!old)throw Error('ثبت پیدا نشد');if(old.eventType==='FRYER_OIL_CHANGE')throw Error('تعویض روغن را باطل و دوباره ثبت کنید');
+ voidEvent(doc,ctx,{id,reason:S(reason)||'ویرایش'});const before=ctx.auditExtra?.before;
+ const nu=addEvent(doc,ctx,{date:input.date??old.date,eventType:input.eventType??old.eventType,type:old.type,itemId:old.itemId,quantity:input.quantity??(old.entryQuantity??old.quantity),unit:input.unit??(old.entryUnit||''),shift:input.shift??old.shift,reason:input.reason??old.reason,notes:input.notes??old.notes});
+ old.voidKind='edit';old.replacedById=nu.id;nu.replacesId=old.id;ctx.auditExtra={entityId:nu.id,replaces:old.id,before,reason:S(reason)||'ویرایش'};return nu}
+/* void every approved whole count (end of day) of one date; later counts are recalculated by edit() */
+function voidCountDate(doc,ctx,{date,reason}){date=D(date);reason=S(reason);if(!reason)throw Error('علت ابطال لازم است');const c=closedPeriod(doc,date);if(c)throw Error(`دورهٔ ${c.from||''} تا ${c.to} بسته است`);
+ const list=A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&D(s.date)===date&&boundary(s)==='END'&&!s.isOpeningBaseline);if(!list.length)throw Error('شمارش کل پایان روز در این تاریخ نیست (افتتاحیه از این مسیر باطل نمی‌شود)');
+ for(const s of list)Object.assign(s,{status:'void',voidReason:reason,voidedAt:ctx.at,voidedBy:ctx.actor});ctx.auditExtra={date,ids:list.map(s=>s.id),reason};return{count:list.length,lines:list.reduce((a,s)=>a+A(s.lines).length,0)}}
+
 /* ---------- fryer oil change (js/32 saveOilChange) ---------- */
 function oilSettings(doc,pricing){const s=doc?.settings?.fryerOil||{},id=S(s.ingredientId)||A(pricing?.ingredients).find(i=>/^روغن سرخ ?کردنی$/.test(S(i.name)))?.id||'';return{ingredientId:id,density:Number(s.density)||0.91,logFrom:validDate(D(s.logFrom))?D(s.logFrom):'',fryers:A(s.fryers).length?A(s.fryers).map(f=>({id:S(f.id),name:S(f.name),liters:Number(f.liters)||0})):OIL_FRYERS_DEFAULT.map(f=>({...f}))}}
 function addOilChange(doc,ctx,input){const s=oilSettings(doc,ctx.pricing),f=s.fryers.find(x=>x.id===S(input.fryerId)),date=D(input.date),kind=input.kind==='TOP_UP'?'TOP_UP':'FULL',liters=N(input.liters)>0?N(input.liters):(kind==='FULL'?Number(f?.liters):0);
@@ -231,5 +246,5 @@ async function edit(io,{action,details={},mutate}){
  }finally{state.busy=false}}
 
 window.InvWrite={LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
- addReceipts,voidReceipt,addEvent,voidEvent,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
+ addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();

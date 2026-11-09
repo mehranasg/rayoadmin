@@ -119,7 +119,8 @@
 .drop [data-lucide]{width:22px;height:22px;color:var(--accent)}
 
 /* modal sizes */
-.modal.wide{width:min(860px,100%)}
+.modal.wide{width:min(1000px,100%)}
+.modal.wide .table td{white-space:normal}
 .modal.xwide{width:min(1080px,100%)}
 .modal-body{max-height:calc(100vh - 210px);overflow-y:auto}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4)}
@@ -211,3 +212,18 @@ body.pn-locked .app{display:none}
 /* owner «view as» bar (shell previewBar) */
 .pn-preview{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:center;gap:var(--s3);flex-wrap:wrap;padding:6px var(--s4);background:var(--warning-soft);color:var(--text);border-bottom:1px solid var(--warning);font-size:13px}
 .pn-preview .btn{background:var(--surface);border:1px solid var(--border)}
+/* page tabs: wrap instead of hiding off-screen, tighter, count badge as a small corner mark */
+.page-tabs{flex-wrap:wrap;overflow:visible;gap:0 2px}
+.page-tabs .tab{padding:10px 11px;gap:6px}
+.page-tabs .tab .badge{position:absolute;top:1px;inset-inline-end:-2px;height:15px;min-width:15px;padding:0 4px;font-size:9.5px;line-height:15px;justify-content:center}
+/* vertical rhythm between the blocks of a tab (cards, grids, notes) */
+#pnTab>*+*{margin-top:var(--s5)}
+/* item + quantity + unit on one line when there is room */
+.iw-qty{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr);gap:var(--s3)}
+@media (max-width:640px){.iw-qty{grid-template-columns:1fr 1fr}.iw-qty>:first-child{grid-column:1/-1}}
+/* daily beverage table inside its card: no second frame, form fields in the panel style */
+#bevEntry{padding:var(--s4)!important}
+#bevEntry .rbt.card{border:0;box-shadow:none;background:none;padding:0;margin:0}
+#bevEntry .rbt-head{margin-bottom:var(--s3)}
+#bevEntry input:not([type=checkbox]),#bevEntry select{border:1px solid var(--border);border-radius:var(--radius-sm,8px);padding:6px 8px;background:var(--surface);color:var(--text);font:inherit}
+#bevEntry .rbt-head input{min-height:38px;padding-inline:12px}

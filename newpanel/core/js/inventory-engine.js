@@ -154,8 +154,8 @@ function positions(M,date){const t1=CAL.i(date)+1,out=new Map,row=id=>{if(!out.h
 
 /* ---------- Beverage daily control ---------- */
 function beverageDaily(M){const recs=A(M.inv.beverageDailyControls).filter(r=>r.status!=='void').sort((a,b)=>D(a.date).localeCompare(D(b.date)));const prev=new Map,days=[];
- for(const r of recs){const d={date:D(r.date),short:0,surplus:0,night:0,sales:0,lines:[]};for(const l of A(r.lines)){const morning=N(l.morningUpper)+N(l.morningLower),night=N(l.nightUpper)+N(l.nightLower),expected=morning+N(l.inflow)-N(l.nonSale)-N(l.sales),daily=expected-night,p=prev.get(l.ingredientId),overnight=p===undefined?null:morning-p;prev.set(l.ingredientId,night);
-  d.sales+=N(l.sales);if(daily>0)d.short+=daily;else d.surplus-=daily;if(overnight!==null&&overnight<0)d.night-=overnight;d.lines.push({id:l.ingredientId,name:S(l.itemNameSnapshot)||M.ing.get(l.ingredientId)?.name,morning,night,inflow:N(l.inflow),sales:N(l.sales),nonSale:N(l.nonSale),daily,overnight,cost:M.costAt(l.ingredientId,D(r.date))})}days.push(d)}return days}
+ for(const r of recs){const d={date:D(r.date),short:0,surplus:0,night:0,sales:0,lines:[],roles:r.roles||{},prevDate:''};for(const l of A(r.lines)){const morning=N(l.morningUpper)+N(l.morningLower),night=N(l.nightUpper)+N(l.nightLower),expected=morning+N(l.inflow)-N(l.nonSale)-N(l.sales),daily=expected-night,p=prev.get(l.ingredientId),overnight=p===undefined?null:morning-p.night;prev.set(l.ingredientId,{night,date:D(r.date)});
+  d.sales+=N(l.sales);if(daily>0)d.short+=daily;else d.surplus-=daily;if(overnight!==null&&overnight<0)d.night-=overnight;d.lines.push({id:l.ingredientId,name:S(l.itemNameSnapshot)||M.ing.get(l.ingredientId)?.name,morning,night,inflow:N(l.inflow),sales:N(l.sales),nonSale:N(l.nonSale),daily,overnight,prevDate:p?p.date:'',note:S(l.varianceNote),by:S(l.updatedByName||l.updatedBy||l.createdByName||l.createdBy),cost:M.costAt(l.ingredientId,D(r.date))})}days.push(d)}return days}
 
 /* ---------- Oil ---------- */
 function oilAnalysis(M,period){const oil=[...M.ing.values()].find(i=>FRYER_OIL_RE.test(S(i.name)));if(!oil)return null;const r=period.items.find(x=>x.id===oil.id)||null;

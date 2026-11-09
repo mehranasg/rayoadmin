@@ -115,6 +115,15 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  W.recalcCounts(d3,ctx(),{});ok(d3.stocktakes.find(s=>s.id==='ST-OLD').lines[0].expected===9,'closed period keeps its figures');
  const op=JSON.parse(JSON.stringify(doc)).stocktakes.find(s=>s.id==='ST-A');ok(!W.recalcCounts({...JSON.parse(JSON.stringify(doc)),stocktakes:[op]},ctx(),{}).lines,'baseline-only data: nothing to recalc')}
 
+// 6d. edit = void (kind edit) + replacing record; void a count date
+{const ed=JSON.parse(JSON.stringify(doc));const rid=W.addReceipts(ed,ctx(),{date:D3,lines:[{itemId:'i1',quantity:5}]}).ids[0];
+ const nu=W.editReceipt(ed,ctx(),{id:rid,date:D3,quantity:'۲',unit:'کارتن',reason:'اشتباه'}),old=ed.stockReceipts.find(x=>x.id===rid);
+ ok(old.status==='void'&&old.voidKind==='edit'&&old.replacedById===nu.id&&nu.replacesId===rid&&near(nu.quantity,20)&&ed.inventoryMovements.filter(m=>m.referenceId===rid).every(m=>m.status==='void')&&ed.inventoryMovements.some(m=>m.referenceId===nu.id&&m.status==='posted'),'receipt edit');
+ const ev=W.addEvent(ed,ctx(),{date:D3,eventType:'WASTE',type:'ingredient',itemId:'i1',quantity:1,reason:'سوختگی'});const ne=W.editEvent(ed,ctx(),{id:ev.id,quantity:'0.5',eventType:'EXPIRY'});
+ ok(ev.status==='void'&&ev.voidKind==='edit'&&ne.replacesId===ev.id&&near(ne.quantity,0.5)&&ne.eventType==='EXPIRY'&&ne.reason==='سوختگی','waste edit keeps item and reason');
+ const cd=JSON.parse(JSON.stringify(doc)),cv=W.voidCountDate(cd,ctx(),{date:D5,reason:'شمارش اشتباه'});ok(cv.count===1&&cd.stocktakes.filter(s=>s.date===D5).every(s=>s.status==='void'),'count of a date voided');
+ throws(()=>W.voidCountDate(cd,ctx(),{date:D1,reason:'x'}),/پایان روز/,'no count on that date refused')}
+
 // 6c. zero for uncounted items; rollback; beverage items
 {const pz={...pricing,ingredients:[...pricing.ingredients,{id:'i4',code:'104',name:'قلم شمرده‌نشده',status:'فعال',itemType:'MENU_INGREDIENT',recipeUnit:'عدد'},{id:'i5',code:'105',name:'کنارگذاشته',status:'فعال',itemType:'MENU_INGREDIENT',recipeUnit:'عدد'}]};
  const zd=JSON.parse(JSON.stringify(doc));zd.settings.itemControlLevels={i2:'PRECISE',i5:'PARKED'};const zc=()=>({...ctx(),pricing:pz});
