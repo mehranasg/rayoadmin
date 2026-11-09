@@ -165,6 +165,18 @@ function zeroFillRollback(doc,ctx){const p=zeroFillRollbackPlan(doc),e=A(doc.cha
  if(e.createdId){t.status='void';t.voidReason='بازگردانی صفرگذاری';t.voidedAt=ctx.at;t.voidedBy=ctx.actor}else{t.lines=A(t.lines).filter(l=>!(l.assumedZero&&ids.has(l.ingredientId)));t.coverage={counted:t.lines.length,total:trackedItems(ctx.pricing).length};t.updatedAt=ctx.at;t.updatedBy=ctx.actor}
  e.revertedAt=ctx.at;ctx.auditExtra={reverts:e.id};return{count:p.lines.length,voided:!!e.createdId}}
 
+/* ---------- payment locations and supplier payment directions (js/19 savePaymentLocations) ----------
+   rows keep their id; a new row gets the next PAYLOC / PAYDIR id; names unique; nothing is deleted (inactive instead);
+   the list stays where it is (top-level paymentLocations of old data, else settings.paymentLocations) */
+const PAY_DIR_DEFAULT=[{value:'PAYDIR-001',label:'پرداخت به تأمین‌کننده',effect:'payment',isActive:true},{value:'PAYDIR-002',label:'دریافت از تأمین‌کننده',effect:'receipt',isActive:true}];
+function paymentOptions(doc){const top=Array.isArray(doc?.paymentLocations),loc=(top?doc.paymentLocations:A(doc?.settings?.paymentLocations)).map((x,i)=>typeof x==='string'?{id:`PAYLOC-${String(i+1).padStart(3,'0')}`,name:x,type:'other',isActive:true,notes:''}:{...x,id:x.id||`PAYLOC-${String(i+1).padStart(3,'0')}`,name:x.name||x.title||'',isActive:x.isActive!==false});
+ const dsrc=A(doc?.settings?.supplierPaymentDirections),dir=(dsrc.length?dsrc:PAY_DIR_DEFAULT).map((x,i)=>typeof x==='string'?{value:`PAYDIR-${String(i+1).padStart(3,'0')}`,label:x,effect:'payment',isActive:true}:{...x,value:x.value||x.id||`PAYDIR-${String(i+1).padStart(3,'0')}`,label:x.label||x.name||x.title||'',effect:x.effect==='receipt'?'receipt':'payment',isActive:x.isActive!==false});return{top,locations:loc,directions:dir}}
+function savePaymentOptions(doc,ctx,{locations,directions}){const cur=paymentOptions(doc),next=JSON.parse(JSON.stringify(cur.locations)),nd=JSON.parse(JSON.stringify(cur.directions)),nextId=(p,rows)=>{let m=0;for(const r of rows){const q=S(r).match(/(\d+)$/);if(q)m=Math.max(m,+q[1])}return `${p}-${String(m+1).padStart(3,'0')}`};
+ for(const r of A(locations)){const name=S(r.name);if(!name)throw Error('نام همهٔ محل‌های پرداخت را وارد کنید');const o=r.id?next.find(x=>x.id===r.id):null;if(r.id&&!o)throw Error('محل پرداخت پیدا نشد');if(o)Object.assign(o,{name,isActive:r.isActive!==false});else next.push({id:nextId('PAYLOC',next.map(x=>x.id)),name,type:'other',isActive:r.isActive!==false,notes:''})}
+ for(const r of A(directions)){const label=S(r.label);if(!label)throw Error('عنوان همهٔ جهت‌های تسویه را وارد کنید');const o=r.value?nd.find(x=>x.value===r.value):null;if(r.value&&!o)throw Error('جهت تسویه پیدا نشد');const eff=r.effect==='receipt'?'receipt':'payment';if(o)Object.assign(o,{label,effect:eff,isActive:r.isActive!==false});else nd.push({value:nextId('PAYDIR',nd.map(x=>x.value)),label,effect:eff,isActive:r.isActive!==false})}
+ const dupe=a=>new Set(a.map(x=>x.toLowerCase())).size!==a.length;if(dupe(next.map(x=>x.name)))throw Error('نام محل‌های پرداخت نباید تکراری باشد');if(dupe(nd.map(x=>x.label)))throw Error('عنوان جهت‌های تسویه نباید تکراری باشد');
+ doc.settings=doc.settings||{};if(cur.top)doc.paymentLocations=next;else doc.settings.paymentLocations=next;doc.settings.supplierPaymentDirections=nd;ctx.auditExtra={before:{locations:cur.locations,directions:cur.directions}};return{locations:next.length,directions:nd.length}}
+
 /* ---------- daily beverage control items (js/46 bevSaveSettings): settings.beverageControl.itemIds, order kept ---------- */
 function saveBeverageItems(doc,ctx,{itemIds}){const ing=ingredients(ctx.pricing),ids=[...new Set(A(itemIds).map(S))].filter(id=>ing.has(id));doc.settings=doc.settings||{};const old=A(doc.settings.beverageControl?.itemIds);
  const next=[...old.filter(id=>ids.includes(id)),...ids.filter(id=>!old.includes(id))];doc.settings.beverageControl={...(doc.settings.beverageControl||{}),itemIds:next,updatedAt:ctx.at,updatedBy:ctx.actor};ctx.auditExtra={before:old,after:next};return{count:next.length}}
@@ -219,5 +231,5 @@ async function edit(io,{action,details={},mutate}){
  }finally{state.busy=false}}
 
 window.InvWrite={LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
- addReceipts,voidReceipt,addEvent,voidEvent,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems};
+ addReceipts,voidReceipt,addEvent,voidEvent,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();

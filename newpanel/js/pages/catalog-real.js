@@ -186,6 +186,11 @@ function supplierImport(){if(!can('purchase'))return P.toast(whyK('purchase'),'l
    body:P.note(`${fa(plan.rows.filter(r=>r.created).length)} تأمین‌کنندهٔ تازه و ${fa(plan.rows.filter(r=>!r.created).length)} تغییر. خانهٔ خالی فایل مقدار فعلی را نگه می‌دارد؛ کد ثبت‌شده عوض نمی‌شود و تأمین‌کنندهٔ تازه کد بعدی را می‌گیرد؛ اطلاعات بانکی از فایل خوانده نمی‌شود.${plan.skipped?` ${fa(plan.skipped)} ردیف تکراری یا بی‌نام کنار رفت.`:''}`,'info')+P.table(['','نام','کد','تغییرها'],plan.rows.map(r=>[r.created?P.b('تازه','success',1):P.b('تغییر','info',1),esc(r.company),esc(r.code||(r.fileCode?r.fileCode+' (فایل؛ کد خودکار)':'خودکار')),esc(r.changes.map(k=>L[k]||k).join('، '))])),
    onSave:(m,b)=>saveSup(b,{action:'SUPPLIERS_IMPORTED',details:{file:f.name,count:plan.rows.length},mutate:(d,c)=>PW.applySupplierRows(d,c,plan.rows),done:o=>`${fa(o.filter(x=>x.created).length)} تأمین‌کنندهٔ تازه و ${fa(o.filter(x=>!x.created).length)} تغییر ذخیره شد`})})};inp.click()}
 
+/* reference lists of the supplier form (PurchaseWrite.saveSupplierLists) */
+function supplierListsForm(){const doc=SUP();if(!doc){window.FinanceReal?.loadSuppliers?.();return P.toast('تأمین‌کنندگان در حال خواندن است؛ چند لحظه بعد دوباره بزنید','loader')}
+ IE.formModal({title:'فهرست‌های مرجع تأمین‌کنندگان',size:'lg',ok:'ذخیره روی سرور',can:()=>can('settings')||can('purchase'),why:()=>whyK('purchase'),body:`${P.note('گزینه‌های فرم تأمین‌کننده؛ هر مورد یک خط. حذف یک مورد، مقدار ثبت‌شده روی تأمین‌کنندگان را تغییر نمی‌دهد.','info')}<div class="form-grid">${PW.SUP_LISTS.map(([k,l])=>P.field(l,`<textarea class="textarea" name="sl_${k}" rows="5">${esc(A(doc.lists?.[k]).join('\n'))}</textarea>`)).join('')}</div>`,
+  onSave:(m,b)=>{const lists={};for(const [k] of PW.SUP_LISTS)lists[k]=P.$(`[name=sl_${k}]`,m).value.split(/\n+/).map(x=>x.trim()).filter(Boolean);saveSup(b,{action:'SUPPLIER_LISTS_CHANGED',details:{},mutate:(d,c)=>PW.saveSupplierLists(d,c,{lists}),done:n=>`${fa(n)} فهرست ذخیره شد`})}})}
+
 /* =================== wiring =================== */
 const btnFor=(k,icon,l,fn)=>can(k)?`<button class="btn btn-primary" onclick="${fn}">${P.ic(icon)}${l}</button>`:lockBtn(k,l);
 const inv=P.mods.inventory?.tabs?.find(t=>t.id==='catalog');
@@ -194,5 +199,5 @@ const mi=P.mods.menu?.tabs?.find(t=>t.id==='items');
 if(mi){const a0=mi.actions;mi.actions=r=>IC.ready()?btnFor('menu','plus','آیتم جدید','CatalogReal.menuForm()'):(a0?a0(r):'')}
 const pt=P.mods.finance?.tabs?.find(t=>t.id==='parties');
 if(pt){const a0=pt.actions;pt.actions=r=>IC.ready()?`<button class="btn btn-secondary" onclick="CatalogReal.supplierExport()">${P.ic('download')}خروجی Excel</button>${can('purchase')?`<button class="btn btn-secondary" onclick="CatalogReal.supplierImport()">${P.ic('file-spreadsheet')}ورود از Excel</button>`:''}`+btnFor('purchase','plus','تأمین‌کنندهٔ جدید','CatalogReal.supplierForm()'):(a0?a0(r):'')}
-window.CatalogReal={supplierExport,supplierImport,ingredientForm,pricesForm,menuForm,supplierForm,supplierItems:supplierItemsForm,supplierArchive,supplierFoot,assetForm,assetAction:()=>can('assets')?`<button class="btn btn-primary" onclick="CatalogReal.assetForm()">${P.ic('plus')}دارایی جدید</button>`:'',can,whyK};
+window.CatalogReal={supplierListsForm,supplierExport,supplierImport,ingredientForm,pricesForm,menuForm,supplierForm,supplierItems:supplierItemsForm,supplierArchive,supplierFoot,assetForm,assetAction:()=>can('assets')?`<button class="btn btn-primary" onclick="CatalogReal.assetForm()">${P.ic('plus')}دارایی جدید</button>`:'',can,whyK};
 })();

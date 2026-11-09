@@ -148,6 +148,17 @@ function saveViolation(doc,ctx,x){const date=D(x.date);assertDate(date);if(date.
  ctx.auditExtra={entityId:v.id,penaltyId:v.penaltyId||''};return{id:v.id,penaltyId:hasFine?v.penaltyId:''}}
 function voidViolation(doc,ctx,{id,reason}){const v=A(doc.workViolations).find(r=>r.id===id);if(!v)throw Error('تخلف پیدا نشد');if(v.status===VIO_VOID)throw Error('این تخلف قبلاً ابطال شده است');if(S(v.date).slice(0,7)!==curMonth())throw Error('تخلف ماه‌های قبل ابطال نمی‌شود');if(!S(reason))throw Error('علت ابطال لازم است');
  Object.assign(v,{status:VIO_VOID,voidReason:S(reason),voidedAt:ctx.at,voidedBy:ctx.actor});if(v.penaltyId){const pr=A(doc.penaltiesRewards).find(r=>r.id===v.penaltyId);if(pr)pr.status='لغوشده'}ctx.auditExtra={entityId:id};return true}
+/* base settings of the personnel module (current panel «تنظیمات و فهرست‌ها»): restaurant name; the selectable lists
+   (one item per line; removing an item never changes saved records); leave balance start and monthly entitlement;
+   whether staff see their fines in the staff panel */
+const BASE_LISTS=[['positions','پوزیشن‌ها'],['sections','سکشن‌ها'],['hallGroups','گروه‌های سالن'],['shiftStatuses','وضعیت‌های شیفت'],['leaveTypes','انواع مرخصی']];
+function saveBaseSettings(doc,ctx,x){doc.settings=doc.settings&&typeof doc.settings==='object'?doc.settings:{};doc.lists=doc.lists&&typeof doc.lists==='object'?doc.lists:{};const before={restaurantName:doc.settings.restaurantName,leaveBalanceStartDate:doc.settings.leaveBalanceStartDate,monthlyLeaveEntitlementDays:doc.settings.monthlyLeaveEntitlementDays,showPenaltiesToStaff:doc.settings.showPenaltiesToStaff,lists:{}};
+ if(x.restaurantName!==undefined){const n=S(x.restaurantName);if(!n)throw Error('نام مجموعه خالی است');doc.settings.restaurantName=n}
+ for(const [k,l] of BASE_LISTS)if(x.lists&&x.lists[k]!==undefined){const v=[...new Set(A(x.lists[k]).map(S).filter(Boolean))];if(!v.length)throw Error(`«${l}» حداقل یک مورد لازم دارد`);before.lists[k]=A(doc.lists[k]);doc.lists[k]=v}
+ if(x.leaveStart!==undefined){const d=window.InvEngine.D(x.leaveStart);if(!d||window.InvEngine.CAL.i(d)===null)throw Error('تاریخ شروع محاسبهٔ مرخصی معتبر نیست');doc.settings.leaveBalanceStartDate=d}
+ if(x.leaveMonthly!==undefined){const n=NUM(x.leaveMonthly);if(!(n>0&&n<=10))throw Error('استحقاق ماهانهٔ مرخصی بین ۰ و ۱۰ روز باشد');doc.settings.monthlyLeaveEntitlementDays=n}
+ if(x.showPenalties!==undefined)doc.settings.showPenaltiesToStaff=!!x.showPenalties;
+ ctx.auditExtra={before};return true}
 function saveViolationTypes(doc,ctx,{types}){const l=[...new Set(A(types).map(S).filter(Boolean))];if(!l.length)throw Error('حداقل یک نوع تخلف لازم است');doc.lists=doc.lists||{};const before=A(doc.lists.violationTypes);doc.lists.violationTypes=l;ctx.auditExtra={before:before.length,after:l.length};return l.length}
 
 /* leaves */
@@ -171,5 +182,5 @@ function cancelLeave(doc,ctx,{id,reason}){const l=A(doc.leaves).find(x=>x.id===i
  Object.assign(l,{status:LEAVE_CANCEL,cancelledCount:NUM(l.count)||0,count:0,cancelReason:S(reason),cancelledAt:ctx.at,cancelledBy:ctx.actor});
  const r=l.requestId&&A(doc.leaveRequests).find(x=>x.id===l.requestId);if(r)Object.assign(r,{status:LEAVE_CANCEL,managerNote:`لغو پس از تأیید: ${S(reason)}`,reviewedAt:ctx.at,reviewedBy:ctx.actor});ctx.auditExtra={entityId:id};return true}
 
-window.PeopleWrite={GROUPS,ACC_ITEMS,PERMS,ENDED,sectionsFor,positionsFor,personDuplicate,savePerson,saveSalaryTerms,saveAccount,personRefs,removePerson,violationRepeats,saveViolation,voidViolation,saveViolationTypes,LEAVE_CANCEL,dayCount,leaveOverlap,leaveUsed,reviewLeave,addLeave,cancelLeave,TIP_TYPES,TIP_STATUS,PAY,PR_TYPES,APPROVAL,RES_STATUS,tipCode,tipDefault,addTip,settleTip,voidTip,addPenalty,setPenaltyStatus,addMessage,archiveMessage,addReservation,setReservationStatus,validPersonnel,list};
+window.PeopleWrite={BASE_LISTS,saveBaseSettings,GROUPS,ACC_ITEMS,PERMS,ENDED,sectionsFor,positionsFor,personDuplicate,savePerson,saveSalaryTerms,saveAccount,personRefs,removePerson,violationRepeats,saveViolation,voidViolation,saveViolationTypes,LEAVE_CANCEL,dayCount,leaveOverlap,leaveUsed,reviewLeave,addLeave,cancelLeave,TIP_TYPES,TIP_STATUS,PAY,PR_TYPES,APPROVAL,RES_STATUS,tipCode,tipDefault,addTip,settleTip,voidTip,addPenalty,setPenaltyStatus,addMessage,archiveMessage,addReservation,setReservationStatus,validPersonnel,list};
 })();
