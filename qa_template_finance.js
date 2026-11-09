@@ -92,6 +92,32 @@ ok(fin.entries.length===5&&fin.obligations.length===4,'nothing removed (voided r
  throws(()=>MW.setLatestPrices(pr,ctx(),{date:'1405/08/15',rows:[{id:'ING-1',price:65000}]}),/تازه/,'same price and date refused');
  throws(()=>MW.setLatestPrices(pr,ctx(),{date:'1405/08/15',rows:[{id:'ING-1',price:0}]}),/مثبت/,'price must be positive');
  throws(()=>MW.setLatestPrices(pr,ctx(),{date:'1405/09/01',rows:[{id:'ING-1',price:1}]}),/بعد از امروز/,'future date refused')}
+// accounts and flows (stage 7c)
+{const fin4={settings:{},entries:[],obligations:[{id:'OBL-1',title:'اجاره',direction:'payable',amountToman:9e6,status:'active'}],settlements:[{id:'SET-1',obligationId:'OBL-1',direction:'payment',date:'1405/08/06',amountToman:3e6,accountKey:'account:A1',status:'active'},{id:'SET-2',obligationId:'OBL-1',direction:'payment',date:'1405/08/06',amountToman:1,accountKey:'account:A1',status:'void'}]};
+ const cash={transferAccounts:[{id:'A1',name:'بانک اصلی'},{id:'A2',name:'کارت مهران'}],cashRecipients:[{id:'C1',name:'مهران'}],reports:[{id:'R1',date:'1405/08/02',pos1:500000000,pos2:100000000,cardToCardItems:[{amount:20000000,accountId:'A2'}],cashItems:[{amount:10000000,recipientId:'C1'}]},{id:'R2',date:'1405/08/03',pos1:10,status:'void'}]};
+ const hr={personnel:[{id:'P1',name:'علی'}],payments:[{id:'PAY-1',personnelId:'P1',type:'مساعده',date:'1405/08/04',amount:2e6,accountKey:'account:A2'},{id:'PAY-2',personnelId:'P1',type:'مساعده',date:'1405/08/04',amount:9,accountKey:'account:A2',status:'void'}]};
+ const inv={settings:{paymentLocations:[{id:'L1',name:'صندوق'}]},supplierPayments:[{id:'SP1',date:'1405/08/05',amount:4e6,paymentLocationId:'L1',directionEffect:'payment',status:'posted'},{id:'SP2',date:'1405/08/05',amount:1e6,paymentLocationId:'L1',directionEffect:'receipt',status:'posted'}]};
+ FW.addEntry(fin4,ctx(),{type:'expense',date:'1405/08/05',category:'آب',amountToman:500000,accountKey:'cash:C1'},{accountName:'مهران'});fin4.entries.push({id:'CUST-1',type:'personalWithdrawal',custodyKind:'personalWithdrawal',date:'1405/08/06',amountToman:1e6,cashRecipientId:'C1',status:'active'});
+ ok(fin4.entries[0].cashRecipientId==='C1','a document paid by a cash holder is also on his custody line');
+ const src={fin:fin4,cash,hr,inv};let L=FW.accountLedger(src);const g=k=>L.find(r=>r.key===k);
+ ok(g('pos:').balance===60000000&&g('account:A2').in===2000000&&g('cash:C1').in===1000000,'cash report: card machines to an unassigned POS line, card-to-card and cash to their holders (rial → toman, void report ignored)');
+ FW.setPosAccount(fin4,ctx(),{accountKey:'account:A1'});throws(()=>FW.setPosAccount(fin4,ctx(),{accountKey:'cash:C1'}),/بانکی/,'POS account must be a card / bank account');L=FW.accountLedger(src);
+ ok(g('account:A1').balance===60000000-3000000&&g('account:A1').pos===true&&!L.some(r=>r.key==='pos:'),'POS money into the chosen bank account; payable payment out of it');
+ ok(g('account:A2').balance===2000000-2000000&&g('cash:C1').balance===1000000-500000-1000000,'staff payment from a card; document and personal withdrawal from a cash holder');
+ ok(g('payment:L1').balance===-3000000,'supplier payment out and supplier receipt in at the payment place');
+ FW.addTransfer(fin4,ctx(),{date:'1405/08/07',fromKey:'account:A1',toKey:'cash:C1',amountToman:5e6});L=FW.accountLedger(src);ok(g('account:A1').balance===52000000&&g('cash:C1').balance===4500000,'transfer moves money between accounts');
+ throws(()=>FW.addTransfer(fin4,ctx(),{date:'1405/08/07',fromKey:'x',toKey:'x',amountToman:1}),/یکی/,'same account refused');
+ const op=FW.setOpening(fin4,ctx(),{accountKey:'account:A1',date:'1405/08/03',amountToman:100000000,notes:'صورت‌حساب'});L=FW.accountLedger(src);
+ ok(g('account:A1').opening.amount===100000000&&g('account:A1').balance===100000000-3000000-5000000,'opening balance: movements before its date are inside it');
+ throws(()=>FW.setOpening(fin4,ctx(),{accountKey:'account:A1',date:'1405/08/03',amountToman:100000000,notes:'x'}),/قبلاً/,'same opening refused');
+ throws(()=>FW.setOpening(fin4,ctx(),{accountKey:'account:A1',date:'1405/08/03',amountToman:1,notes:''}),/شرح/,'opening needs a note');
+ FW.setOpening(fin4,ctx(),{accountKey:'account:A1',date:'1405/08/03',amountToman:90000000,notes:'اصلاح'});ok(op.status==='void'&&FW.openingOf(fin4,'account:A1').amountToman===90000000,'new opening replaces the old one (kept as void)');
+ L=FW.accountLedger(src,{from:'1405/08/06',to:'1405/08/06'});ok(g('account:A1').start===90000000&&g('account:A1').out===3000000&&g('account:A1').balance===87000000,'period: balance at the start of the period, in and out inside it');
+ ok(FW.monthEntries(fin4,'1405/08').length===1,'transfers and openings are not ledger documents (no P&L effect)')}
+// forecast and calculator
+{const f=FW.forecast({past:[{sales:1000,materials:300,staffMeal:10,expenseTotal:100},{sales:2000,materials:700,staffMeal:30,expenseTotal:200}],payroll:500,knownExpenses:250});
+ ok(f.sales===1500&&Math.round(f.materialPercent*10)===325&&f.staffMeal===20&&f.otherExpenses===250&&f.payroll===500,'forecast: averages of recent months, known expenses when higher, payroll from contracts');
+ const c=FW.calc({sales:1000,materialPercent:30,staffMeal:20,payroll:300,otherExpenses:100,reservePercent:2.5});ok(c.materials===300&&c.reserve===25&&c.profit===255&&Math.round(c.breakEven)===Math.round(420/0.675),'calculator: profit and break-even sales')}
 // pages
 const lr=fs.readFileSync(path.join(__dirname,'newpanel/js/pages/ledger-real.js'),'utf8'),ix=fs.readFileSync(path.join(__dirname,'newpanel/index.html'),'utf8');
 ok(/id:'ledger'/.test(lr)&&/id:'debts'/.test(lr)&&/id:'finset'/.test(lr)&&ix.includes('core/js/finance-write.js')&&ix.includes('js/pages/ledger-real.js'),'finance tabs wired');
