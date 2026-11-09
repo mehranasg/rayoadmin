@@ -52,6 +52,13 @@ const s0=pricing();ok(MW.setRequireSalesCode(s0,ctx(),{value:false})===false&&s0
 // ---- supplier
 const sup=()=>({suppliers:[{id:'SUP-0001',code:'SUP-001',company:'لبنیات پاک',cardNumber:'5022291309225322',status:'فعال',extra:'keep'}],supplierItems:[{id:'REL-1',supplierCode:'SUP-001',itemCode:'1001',status:'فعال',isPrimary:'خیر'}]});
 let sd=sup();
+{// suppliers from Excel: match by code then name, empty cell keeps the value, new gets the next code, bank not read
+ const xd=sup(),sheets=[['s',[['گزارش'],['کد','نام تأمین‌کننده','مسئول','موبایل','دسته بندی','روزهای سفارش‌گیری','شماره کارت'],['SUP-001','لبنیات پاک','آقای رضایی','09121234567','',''],['','لبنیات پاک','','','','',''],['X9','نان سنگک','','۰۲۱۴۴۰۰۰','نان','شنبه، دوشنبه','6037000000000000'],['','','','','','','']]]];
+ const pl=PW.parseSupplierSheets(sheets,xd);ok(pl.rows.length===2&&pl.skipped===1&&pl.rows[0].id==='SUP-0001'&&pl.rows[0].changes.join()==='contactName,mobile'&&pl.rows[1].created&&pl.rows[1].patch.phone==='02144000'&&pl.rows[1].patch.orderDays.join()==='شنبه,دوشنبه'&&!('cardNumber' in pl.rows[1].patch),'supplier sheet parsed');
+ const c=ctx('suppliers'),done=PW.applySupplierRows(xd,c,pl.rows),s1=xd.suppliers[0],s2=xd.suppliers[1];
+ ok(done.length===2&&s1.code==='SUP-001'&&s1.contactName==='آقای رضایی'&&s1.cardNumber==='5022291309225322'&&s1.extra==='keep'&&s2.code==='SUP-002'&&s2.mainGroup==='نان'&&c.auditExtra.added[0]==='SUP-002','import keeps codes, bank and unknown fields; new supplier gets the next code');
+ ok(PW.parseSupplierSheets(sheets,xd).rows.length===0,'same file again changes nothing');
+ throws(()=>PW.parseSupplierSheets([['s',[['a','b']]]],xd),/نام تأمین‌کننده/,'sheet without a name column refused')}
 throws(()=>PW.saveSupplier(sd,ctx('suppliers'),{company:'لبنيات  پاک'}),/قبلاً تعریف/,'duplicate supplier name');
 throws(()=>PW.saveSupplier(sd,ctx('suppliers'),{company:'نان',mobile:'0912'}),/موبایل/,'mobile format');
 throws(()=>PW.saveSupplier(sd,ctx('suppliers'),{company:'نان',iban:'IR12'}),/شبا/,'IBAN format');

@@ -197,6 +197,26 @@ function saveSupplier(doc,ctx,x){
  const before=old?clone(old):null,row=old||{id:uid('SUP',rows),createdAt:ctx.at,code:nextSupplierCode(doc),invoiceType:'نامشخص'};
  Object.assign(row,patch,{updatedAt:ctx.at});if(!old)doc.suppliers=[...rows,row];
  ctx.auditExtra={entityId:row.id,before};return{id:row.id,code:row.code,created:!old}}
+/* suppliers from Excel (js/19 importSuppliersExcel columns): header found in the first 25 rows of any sheet; a row
+   matches a supplier by code, else by name; only the cells that have a value change the supplier (an empty cell keeps
+   the stored value); a new supplier gets the next code (a code in the file is not taken over); bank details are not
+   read. Returns the plan; applySupplierRows saves it through saveSupplier (same checks as the form). */
+const SX_COLS={code:['کد','کد تامین کننده','کد تأمین‌کننده'],company:['نام تامین کننده','نام تأمین‌کننده','شرکت','نام شرکت'],contactName:['مسئول','نام تماس','نام رابط'],phone:['تلفن','موبایل','شماره تماس'],mainGroup:['دسته بندی','گروه'],orderDays:['روزهای سفارش‌گیری','روزهای سفارش گیری','روز سفارش'],orderTimeWindow:['ساعت سفارش‌گیری','ساعت سفارش گیری','زمان سفارش'],deliveryDays:['روزهای ارسال','روز ارسال'],deliveryTimeWindow:['ساعت ارسال','زمان ارسال'],notes:['توضیحات']};
+const sxH=s=>normalizeName(s).replace(/\s/g,'');
+function parseSupplierSheets(sheets,doc){let best=null;
+ for(const [sheet,rows] of A(sheets))for(let r=0;r<Math.min(A(rows).length,25);r++){const h=A(rows[r]).map(sxH),map={};for(const [k,al] of Object.entries(SX_COLS)){const as=al.map(sxH);map[k]=h.findIndex(x=>x&&as.includes(x));if(map[k]<0)map[k]=h.findIndex(x=>x&&as.some(a=>a.length>2&&x.includes(a)))}
+  const score=(map.company>=0?4:0)+Object.values(map).filter(i=>i>=0).length;if(!best||score>best.score)best={sheet,rows,r,map,score}}
+ if(!best||best.map.company<0)throw Error('ستون «نام تأمین‌کننده» در فایل پیدا نشد');
+ const list=A(doc.suppliers),out={sheet:best.sheet,rows:[],skipped:0},seen=new Set,days=v=>S(v).split(/[،,|\n]+/).map(S).filter(Boolean);
+ for(const row of best.rows.slice(best.r+1)){const g=k=>best.map[k]>=0?S(row[best.map[k]]):'',company=g('company'),code=g('code');if(!company){if(row.some(v=>S(v)))out.skipped++;continue}
+  const s=list.find(x=>code&&S(x.code)===code)||list.find(x=>normalizeName(x.company||x.contactName)===normalizeName(company));const key=s?s.id:'new:'+normalizeName(company);if(seen.has(key)){out.skipped++;continue}seen.add(key);
+  const x={company};for(const k of ['contactName','mainGroup','orderTimeWindow','deliveryTimeWindow','notes'])if(g(k))x[k]=g(k);for(const k of ['orderDays','deliveryDays'])if(g(k))x[k]=days(g(k));
+  const ph=latin(g('phone')).replace(/[\s-]/g,'');if(ph){if(/^09\d{9}$/.test(ph))x.mobile=ph;else x.phone=ph}
+  const changes=s?Object.keys(x).filter(k=>JSON.stringify(Array.isArray(x[k])?x[k]:S(x[k]))!==JSON.stringify(Array.isArray(s[k])?A(s[k]).map(S):S(s[k]))):Object.keys(x);
+  if(s&&!changes.length)continue;out.rows.push({id:s?.id||'',code:s?.code||'',fileCode:code,company,patch:x,changes,created:!s})}
+ return out}
+function applySupplierRows(doc,ctx,rows){const done=[];for(const r of A(rows)){const one={...ctx,auditExtra:null};const res=saveSupplier(doc,one,{...r.patch,id:r.id||undefined});done.push({...res,company:r.company})}
+ ctx.auditExtra={source:'excel',added:done.filter(x=>x.created).map(x=>x.code),updated:done.filter(x=>!x.created).map(x=>x.code)};return done}
 function archiveSupplier(doc,ctx,{id,archived}){const s=A(doc.suppliers).find(x=>x.id===id);if(!s)throw Error('تأمین‌کننده پیدا نشد');ctx.auditExtra={entityId:id,before:clone(s)};
  if(archived)Object.assign(s,{status:'غیرفعال',isArchived:true,archivedAt:ctx.at,archivedReason:'آرشیو با اقدام مدیر'});else Object.assign(s,{status:'فعال',isArchived:false,restoredAt:ctx.at});s.updatedAt=ctx.at;return archived}
 // js/43 ingredientForRelation: a relation names the ingredient by id, or (older rows) by its code
@@ -215,5 +235,5 @@ function saveSupplierItems(doc,ctx,{supplierId,ingredientIds,primaryIds},{pricin
  for(const id of prim)for(const r of doc.supplierItems)if(r.supplierCode!==s.code&&r.isPrimary==='بله'&&relIngredient(r,ings)?.id===id){r.isPrimary='خیر';r.updatedAt=ctx.at}
  ctx.auditExtra={supplierId,added,removed,total:want.size};return{added,removed,total:want.size}}
 
-window.PurchaseWrite={SUP_FIELDS,CHANNELS,nextSupplierCode,supplierNameDuplicate,saveSupplier,archiveSupplier,supplierItems,saveSupplierItems,editInvoice,editPayment,addOrder,trackOrder,ORDER_STATUS,TRACK_STATUS,DEBT_TYPES,rawAccountPosition,closedPeriodOn,addDirectDebt,voidDirectDebt,paymentDirections,paymentSign,invoiceRemaining,addPayment,voidPayment,PAYMENT_METHODS,normalizeName,supplierName,isFinal,invoiceTotal,invoicePaid,supplierAccount,paymentLocations,procurementCatalog,previousPackPrice,buildLines,addInvoice,addQuickInvoice,nearDuplicate,syncInvoicePrices,markPricing,voidInvoice,NUM};
+window.PurchaseWrite={parseSupplierSheets,applySupplierRows,SUP_FIELDS,CHANNELS,nextSupplierCode,supplierNameDuplicate,saveSupplier,archiveSupplier,supplierItems,saveSupplierItems,editInvoice,editPayment,addOrder,trackOrder,ORDER_STATUS,TRACK_STATUS,DEBT_TYPES,rawAccountPosition,closedPeriodOn,addDirectDebt,voidDirectDebt,paymentDirections,paymentSign,invoiceRemaining,addPayment,voidPayment,PAYMENT_METHODS,normalizeName,supplierName,isFinal,invoiceTotal,invoicePaid,supplierAccount,paymentLocations,procurementCatalog,previousPackPrice,buildLines,addInvoice,addQuickInvoice,nearDuplicate,syncInvoicePrices,markPricing,voidInvoice,NUM};
 })();
