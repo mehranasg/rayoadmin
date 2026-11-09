@@ -62,6 +62,7 @@ throws(()=>PC.saveWork(w,ctx(),{year:1405,month:8,rows:{H:{hours:180}},baseSig:b
 throws(()=>PC.saveWork(w,ctx(),{year:1405,month:8,rows:{H:{hours:180,ot:10}},today:T}),/تغییری/,'no-op refused');
 throws(()=>PC.saveWork(w,ctx(),{year:1405,month:8,rows:{H:{ot:200}},today:T}),/بیشتر/,'overtime above total hours refused for hourly');
 throws(()=>PC.saveWork(w,ctx(),{year:1405,month:8,rows:{H:{hours:-1}},today:T}),/نامعتبر/,'negative refused');
+PC.saveWork(w,ctx(),{year:1405,month:8,rows:{H:{hours:'۱۸۰٫۵'}},today:T});ok(PC.adjOf(w,'H',1405,8).hoursOverride===180.5,'Persian decimal separator in hours');
 throws(()=>PC.saveWork(w,ctx(),{year:1405,month:6,rows:{H:{hours:1}},today:T}),/قبل از شروع/,'archive month refused');
 w.payrollClosures=[{year:1405,month:7,active:true}];throws(()=>PC.saveWork(w,ctx(),{year:1405,month:7,rows:{H:{hours:1}},today:T}),/قطعی/,'closed month refused');
 w.monthlyAdjustments.push({id:'ADJ-00009',personnelId:'N',year:1405,month:8,hoursOverride:'',overtimeHours:3,hoursFromAttendance:true});PC.saveWork(w,ctx(),{year:1405,month:8,rows:{N:{ot:5}},today:T});ok(PC.adjOf(w,'N',1405,8).hoursFromAttendance===false&&PC.adjOf(w,'N',1405,8).manualOverAttendance===true,'manual change over attendance is marked');

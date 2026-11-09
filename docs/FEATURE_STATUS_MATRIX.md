@@ -76,6 +76,7 @@
 | فروش | تحلیل روز/ماه/آیتم/سال | 24، 28 | cashreport.salesAnalytics | Implemented | متوسط | موجودی از salesPeriods جداست | تطبیق source |
 | سپیدز | parser block/preview/dedup/risk/review | 33، templates | sepidsaudit | Implemented | متوسط | score اثبات تخلف نیست | fixture نهایی فایل‌ها |
 | سپیدز | اتصال قطعی event به فروش invoice | 33 | داده واردشده | Partial | متوسط | شماره/ساختار همه فروش‌ها کافی نیست | قرارداد گزارش فروش |
+| مالی | پنل جدید (مالی ← هزینه و درآمد، بدهی، طلب و چک، تنظیمات مالی): اسناد با ماه هزینه و تقسیم، بدهی از هزینهٔ پرداخت‌نشده، پرداخت جزئی، چک با پاس/برگشت، سررسیدها، ابطال به جای حذف | newpanel finance-write/ledger-real؛ qa_template_finance | finance.entries/parties/obligations/settlements/checks | Partial | متوسط | سود و زیان، غذای پرسنل و گردش حساب‌ها در مراحل ۷ب و ۷ج | مراحل ۷ب و ۷ج |
 | مالی | تعهد/تسویه/چک/مانده اولیه و گردش وجه | 20؛ qa_finance_obligations، qa_opening_settlement | finance + منابع وجه | Implemented | زیاد | ثبت داخلی؛ اتصال بانکی ندارد؛ حساب رویدادهای Legacy ممکن است نامعلوم باشد | reconcile موارد هشدار |
 | مالی | حفظ سابقهٔ entries معمولی | 20::deleteEntry | finance.entries | Implemented | زیاد | رکوردهای جدید با void حفظ می‌شوند | کنترل داده Legacy |
 | مالی | P&L/override/سناریو | 20؛ qa_finance_accrual_tax | finance + cash/inventory/HR | Implemented | متوسط | تقریبی، جای حسابداری رسمی نیست | کنترل دوباره‌شماری |
