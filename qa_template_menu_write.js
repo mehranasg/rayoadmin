@@ -38,6 +38,17 @@ ok(c.auditExtra.before.lines.length===2&&c.auditExtra.before.lines[0].quantity==
 throws(()=>MW.saveRecipe(d,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:0.25},{ingredientId:'ING-2',quantity:1}],effectiveFrom:T}),/تغییری/,'unchanged recipe refused');
 throws(()=>MW.saveRecipe(d,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:0.3}],effectiveFrom:day(5)}),/آخرین نسخه/,'date before the latest version refused');
 throws(()=>MW.saveRecipe(d,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:0.3}],effectiveFrom:E.CAL.k(E.CAL.i(T)+1)}),/آینده/,'future date refused');
+// sub-recipe: a recipe line names a prepared item (cost from its formula; sales and waste expand to its ingredients)
+{const sd=doc();sd.preparedItems=[{id:'PREP-0001',name:'سس سزار',status:'فعال',countUnit:'گرم',baseOutputQuantity:1000,version:1,components:[{id:'PREPC-0001',ingredientId:'ING-1',quantity:500,unit:'گرم',basis:'net'}]}];
+ const pc=MW.prepCost(sd,sd.preparedItems[0]);ok(Math.abs(pc.v-0.5/0.8*400000/1000)<1e-6,'prepared unit cost from the formula (gross × price)');
+ MW.saveRecipe(sd,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-2',quantity:1},{preparedItemId:'PREP-0001',quantity:'۶۰'}],effectiveFrom:T});
+ const rl=sd.recipes.find(r=>r.menuItemId==='MENU-1'&&r.preparedItemId==='PREP-0001'),mx=MW.metrics(sd,sd.menuItems[0]),pr=mx.rows.find(r=>r.prep);
+ ok(rl&&rl.unit==='گرم'&&rl.quantity===60&&!rl.ingredientId&&pr&&Math.abs(pr.cost-60*pc.v)<1e-6&&mx.state==='complete','recipe line with a prepared item, costed');
+ const v=MW.versionsOf(sd,'MENU-1')[0];ok(v.lines.some(l=>l.preparedItemId==='PREP-0001'&&l.quantity===60),'version snapshot keeps the prepared line');
+ const Mx=E.build({inventory:{stocktakes:[],stockReceipts:[],wasteRecords:[],consumptionRecords:[],salesPeriods:[],inventoryMovements:[]},pricing:sd}),ex=Mx.recipeAt('MENU-1',T),pl=ex.find(l=>l.fromPreparedId);
+ ok(pl&&pl.ingredientId==='ING-1'&&Math.abs(pl.quantity-0.0375)<1e-9&&pl.wastePercent===0&&Math.abs(Mx.gross(Mx.ing.get('ING-1'),pl,2)-0.075)<1e-9,'engine expands the prepared line into gross ingredient quantity');
+ throws(()=>MW.saveRecipe(sd,ctx(),{menuId:'MENU-1',lines:[{preparedItemId:'PREP-0001',quantity:1},{preparedItemId:'PREP-0001',quantity:2}],effectiveFrom:T}),/دو بار/,'same prepared item twice refused');
+ ok(MW.ingredientUsage(sd,'ING-1').some(m=>m.id==='MENU-1'),'ingredient used through a prepared item counts as used')}
 // fryer oil share per item and writing it into recipes
 {const sh=MW.oilShare({oilKg:20,items:[{menuId:'A',qty:100,weight:1},{menuId:'B',qty:50,weight:2},{menuId:'C',qty:0,weight:1}]});ok(Math.abs(sh.perWeight-0.1)<1e-9&&Math.abs(sh.rows[1].perPortion-0.2)<1e-9&&sh.rows.length===2,'oil shared by sold × weight');
  ok(MW.oilShare({oilKg:0,items:[{menuId:'A',qty:1,weight:1}]}).perWeight===null,'no oil → no share');

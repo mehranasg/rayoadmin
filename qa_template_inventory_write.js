@@ -138,7 +138,9 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:20}]});st=pd.stocktakes.find(s=>s.date===dd);l=st.lines.find(x=>x.ingredientId==='i1');
  ok(st.preparedLines.length===1&&st.preparedLines[0].quantity===20&&near(l.actual,3+1.5)&&st.revisionHistory.at(-1).preparedRemoved.length===1,'re-count of the prepared item replaces it; direct kept');
  W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:0}]});st=pd.stocktakes.find(s=>s.date===dd);ok(near(st.lines.find(x=>x.ingredientId==='i1').actual,3)&&!st.lines.some(x=>x.ingredientId==='i2'),'zero prepared: ingredient back to its direct count; prepared-only line taken out (js/32)');
- throws(()=>W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:1.5}]}),/صحیح/,'whole number for «عدد»')}
+ throws(()=>W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:1.5}]}),/صحیح/,'whole number for «عدد»');
+ const wd=JSON.parse(JSON.stringify(doc)),wr=W.addEvent(wd,pc(),{date:D3,eventType:'WASTE',type:'prepared',itemId:it.id,quantity:5,reason:'سس مانده'});const grp=wd.wasteRecords.filter(r=>r.preparedGroupId===wr.preparedGroupId);
+ ok(wr.count===2&&grp.length===2&&grp.every(r=>r.type==='ingredient'&&r.preparedItemId===it.id&&r.status==='posted')&&near(grp.find(r=>r.itemId==='i1').quantity,5/10*0.6/0.8),'prepared-item waste: one ingredient record per formula ingredient')}
 
 // 6c. zero for uncounted items; rollback; beverage items
 {const pz={...pricing,ingredients:[...pricing.ingredients,{id:'i4',code:'104',name:'قلم شمرده‌نشده',status:'فعال',itemType:'MENU_INGREDIENT',recipeUnit:'عدد'},{id:'i5',code:'105',name:'کنارگذاشته',status:'فعال',itemType:'MENU_INGREDIENT',recipeUnit:'عدد'}]};

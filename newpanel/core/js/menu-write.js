@@ -31,8 +31,13 @@ function unitCost(i,doc){if(!i)return{v:NaN,why:'ماده در کاتالوگ ن
  const pk=Number(i.packageQuantity),price=Number(i.lastPurchasePriceToman),pu=E().UK(i.purchaseUnit),ru=E().UK(i.recipeUnit),w=Number(i.wastePercent)||0,y=1-w/100;
  if(!pu||!ru||(FAM[pu]&&FAM[ru]&&FAM[pu]!==FAM[ru]))return{v:NaN,why:'واحد خرید و مصرف ناسازگار'};if(!(pk>0))return{v:NaN,why:'مقدار بسته نامعتبر'};if(!(price>0))return{v:NaN,why:'بدون قیمت خرید'};if(!(y>0))return{v:NaN,why:'افت نامعتبر'};return{v:price/pk/y,why:''}}
 const recipeLines=(doc,menuId)=>A(doc.recipes).filter(r=>r.menuItemId===menuId);
+/* sub-recipe line (prepared item, quantity in its count unit): cost of one unit from its formula (gross ingredient
+   quantities × purchase price per recipe unit, the formula already holds the loss) */
+function prepUnitCost(doc,ing,p){if(!p)return{v:NaN,why:'قلم آماده‌سازی پیدا نشد'};const cv=E().prepConvert(doc,p,1,p.countUnit);if(!cv.complete)return{v:NaN,why:cv.reason};let v=0;
+ for(const c of cv.contributions){const i=ing.get(c.ingredientId),u=unitCost(i,doc);if(!(Number.isFinite(u.v)&&u.v>0))return{v:NaN,why:`«${i?.name||c.ingredientId}»: ${u.why}`};v+=c.quantity*u.v*(1-(Number(i.wastePercent)||0)/100)}return{v,why:''}}
+function prepRow(doc,ing,l){const p=A(doc.preparedItems).find(x=>x.id===l.preparedItemId),u=prepUnitCost(doc,ing,p),qty=Z(l.quantity),ok=Number.isFinite(u.v)&&u.v>0&&qty>0;return{l,i:null,prep:p||null,qty,unit:u.v,cost:ok?u.v*qty:null,why:ok?'':qty<=0?'مقدار صفر یا خالی':u.why}}
 function metrics(doc,m,ingMap){const ing=ingMap||new Map(A(doc.ingredients).map(i=>[i.id,i])),lines=recipeLines(doc,m.id);
- const rows=lines.map(l=>{const i=ing.get(l.ingredientId),u=unitCost(i,doc),qty=Z(l.quantity),ok=Number.isFinite(u.v)&&u.v>0&&qty>0;return{l,i,qty,unit:u.v,cost:ok?u.v*qty:null,why:ok?'':qty<=0?'مقدار صفر یا خالی':u.why}});
+ const rows=lines.map(l=>{if(l.preparedItemId)return prepRow(doc,ing,l);const i=ing.get(l.ingredientId),u=unitCost(i,doc),qty=Z(l.quantity),ok=Number.isFinite(u.v)&&u.v>0&&qty>0;return{l,i,qty,unit:u.v,cost:ok?u.v*qty:null,why:ok?'':qty<=0?'مقدار صفر یا خالی':u.why}});
  let cost=rows.reduce((a,r)=>a+(r.cost||0),0),manual=false;const missing=rows.filter(r=>r.cost===null).length;
  if(!lines.length&&m.manualCostEnabled!==false&&Z(m.manualCostToman)>0){cost=Z(m.manualCostToman);manual=true}
  const s=doc.settings||{},price=Z(m.currentPriceToman),target=Z(m.customTargetCostPercent)||Z(s.categoryTargets?.[m.category])||35,complete=cost>0&&missing===0,step=priceStep(doc);
@@ -41,21 +46,23 @@ const priceStep=doc=>Math.max(1000,Z(doc.settings?.priceIncrementToman)||10000);
 const recipeCapable=i=>!!i&&['MENU_INGREDIENT','MENU_CONSUMABLE'].includes(i.itemType||'MENU_INGREDIENT');
 function versionsOf(doc,menuId){return A(doc.recipeVersions).filter(v=>v.menuItemId===menuId).sort((a,b)=>S(b.effectiveFrom).localeCompare(S(a.effectiveFrom))||S(b.createdAt).localeCompare(S(a.createdAt)))}
 // same comparison as js/32 sameRecipe
-function sameRecipe(a,b){const norm=rows=>A(rows).map(x=>`${x.ingredientId}|${Z(x.quantity)}|${x.locationId||''}|${S(x.notes)}|${x.wastePercent??''}|${x.recipeUnit||''}`).sort();const x=norm(a),y=norm(b);return x.length===y.length&&x.every((v,i)=>v===y[i])}
-function snapshotLines(doc,menuId){const ing=new Map(A(doc.ingredients).map(i=>[i.id,i]));return recipeLines(doc,menuId).map(r=>{const i=ing.get(r.ingredientId),w=Number(i?.wastePercent)||0;if(!i||!(Z(r.quantity)>0)||!(w>=0&&w<100))throw Error('نسخهٔ رسپی ناقص است؛ مقدار و افت مواد را بررسی کنید');return{...clone(r),id:r.id||'',quantity:Z(r.quantity),notes:r.notes||'',locationId:r.locationId||'',wastePercent:w,recipeUnit:i.recipeUnit}})}
+function sameRecipe(a,b){const norm=rows=>A(rows).map(x=>`${x.ingredientId||'P:'+x.preparedItemId}|${Z(x.quantity)}|${x.locationId||''}|${S(x.notes)}|${x.wastePercent??''}|${x.recipeUnit||''}`).sort();const x=norm(a),y=norm(b);return x.length===y.length&&x.every((v,i)=>v===y[i])}
+function snapshotLines(doc,menuId){const ing=new Map(A(doc.ingredients).map(i=>[i.id,i]));return recipeLines(doc,menuId).map(r=>{if(r.preparedItemId){if(!(Z(r.quantity)>0))throw Error('نسخهٔ رسپی ناقص است؛ مقدار قلم آماده را بررسی کنید');return{...clone(r),id:r.id||'',quantity:Z(r.quantity),notes:r.notes||'',locationId:r.locationId||''}}const i=ing.get(r.ingredientId),w=Number(i?.wastePercent)||0;if(!i||!(Z(r.quantity)>0)||!(w>=0&&w<100))throw Error('نسخهٔ رسپی ناقص است؛ مقدار و افت مواد را بررسی کنید');return{...clone(r),id:r.id||'',quantity:Z(r.quantity),notes:r.notes||'',locationId:r.locationId||'',wastePercent:w,recipeUnit:i.recipeUnit}})}
 // does the current recipe (pricing.recipes) match the version effective today?
 // (ingredient and quantity only: migrated versions carry no loss/unit snapshot)
-function versionDrift(doc,menuId){const v=versionsOf(doc,menuId).find(v=>(E().D(v.effectiveFrom)||'0000/00/00')<=E().CAL.today),cur=recipeLines(doc,menuId);if(!v)return cur.length?'no-version':'';const k=rows=>A(rows).map(x=>`${x.ingredientId}|${Z(x.quantity)}`).sort().join(';');return k(v.lines)===k(cur)?'':'differs'}
+function versionDrift(doc,menuId){const v=versionsOf(doc,menuId).find(v=>(E().D(v.effectiveFrom)||'0000/00/00')<=E().CAL.today),cur=recipeLines(doc,menuId);if(!v)return cur.length?'no-version':'';const k=rows=>A(rows).map(x=>`${x.ingredientId||'P:'+x.preparedItemId}|${Z(x.quantity)}`).sort().join(';');return k(v.lines)===k(cur)?'':'differs'}
 
 /* ---------- recipe edit ---------- */
 function saveRecipe(doc,ctx,{menuId,lines,effectiveFrom,note}){const m=A(doc.menuItems).find(x=>x.id===menuId);if(!m)throw Error('آیتم منو پیدا نشد');const ing=new Map(A(doc.ingredients).map(i=>[i.id,i])),today=E().CAL.today;
- const rows=A(lines).map((x,k)=>{const i=ing.get(S(x.ingredientId));if(!recipeCapable(i))throw Error(`سطر ${k+1}: مادهٔ رسپی (مادهٔ اولیه یا ملزوم منو) را انتخاب کنید`);if(i.status==='غیرفعال'&&!recipeLines(doc,menuId).some(r=>r.ingredientId===i.id))throw Error(`«${i.name}» غیرفعال است`);const q=N(x.quantity);if(!(q>0))throw Error(`سطر ${k+1} (${i.name}): مقدار مثبت لازم است`);const w=Number(i.wastePercent)||0;if(!(w>=0&&w<100))throw Error(`افت «${i.name}» نامعتبر است`);return{i,quantity:Math.round(q*1e6)/1e6,notes:S(x.notes)}});
- if(!rows.length)throw Error('رسپی دست‌کم یک ماده لازم دارد');if(new Set(rows.map(r=>r.i.id)).size!==rows.length)throw Error('یک ماده دو بار در رسپی آمده است');
+ const preps=new Map(A(doc.preparedItems).map(p=>[p.id,p]));
+ const rows=A(lines).map((x,k)=>{if(S(x.preparedItemId)){const p=preps.get(S(x.preparedItemId));if(!p)throw Error(`سطر ${k+1}: قلم آماده‌سازی پیدا نشد`);if(p.status==='غیرفعال'&&!recipeLines(doc,menuId).some(r=>r.preparedItemId===p.id))throw Error(`«${p.name}» غیرفعال است`);const q=N(x.quantity);if(!(q>0))throw Error(`سطر ${k+1} (${p.name}): مقدار مثبت لازم است`);const cv=E().prepConvert(doc,p,q,p.countUnit);if(!cv.complete)throw Error(`«${p.name}»: ${cv.reason}`);return{p,key:'P:'+p.id,quantity:Math.round(q*1e6)/1e6,notes:S(x.notes)}}
+  const i=ing.get(S(x.ingredientId));if(!recipeCapable(i))throw Error(`سطر ${k+1}: مادهٔ رسپی (مادهٔ اولیه یا ملزوم منو) را انتخاب کنید`);if(i.status==='غیرفعال'&&!recipeLines(doc,menuId).some(r=>r.ingredientId===i.id))throw Error(`«${i.name}» غیرفعال است`);const q=N(x.quantity);if(!(q>0))throw Error(`سطر ${k+1} (${i.name}): مقدار مثبت لازم است`);const w=Number(i.wastePercent)||0;if(!(w>=0&&w<100))throw Error(`افت «${i.name}» نامعتبر است`);return{i,key:i.id,quantity:Math.round(q*1e6)/1e6,notes:S(x.notes)}});
+ if(!rows.length)throw Error('رسپی دست‌کم یک ماده لازم دارد');if(new Set(rows.map(r=>r.key)).size!==rows.length)throw Error('یک ماده یا قلم آماده دو بار در رسپی آمده است');
  const latest=versionsOf(doc,menuId)[0];let from=E().D(effectiveFrom)||today;if(E().CAL.i(from)===null)throw Error('تاریخ اثر معتبر نیست');if(from>today)throw Error('تاریخ اثر نمی‌تواند در آینده باشد');
  if(latest&&latest.effectiveFrom!=='0000/00/00'&&from<E().D(latest.effectiveFrom))throw Error(`تاریخ اثر نمی‌تواند قبل از آخرین نسخه (${latest.effectiveFrom}) باشد`);
  // current lines: keep the id of an ingredient already in the recipe
  doc.recipes=A(doc.recipes);const old=recipeLines(doc,menuId),keep=doc.recipes.filter(r=>r.menuItemId!==menuId),next=[];
- for(const x of rows){const o=old.find(r=>r.ingredientId===x.i.id);next.push(o?{...o,quantity:x.quantity,notes:x.notes}:{id:pcUid('REC',[...doc.recipes,...next]),menuItemId:menuId,ingredientId:x.i.id,quantity:x.quantity,notes:x.notes})}
+ for(const x of rows){const o=x.p?old.find(r=>r.preparedItemId===x.p.id):old.find(r=>r.ingredientId===x.i.id);next.push(o?{...o,quantity:x.quantity,notes:x.notes}:x.p?{id:pcUid('REC',[...doc.recipes,...next]),menuItemId:menuId,preparedItemId:x.p.id,quantity:x.quantity,unit:x.p.countUnit,notes:x.notes}:{id:pcUid('REC',[...doc.recipes,...next]),menuItemId:menuId,ingredientId:x.i.id,quantity:x.quantity,notes:x.notes})}
  const changed=!(old.length===next.length&&old.every(o=>{const n=next.find(z=>z.id===o.id);return n&&Z(n.quantity)===Z(o.quantity)&&S(n.notes)===S(o.notes)}));
  doc.recipes=[...keep,...next];
  const snap=snapshotLines(doc,menuId).map(r=>({...r,id:r.id||uid6('RVL',[])}));let version=null;
@@ -93,7 +100,7 @@ function duplicateNames(doc){const by=new Map;for(const i of A(doc.ingredients))
 function nextIngredientCode(doc){let m=0;for(const i of A(doc.ingredients)){const c=S(i.code);if(/^\d+$/.test(c))m=Math.max(m,+c)}return m?String(m+1):pcUid('INGCODE',doc.ingredients)}
 const fam=u=>FAM[E().UK(u)]||'';
 // active menu items whose current recipe uses the ingredient (shown before deactivating it)
-function ingredientUsage(doc,id){const ms=new Set(A(doc.recipes).filter(r=>r.ingredientId===id).map(r=>r.menuItemId));return A(doc.menuItems).filter(m=>ms.has(m.id)&&m.status!=='غیرفعال')}
+function ingredientUsage(doc,id){const viaPrep=new Set(A(doc.preparedItems).filter(p=>A(p.components).some(c=>c.ingredientId===id)).map(p=>p.id)),ms=new Set(A(doc.recipes).filter(r=>r.ingredientId===id||(r.preparedItemId&&viaPrep.has(r.preparedItemId))).map(r=>r.menuItemId));return A(doc.menuItems).filter(m=>ms.has(m.id)&&m.status!=='غیرفعال')}
 function saveIngredient(doc,ctx,x){
  const ings=A(doc.ingredients),old=x.id?ings.find(i=>i.id===x.id):null;if(x.id&&!old)throw Error('قلم پیدا نشد');
  const name=S(x.name);if(!name)throw Error('نام قلم الزامی است');
@@ -165,21 +172,8 @@ function removeMenuItem(doc,ctx,{id,salesCount}){const m=A(doc.menuItems).find(x
    version, components[{id PREPC-####, ingredientId, quantity, unit, basis net|gross}]}]; the version goes up whenever the
    formula changes (unit, base quantity or components), so a count keeps the formula it was converted with. */
 const PREP_UNITS=['عدد','کیلوگرم','گرم','لیتر','میلی‌لیتر','بسته'];
-function convertQty(i,qty,from,to){const U=E().UK,f=U(from),t=U(to);if(!(qty>=0))return{value:null,reason:'مقدار نامعتبر است'};if(f===t)return{value:qty,reason:''};
- const fam=u=>u==='kg'||u==='g'?'mass':u==='l'||u==='ml'?'volume':null,ff=fam(f),ft=fam(t);if(!ff||!ft)return{value:null,reason:'تبدیل بین این دو واحد پشتیبانی نمی‌شود'};
- const toB=(q,u)=>u==='g'||u==='ml'?q/1000:q,fromB=(q,u)=>u==='g'||u==='ml'?q*1000:q;if(ff===ft)return{value:fromB(toB(qty,f),t),reason:''};
- const d=Number(i?.densityKgPerLiter);if(!(d>0))return{value:null,reason:'چگالی این ماده تعریف نشده است؛ تبدیل حجم و وزن ممکن نیست'};
- return ff==='volume'?{value:fromB(toB(qty,f)*d,t),reason:''}:{value:fromB(toB(qty,f)/d,t),reason:''}}
-function preparedItemConversion(pricing,item,countedQuantity,countedUnit){const qty=N(countedQuantity),bad=reason=>({complete:false,reason,contributions:[]});
- if(!item)return bad('قلم آماده‌سازی تعریف نشده است');if(item.status==='غیرفعال')return bad(`قلم آماده‌سازی «${item.name}» غیرفعال است`);if(!(qty>=0))return bad(`مقدار شمارش «${item.name}» نامعتبر است`);
- const base=N(item.baseOutputQuantity);if(!(base>0))return bad(`مقدار مبنای فرمول «${item.name}» نامعتبر است`);if(E().UK(countedUnit||item.countUnit)!==E().UK(item.countUnit))return bad(`واحد شمارش «${item.name}» با واحد فرمول متفاوت است`);
- const comps=A(item.components);if(!comps.length)return bad(`فرمول «${item.name}» ماده‌ای ندارد`);const scale=qty/base,out=[];
- for(const c of comps){const i=A(pricing?.ingredients).find(x=>x.id===c.ingredientId);if(!i)return bad(`ماده‌ای در فرمول «${item.name}» در کاتالوگ نیست`);if(i.status==='غیرفعال')return bad(`مادهٔ «${i.name}» در فرمول «${item.name}» غیرفعال است`);
-  const cq=N(c.quantity);if(!(cq>0))return bad(`مقدار «${i.name}» در فرمول «${item.name}» نامعتبر است`);if(c.basis!=='gross'&&c.basis!=='net')return bad(`مبنای مقدار «${i.name}» در فرمول «${item.name}» تعیین نشده است`);
-  const cv=convertQty(i,cq*scale,c.unit,i.recipeUnit);if(cv.value===null)return bad(`تبدیل واحد «${i.name}»: ${cv.reason}`);let g=cv.value,yf=null;
-  if(c.basis==='net'){const wp=Number(i.wastePercent)||0;if(!(wp>=0&&wp<100))return bad(`درصد افت «${i.name}» معتبر نیست`);yf=1-wp/100;g=g/yf}
-  out.push({ingredientId:i.id,ingredientNameSnapshot:i.name,ingredientCodeSnapshot:i.code||'',unit:i.recipeUnit,quantity:g,componentQuantity:cq,componentUnit:c.unit,basis:c.basis,yieldFactorApplied:yf})}
- return{complete:true,reason:'',scale,contributions:out,preparedItemId:item.id,preparedItemNameSnapshot:item.name,preparedItemVersion:item.version||1,baseOutputQuantitySnapshot:base,countUnitSnapshot:item.countUnit}}
+const convertQty=(...a)=>E().convertQty(...a);
+const preparedItemConversion=(...a)=>E().prepConvert(...a);
 function savePreparedItem(doc,ctx,x){doc.preparedItems=A(doc.preparedItems);const ings=A(doc.ingredients),name=S(x.name);if(!name)throw Error('نام قلم آماده‌سازی الزامی است');
  if(!PREP_UNITS.includes(S(x.countUnit)))throw Error('واحد شمارش معتبر انتخاب کنید');const base=N(x.baseOutputQuantity);if(!(base>0))throw Error('مقدار مبنای فرمول باید عدد مثبت باشد');
  const cur=x.id?doc.preparedItems.find(p=>p.id===x.id):null;if(x.id&&!cur)throw Error('قلم آماده‌سازی پیدا نشد');if(doc.preparedItems.some(p=>p.id!==x.id&&NORM(p.name)===NORM(name)))throw Error('این نام قبلاً تعریف شده است');
@@ -202,7 +196,7 @@ function oilShare({oilKg,items}){const w=A(items).filter(x=>x.qty>0&&x.weight>0)
  const per=oilKg/tot;return{perWeight:per,rows:w.map(x=>({...x,perPortion:x.weight*per,used:x.qty*x.weight*per}))}}
 function setOilInRecipes(doc,ctx,{oilId,rows,effectiveFrom}){const oil=A(doc.ingredients).find(i=>i.id===oilId);if(!oil)throw Error('قلم روغن سرخ‌کردنی پیدا نشد');const out=[];
  for(const r of A(rows)){const kg=Math.round(N(r.perPortion)*1e5)/1e5;if(!(kg>0))continue;const cur=recipeLines(doc,r.menuId);if(!cur.length)continue;const old=cur.find(l=>l.ingredientId===oilId);if(old&&Math.abs(Z(old.quantity)-kg)<1e-6)continue;
-  const lines=cur.filter(l=>l.ingredientId!==oilId).map(l=>({ingredientId:l.ingredientId,quantity:l.quantity,notes:l.notes})).concat([{ingredientId:oilId,quantity:kg,notes:'سهم روغن سرخ‌کن از تعویض‌های روغن'}]);
+  const lines=cur.filter(l=>l.preparedItemId||l.ingredientId!==oilId).map(l=>l.preparedItemId?{preparedItemId:l.preparedItemId,quantity:l.quantity,notes:l.notes}:{ingredientId:l.ingredientId,quantity:l.quantity,notes:l.notes}).concat([{ingredientId:oilId,quantity:kg,notes:'سهم روغن سرخ‌کن از تعویض‌های روغن'}]);
   const sub={...ctx,auditExtra:null};saveRecipe(doc,sub,{menuId:r.menuId,lines,effectiveFrom,note:'به‌روزرسانی سهم روغن'});out.push({menuId:r.menuId,kg,before:old?Z(old.quantity):null})}
  if(!out.length)throw Error('تغییری در رسپی‌ها نیست (آیتم بدون رسپی یا مقدار برابر)');ctx.auditExtra={oilId,effectiveFrom,items:out};return out}
 
@@ -229,5 +223,5 @@ function setLatestPrices(doc,ctx,{date,rows,source='manual-bulk'}){const d0=E().
   doc.ingredientPriceHistory.push({id:pcUid('IPH',doc.ingredientPriceHistory),ingredientId:i.id,date:d,priceToman:p,source,purchaseUnit:i.purchaseUnit,recipeUnit:i.recipeUnit,packageQuantity:Z(i.packageQuantity),createdAt:ctx.at,createdBy:ctx.actor});
   if(!last||d>=last)Object.assign(i,{lastPurchasePriceToman:p,lastPurchaseDate:d,lastPurchaseSource:source==='excel'?'excel':'manual',lastPurchaseInvoiceId:''});out.push({id:i.id,price:p,date:d,current:!last||d>=last})}
  if(!out.length)throw Error('قیمت تازه‌ای وارد نشده است');ctx.auditExtra={date:d0,count:out.length,source};return out}
-window.MenuWrite={oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+window.MenuWrite={prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();

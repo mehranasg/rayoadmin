@@ -30,13 +30,39 @@ async function loadLive(){const get=async m=>{const r=await fetch(API+m+'&_='+Da
 async function loadUrl(prefix){const get=async f=>{const r=await fetch(prefix+f,{cache:'no-store'});if(!r.ok)throw Error(`HTTP ${r.status} (${f})`);return unwrap(await r.json())};const [inventory,pricing,cashreport]=await Promise.all([get('inventory.json'),get('pricing.json'),get('cashreport.json').catch(()=>null)]);return{inventory,pricing,cashreport,source:'file'}}
 async function loadFiles(files){const out={source:'file'};for(const f of files){const o=unwrap(JSON.parse(await f.text()));const cands=[o,o?.modules,o?.data].filter(Boolean);for(const c of cands){if(moduleKind(c))out[moduleKind(c)]=c;for(const k of ['inventory','pricing','cashreport'])if(c[k]&&moduleKind(unwrap(c[k]))===k)out[k]=unwrap(c[k])}}if(!out.inventory||!out.pricing)throw Error('فایل انبار و فایل منو/قیمت هر دو لازم است');return out}
 
+/* ---------- prepared (composite) items: unit conversion and formula → ingredients (gross, recipe unit) ----------
+   shared by counts (inventory-write), recipe costing (menu-write) and sales/waste deduction (recipeAt below) */
+const NN=v=>{const n=Number(String(v??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/٫/g,'.').replace(/[٬,\s]/g,''));return Number.isFinite(n)?n:NaN};
+function convertQty(i,qty,from,to){const U=UK,f=U(from),t=U(to);if(!(qty>=0))return{value:null,reason:'مقدار نامعتبر است'};if(f===t)return{value:qty,reason:''};
+ const fam=u=>u==='kg'||u==='g'?'mass':u==='l'||u==='ml'?'volume':null,ff=fam(f),ft=fam(t);if(!ff||!ft)return{value:null,reason:'تبدیل بین این دو واحد پشتیبانی نمی‌شود'};
+ const toB=(q,u)=>u==='g'||u==='ml'?q/1000:q,fromB=(q,u)=>u==='g'||u==='ml'?q*1000:q;if(ff===ft)return{value:fromB(toB(qty,f),t),reason:''};
+ const d=Number(i?.densityKgPerLiter);if(!(d>0))return{value:null,reason:'چگالی این ماده تعریف نشده است؛ تبدیل حجم و وزن ممکن نیست'};
+ return ff==='volume'?{value:fromB(toB(qty,f)*d,t),reason:''}:{value:fromB(toB(qty,f)/d,t),reason:''}}
+function prepConvert(pricing,item,countedQuantity,countedUnit){const qty=NN(countedQuantity),bad=reason=>({complete:false,reason,contributions:[]});
+ if(!item)return bad('قلم آماده‌سازی تعریف نشده است');if(item.status==='غیرفعال')return bad(`قلم آماده‌سازی «${item.name}» غیرفعال است`);if(!(qty>=0))return bad(`مقدار شمارش «${item.name}» نامعتبر است`);
+ const base=NN(item.baseOutputQuantity);if(!(base>0))return bad(`مقدار مبنای فرمول «${item.name}» نامعتبر است`);if(UK(countedUnit||item.countUnit)!==UK(item.countUnit))return bad(`واحد شمارش «${item.name}» با واحد فرمول متفاوت است`);
+ const comps=A(item.components);if(!comps.length)return bad(`فرمول «${item.name}» ماده‌ای ندارد`);const scale=qty/base,out=[];
+ for(const c of comps){const i=A(pricing?.ingredients).find(x=>x.id===c.ingredientId);if(!i)return bad(`ماده‌ای در فرمول «${item.name}» در کاتالوگ نیست`);if(i.status==='غیرفعال')return bad(`مادهٔ «${i.name}» در فرمول «${item.name}» غیرفعال است`);
+  const cq=NN(c.quantity);if(!(cq>0))return bad(`مقدار «${i.name}» در فرمول «${item.name}» نامعتبر است`);if(c.basis!=='gross'&&c.basis!=='net')return bad(`مبنای مقدار «${i.name}» در فرمول «${item.name}» تعیین نشده است`);
+  const cv=convertQty(i,cq*scale,c.unit,i.recipeUnit);if(cv.value===null)return bad(`تبدیل واحد «${i.name}»: ${cv.reason}`);let g=cv.value,yf=null;
+  if(c.basis==='net'){const wp=Number(i.wastePercent)||0;if(!(wp>=0&&wp<100))return bad(`درصد افت «${i.name}» معتبر نیست`);yf=1-wp/100;g=g/yf}
+  out.push({ingredientId:i.id,ingredientNameSnapshot:i.name,ingredientCodeSnapshot:i.code||'',unit:i.recipeUnit,quantity:g,componentQuantity:cq,componentUnit:c.unit,basis:c.basis,yieldFactorApplied:yf})}
+ return{complete:true,reason:'',scale,contributions:out,preparedItemId:item.id,preparedItemNameSnapshot:item.name,preparedItemVersion:item.version||1,baseOutputQuantitySnapshot:base,countUnitSnapshot:item.countUnit}}
+
 /* ---------- Model ---------- */
 function build(raw){
  const inv=raw.inventory,pr=raw.pricing,ing=new Map(A(pr.ingredients).map(i=>[i.id,i])),menu=new Map(A(pr.menuItems).map(m=>[m.id,m]));
  const versionsBy=new Map;for(const v of A(pr.recipeVersions)){if(!versionsBy.has(v.menuItemId))versionsBy.set(v.menuItemId,[]);versionsBy.get(v.menuItemId).push(v)}
  for(const l of versionsBy.values())l.sort((a,b)=>D(b.effectiveFrom||'0000/00/00').localeCompare(D(a.effectiveFrom||'0000/00/00'))||S(b.createdAt).localeCompare(S(a.createdAt)));
  const recipesBy=new Map;for(const r of A(pr.recipes)){if(!recipesBy.has(r.menuItemId))recipesBy.set(r.menuItemId,[]);recipesBy.get(r.menuItemId).push(r)}
- const recipeAt=(mid,date)=>{const v=A(versionsBy.get(mid)).find(v=>(D(v.effectiveFrom)||'0000/00/00')<=date);return v?A(v.lines):A(recipesBy.get(mid))};
+ const prepBy=new Map(A(pr.preparedItems).map(p=>[p.id,p])),expanded=new Map;
+ // a recipe line may name a prepared item (sub-recipe, e.g. 60 g of Caesar sauce): it becomes its ingredients, gross in their
+ // recipe unit (wastePercent 0, already applied by the formula); a formula that cannot convert gives a line without an
+ // ingredient, so the item shows as an incomplete recipe instead of a wrong deduction
+ const expand=lines=>{if(expanded.has(lines))return expanded.get(lines);const out=[];for(const l of A(lines)){if(!l||!l.preparedItemId){out.push(l);continue}const p=prepBy.get(l.preparedItemId),cv=prepConvert(pr,p,NN(l.quantity),l.unit||p?.countUnit);
+  if(!cv.complete){out.push({ingredientId:'',preparedItemId:l.preparedItemId,quantity:l.quantity,invalid:cv.reason});continue}for(const c of cv.contributions)out.push({ingredientId:c.ingredientId,quantity:c.quantity,recipeUnit:ing.get(c.ingredientId)?.recipeUnit,wastePercent:0,fromPreparedId:l.preparedItemId,fromPreparedName:p.name})}
+  expanded.set(lines,out);return out};
+ const recipeAt=(mid,date)=>{const v=A(versionsBy.get(mid)).find(v=>(D(v.effectiveFrom)||'0000/00/00')<=date);return expand(v?A(v.lines):A(recipesBy.get(mid)))};
  // price per recipe unit at a date: purchase history (same recipe unit) → latest catalog price
  const priceBy=new Map;for(const h of A(pr.ingredientPriceHistory)){if(h.isVoided)continue;const i=ing.get(h.ingredientId);if(!i)continue;if(h.recipeUnit&&UK(h.recipeUnit)!==UK(i.recipeUnit))continue;const d=D(h.date);if(!d)continue;const per=N(h.priceToman)/(N(h.packageQuantity)||N(i.packageQuantity)||1);if(!(per>0))continue;if(!priceBy.has(i.id))priceBy.set(i.id,[]);priceBy.get(i.id).push({d,per,at:S(h.createdAt)})}
  // same-day corrections: the last created entry wins
@@ -182,5 +208,5 @@ function calibrateOil(items,oilKg){const sum=items.reduce((a,x)=>a+x.qty*x.weigh
 /* ---------- Months ---------- */
 function monthKeys(M){const out=[];let d=M.firstDay;const last=CAL.i(CAL.today);while(d<=last){const k=CAL.k(d).slice(0,7);if(!out.includes(k))out.push(k);d+=1}return out}
 
-window.InvEngine={API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
+window.InvEngine={convertQty,prepConvert,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
 })();
