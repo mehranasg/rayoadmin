@@ -70,6 +70,10 @@ const c2=W.addCount(doc,ctx(),{date:D5,entries:[{itemId:'i1',quantity:2.6,unit:'
 ok(!c2.created&&c2.replaced===1&&st.lines.length===1&&near(st.lines[0].actual,26)&&st.revisionHistory.length===1&&st.revisionHistory[0].replaced[0].actual===25,'same-date count merges and keeps the replaced line');
 throws(()=>W.addCount(doc,ctx(),{date:D3,entries:[{itemId:'i1',quantity:1}]}),/تأیید لازم/,'count before a later whole count needs confirmation');
 throws(()=>W.addCount(doc,ctx(),{date:D5,entries:[{itemId:'i1',quantity:-1}]}),/نامنفی/,'negative count blocked');
+{const d3=JSON.parse(JSON.stringify(doc)),s3=d3.stocktakes.find(s=>s.id===c1.id);
+ throws(()=>W.removeCountLine(d3,ctx(),{date:D5,itemId:'i1',reason:''}),/علت/,'removing a counted item needs a reason');
+ throws(()=>W.removeCountLine(d3,ctx(),{date:D3,itemId:'i1',reason:'x'}),/نیست/,'item not in that count');
+ const r=W.removeCountLine(d3,ctx(),{date:D5,itemId:'i1',reason:'اشتباه'});ok(r.voided&&s3.status==='void'&&s3.lines.length===0&&s3.revisionHistory.at(-1).kind==='line-removed'&&near(s3.revisionHistory.at(-1).removed[0].actual,26),'counted item removed with its line in the revision; empty count becomes void')}
 
 // 5. engine sees the new records
 const M=E.build({inventory:doc,pricing}),p=E.positions(M,T).find(r=>r.id==='i1');

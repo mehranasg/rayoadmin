@@ -111,6 +111,16 @@ function voidCountDate(doc,ctx,{date,reason}){date=D(date);reason=S(reason);if(!
  const list=A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&D(s.date)===date&&boundary(s)==='END'&&!s.isOpeningBaseline);if(!list.length)throw Error('شمارش کل پایان روز در این تاریخ نیست (افتتاحیه از این مسیر باطل نمی‌شود)');
  for(const s of list)Object.assign(s,{status:'void',voidReason:reason,voidedAt:ctx.at,voidedBy:ctx.actor});ctx.auditExtra={date,ids:list.map(s=>s.id),reason};return{count:list.length,lines:list.reduce((a,s)=>a+A(s.lines).length,0)}}
 
+/* remove one counted item from the whole count of a date (owner correction): the line goes to the count's revisionHistory
+   with the reason; the item then continues from its own previous count. A count left without lines becomes void. A line
+   that came (partly) from a prepared item is refused: count the prepared item again instead. */
+function removeCountLine(doc,ctx,{date,itemId,reason}){date=D(date);reason=S(reason);if(!reason)throw Error('علت حذف لازم است');const c=closedPeriod(doc,date);if(c)throw Error(`دورهٔ ${c.from||''} تا ${c.to} بسته است`);
+ const s=A(doc.stocktakes).find(x=>wholeScope(x)&&x.status==='approved'&&D(x.date)===date&&boundary(x)==='END'&&!x.isOpeningBaseline&&A(x.lines).some(l=>l.ingredientId===itemId));if(!s)throw Error('این قلم در شمارش این تاریخ نیست');
+ const k=s.lines.findIndex(l=>l.ingredientId===itemId),ln=s.lines[k];if(A(ln.preparedContributions).length)throw Error('بخشی از این مقدار از قلم آماده‌سازی آمده است؛ قلم آماده را دوباره بشمارید');
+ s.lines.splice(k,1);s.revisionHistory=A(s.revisionHistory);s.revisionHistory.push({id:uid('STR',s.revisionHistory),kind:'line-removed',at:ctx.at,by:ctx.actor,reason,added:[],replaced:[],removed:[clone(ln)]});s.updatedAt=ctx.at;s.updatedBy=ctx.actor;s.coverage={...(s.coverage||{}),counted:s.lines.length};
+ if(!s.lines.length&&!A(s.preparedLines).length)Object.assign(s,{status:'void',voidReason:'همهٔ اقلام حذف شد: '+reason,voidedAt:ctx.at,voidedBy:ctx.actor});
+ ctx.auditExtra={entityId:s.id,date,itemId,before:clone(ln),reason};return{id:s.id,voided:s.status==='void',name:ln.itemNameSnapshot}}
+
 /* ---------- fryer oil change (js/32 saveOilChange) ---------- */
 function oilSettings(doc,pricing){const s=doc?.settings?.fryerOil||{},id=S(s.ingredientId)||A(pricing?.ingredients).find(i=>/^روغن سرخ ?کردنی$/.test(S(i.name)))?.id||'';return{ingredientId:id,density:Number(s.density)||0.91,logFrom:validDate(D(s.logFrom))?D(s.logFrom):'',fryers:A(s.fryers).length?A(s.fryers).map(f=>({id:S(f.id),name:S(f.name),liters:Number(f.liters)||0})):OIL_FRYERS_DEFAULT.map(f=>({...f}))}}
 function addOilChange(doc,ctx,input){const s=oilSettings(doc,ctx.pricing),f=s.fryers.find(x=>x.id===S(input.fryerId)),date=D(input.date),kind=input.kind==='TOP_UP'?'TOP_UP':'FULL',liters=N(input.liters)>0?N(input.liters):(kind==='FULL'?Number(f?.liters):0);
@@ -268,6 +278,6 @@ async function edit(io,{action,details={},mutate}){
   catch(e){if(sent){try{const c=await io.load();if(S(c?.meta?.serverSaveToken)===after.meta.serverSaveToken&&content(c)===content(after))return{out,doc:c}}catch(_){}state.uncertain=true}throw e}
  }finally{state.busy=false}}
 
-window.InvWrite={LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+window.InvWrite={removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();
