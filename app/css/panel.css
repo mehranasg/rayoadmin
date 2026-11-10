@@ -240,3 +240,11 @@ th.sorted[data-dir=asc]::after{content:" ▲";font-size:9px}
 th.sorted[data-dir=desc]::after{content:" ▼";font-size:9px}
 tfoot tr.grid-total td{background:var(--surface-2);border-top:2px solid var(--border-strong)}
 .card.flush .grid-bar{padding:6px var(--s4) 0}
+/* dense wide tables (many numeric columns, e.g. inventory reports → item flow) */
+.table.compact th,.table.compact td{padding:7px 8px;font-size:12.5px}
+.table.compact td .ic-mini{font-size:11px}
+.table.compact th{white-space:normal;line-height:1.35;min-width:56px}
+.table.compact td:first-child{white-space:normal;min-width:150px}
+/* catalog item form: wide modal, three columns on desktop (less vertical scroll) */
+@media (min-width:900px){.ing-form .form-grid:not(.cu-row){grid-template-columns:repeat(3,minmax(0,1fr))}}
+.table.compact td:last-child{white-space:normal;min-width:170px}

@@ -102,7 +102,7 @@ P.table=(cols,rows,{foot,cls='',empty='موردی نیست'}={})=>{
   const C=cols.map(c=>typeof c==='string'?{t:c}:c);
   const tr=r=>{const o=Array.isArray(r)?{c:r}:r;return`<tr class="${o.cls||''}" ${o.attr||''}>${o.c.map((v,i)=>`<td class="${C[i]&&C[i].n?'num':''} ${C[i]&&C[i].w?'wrap':''}">${v}</td>`).join('')}</tr>`};
   return`<div class="table-wrap"><table class="table ${cls}">
-    <thead><tr>${C.map(c=>`<th class="${c.n?'num':''}"${c.noSum?' data-nosum="1"':''}${c.noSort?' data-nosort="1"':''}>${c.t}</th>`).join('')}</tr></thead>
+    <thead><tr>${C.map(c=>`<th class="${c.n?'num':''}"${c.noSum?' data-nosum="1"':''}${c.noSort?' data-nosort="1"':''}${c.hide?' data-hide="1"':''}>${c.t}</th>`).join('')}</tr></thead>
     <tbody>${rows.length?rows.map(tr).join(''):`<tr><td colspan="${C.length}"><div class="empty"><h3>${empty}</h3></div></td></tr>`}</tbody>
     ${foot?`<tfoot><tr>${foot.map((v,i)=>`<td class="${C[i]&&C[i].n?'num':''}">${v}</td>`).join('')}</tr></tfoot>`:''}
   </table></div>`;
@@ -518,7 +518,7 @@ function gridify(tb){if(tb.dataset.grid||tb.classList.contains('no-grid')||tb.cl
  const head=[...(tb.tHead?.rows[0]?.cells||[])];if(!head.length)return;const body=tb.tBodies[0];if(!body)return;
  const all=[...body.rows].filter(r=>!(r.cells.length===1&&r.cells[0].colSpan>1));if(!all.length)return;const orig=all.slice();
  const title=(tb.closest('.card')?.querySelector('.card-head h2,.card-head h3')?.innerText||'').trim(),key='pn_grid|'+location.hash.split('/').slice(0,3).join('/')+'|'+head.map(h=>h.innerText.trim()).join('|');
- let hidden=new Set();try{hidden=new Set(JSON.parse(localStorage.getItem(key)||'[]'))}catch(_){}let size=50,page=0,sortI=-1,dir=1;
+ let hidden=new Set();try{const sv=localStorage.getItem(key);hidden=new Set(sv?JSON.parse(sv):head.map((h,i)=>h.dataset.hide?i:-1).filter(i=>i>=0))}catch(_){}let size=50,page=0,sortI=-1,dir=1;
  const numCol=head.map(h=>h.classList.contains('num')),hasUnit=head.some(h=>/واحد/.test(h.innerText)),MONEY=/ارزش|مبلغ|بها|تومان|ریال|هزینه|قیمت|پرداخت|خرید|سهم|حقوق|انعام|جریمه|درآمد|مانده|بدهی|طلب/,sumCol=head.map((h,i)=>numCol[i]&&!h.dataset.nosum&&(!hasUnit||MONEY.test(h.innerText)));
  const vis=()=>{head.forEach((h,i)=>{const d=hidden.has(i)?'none':'';h.style.display=d;for(const r of [...body.rows,...(tb.tFoot?[...tb.tFoot.rows]:[])])if(r.cells[i]&&r.cells.length===head.length)r.cells[i].style.display=d})};
  // totals (all rows)
