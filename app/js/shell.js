@@ -180,7 +180,7 @@ P.toggle=(name,label,on,hint='')=>`<label class="pn-toggle"><input type="checkbo
 
 /* long selects in forms (25+ options: assets, people, suppliers…) get a filter box above them; options that do not
    match are hidden, the select itself and its value are unchanged */
-P.enhanceSelects=root=>{for(const sel of root.querySelectorAll('select')){if(sel.options.length<25||sel.dataset.sx||sel.multiple)continue;sel.dataset.sx=1;const f=document.createElement('input');f.className='input pn-sfilter';f.placeholder='جست‌وجو در '+P.fa(sel.options.length)+' گزینه';f.setAttribute('autocomplete','off');sel.before(f);
+P.enhanceSelects=root=>{for(const sel of root.querySelectorAll('select')){if((sel.options.length<25&&!(sel.hasAttribute('data-search')&&sel.options.length>4))||sel.dataset.sx||sel.multiple)continue;sel.dataset.sx=1;const f=document.createElement('input');f.className='input pn-sfilter';f.placeholder='جست‌وجو در '+P.fa(sel.options.length)+' گزینه';f.setAttribute('autocomplete','off');sel.before(f);
   f.oninput=()=>{const q=f.value;let first=null;for(const o of sel.options){const ok=!o.value||!q.trim()||P.match(o.textContent,q);o.hidden=!ok;if(ok&&o.value&&!first)first=o}if(first&&q.trim()&&(sel.selectedOptions[0]?.hidden||!sel.value)){sel.value=first.value;sel.dispatchEvent(new Event('change',{bubbles:true}))}};
   f.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();sel.focus()}}}};
 document.addEventListener('focusin',e=>{const el=e.target;if(el instanceof HTMLSelectElement&&el.closest('#pnModal')&&!el.dataset.sx&&el.options.length>=25)P.enhanceSelects(el.parentElement)});
