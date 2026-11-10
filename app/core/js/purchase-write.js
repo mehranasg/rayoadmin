@@ -43,6 +43,18 @@ function supplierAccount(inv,id){const openings=A(inv?.supplierDirectDebts).filt
    debts), payments (invoice paidAmount on the invoice date and supplier payments, a refund negative), and the debt at the
    end of the day, built like supplierAccount (a supplier's moves count from its latest opening, which starts its line).
    bucket (day / week / month) gives candles: open = debt at the end of the previous bucket, close, high / low of the days. */
+/* purchase cost by supplier for a period («نقشهٔ بورسی»، treemap of ui-template/reports): final invoices of the period,
+   supplier → item group of each line (a quick invoice without lines is one «بدون ریز اقلام» box; invoice-level discount,
+   tax and extra cost go to a «تخفیف، مالیات و هزینهٔ جانبی» box). Without invoices in the period, the stock receipts
+   (ورود کالا) are used instead — group → item, valued at their price or else quantity × costAt(item, date) (catalog price
+   history, InvEngine M.costAt) — and source = 'receipts'. */
+function purchaseTree(inv,pricing,{from,to,costAt}={}){const ing=new Map(A(pricing?.ingredients).map(i=>[i.id,i])),inP=d=>S(d)>=from&&S(d)<=to,grp=new Map,add=(a,b,v)=>{if(!(v>0)&&!(v<0))return;const g=grp.get(a)||new Map;g.set(b,(g.get(b)||0)+v);grp.set(a,g)};
+ const invs=A(inv?.purchaseInvoices).filter(x=>isFinal(x)&&inP(x.date));let source='invoices';
+ if(invs.length){for(const x of invs){const sup=S(x.supplierNameSnapshot)||S(x.supplierId)||'—',ls=docLines(x);if(!ls.length){add(sup,'بدون ریز اقلام',invoiceTotal(x));continue}
+   let sum=0;for(const l of ls){const v=Z(l.lineTotalToman||Z(l.purchaseQuantity||l.quantity)*Z(l.unitPrice)-Z(l.discountToman));sum+=v;add(sup,S(ing.get(l.ingredientId)?.category)||'سایر',v)}add(sup,'تخفیف، مالیات و هزینهٔ جانبی',invoiceTotal(x)-sum)}}
+ else{source='receipts';for(const r of A(inv?.stockReceipts)){if(r.status==='void'||!inP(r.date))continue;const i=ing.get(r.ingredientId);const c=costAt?Number(costAt(r.ingredientId,S(r.date))):NaN;add(S(i?.category)||'سایر',S(i?.name||r.itemNameSnapshot)||'—',Z(r.totalPriceToman)||(Number.isFinite(c)?Z(r.quantity)*c:0))}}
+ const tree=[...grp].map(([name,g])=>({name,children:[...g].filter(([,v])=>v>0.5).map(([n,v])=>({name:n,value:Math.round(v)})).sort((a,b)=>b.value-a.value)})).map(t=>({...t,value:t.children.reduce((a,c)=>a+c.value,0)})).filter(t=>t.value>0).sort((a,b)=>b.value-a.value);
+ return{source,tree,total:tree.reduce((a,t)=>a+t.value,0),count:source==='invoices'?invs.length:null}}
 function debtSeries(inv,{supplierId='',bucket='week'}={}){directionDoc=inv;const ids=supplierId?[supplierId]:[...new Set([...A(inv?.purchaseInvoices),...A(inv?.supplierPayments),...A(inv?.supplierDirectDebts)].map(x=>x.supplierId).filter(Boolean))];
  const ev=[];for(const id of ids){const ac=supplierAccount(inv,id),base=S(ac.opening?.baselineDate||ac.opening?.date);if(ac.opening)ev.push({date:base,debt:ac.openingAmount,buy:0,pay:0});
   for(const x of ac.invoices)ev.push({date:S(x.date),buy:invoiceTotal(x),pay:Z(x.paidAmount),debt:invoiceTotal(x)-Z(x.paidAmount)});for(const x of ac.debts)ev.push({date:S(x.date),buy:Z(x.amount),pay:0,debt:Z(x.amount)});for(const x of ac.payments){const v=paymentSign(x)*Z(x.amount);ev.push({date:S(x.date),buy:0,pay:v,debt:-v})}}
@@ -253,5 +265,5 @@ function saveSupplierItems(doc,ctx,{supplierId,ingredientIds,primaryIds},{pricin
  for(const id of prim)for(const r of doc.supplierItems)if(r.supplierCode!==s.code&&r.isPrimary==='بله'&&relIngredient(r,ings)?.id===id){r.isPrimary='خیر';r.updatedAt=ctx.at}
  ctx.auditExtra={supplierId,added,removed,total:want.size};return{added,removed,total:want.size}}
 
-window.PurchaseWrite={debtSeries,SUP_LISTS,saveSupplierLists,parseSupplierSheets,applySupplierRows,SUP_FIELDS,CHANNELS,nextSupplierCode,supplierNameDuplicate,saveSupplier,archiveSupplier,supplierItems,saveSupplierItems,editInvoice,editPayment,addOrder,trackOrder,ORDER_STATUS,TRACK_STATUS,DEBT_TYPES,rawAccountPosition,closedPeriodOn,addDirectDebt,voidDirectDebt,paymentDirections,paymentSign,invoiceRemaining,addPayment,voidPayment,PAYMENT_METHODS,normalizeName,supplierName,isFinal,invoiceTotal,invoicePaid,supplierAccount,paymentLocations,procurementCatalog,previousPackPrice,buildLines,addInvoice,addQuickInvoice,nearDuplicate,syncInvoicePrices,markPricing,voidInvoice,NUM};
+window.PurchaseWrite={purchaseTree,debtSeries,SUP_LISTS,saveSupplierLists,parseSupplierSheets,applySupplierRows,SUP_FIELDS,CHANNELS,nextSupplierCode,supplierNameDuplicate,saveSupplier,archiveSupplier,supplierItems,saveSupplierItems,editInvoice,editPayment,addOrder,trackOrder,ORDER_STATUS,TRACK_STATUS,DEBT_TYPES,rawAccountPosition,closedPeriodOn,addDirectDebt,voidDirectDebt,paymentDirections,paymentSign,invoiceRemaining,addPayment,voidPayment,PAYMENT_METHODS,normalizeName,supplierName,isFinal,invoiceTotal,invoicePaid,supplierAccount,paymentLocations,procurementCatalog,previousPackPrice,buildLines,addInvoice,addQuickInvoice,nearDuplicate,syncInvoicePrices,markPricing,voidInvoice,NUM};
 })();
