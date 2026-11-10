@@ -227,3 +227,16 @@ body.pn-locked .app{display:none}
 #bevEntry .rbt-head{margin-bottom:var(--s3)}
 #bevEntry input:not([type=checkbox]),#bevEntry select{border:1px solid var(--border);border-radius:var(--radius-sm,8px);padding:6px 8px;background:var(--surface);color:var(--text);font:inherit}
 #bevEntry .rbt-head input{min-height:38px;padding-inline:12px}
+/* unified list grid (shell P.grid) */
+.grid-bar{margin:0 0 6px}
+.grid-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px}
+.grid-tools .select{width:auto;min-height:30px;padding:2px 8px;font-size:12px}
+.grid-cols-wrap{position:relative}
+.grid-cols{position:absolute;inset-inline-end:0;top:100%;z-index:30;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:8px 10px;display:grid;gap:4px;min-width:200px;max-height:320px;overflow:auto}
+.grid-cols[hidden]{display:none}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--text)}
+th.sorted[data-dir=asc]::after{content:" ▲";font-size:9px}
+th.sorted[data-dir=desc]::after{content:" ▼";font-size:9px}
+tfoot tr.grid-total td{background:var(--surface-2);border-top:2px solid var(--border-strong)}
+.card.flush .grid-bar{padding:6px var(--s4) 0}

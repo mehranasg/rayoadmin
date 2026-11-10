@@ -1,0 +1,15 @@
+{
+  "name": "rayo-admin",
+  "private": true,
+  "description": "Rayo café-restaurant management app (static app in app/, tests in tests/)",
+  "scripts": {
+    "test": "node tools/run-tests.cjs",
+    "check": "node tools/check.cjs",
+    "verify": "node tools/check.cjs && node tools/run-tests.cjs",
+    "fetch-data": "node tools/fetch-live-data.cjs",
+    "serve": "node tools/dev-server.cjs",
+    "browser": "node tools/browser-run.cjs",
+    "smoke": "node tools/smoke.cjs"
+  },
+  "engines": { "node": ">=22" }
+}

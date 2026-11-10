@@ -102,7 +102,7 @@ P.table=(cols,rows,{foot,cls='',empty='موردی نیست'}={})=>{
   const C=cols.map(c=>typeof c==='string'?{t:c}:c);
   const tr=r=>{const o=Array.isArray(r)?{c:r}:r;return`<tr class="${o.cls||''}" ${o.attr||''}>${o.c.map((v,i)=>`<td class="${C[i]&&C[i].n?'num':''} ${C[i]&&C[i].w?'wrap':''}">${v}</td>`).join('')}</tr>`};
   return`<div class="table-wrap"><table class="table ${cls}">
-    <thead><tr>${C.map(c=>`<th class="${c.n?'num':''}">${c.t}</th>`).join('')}</tr></thead>
+    <thead><tr>${C.map(c=>`<th class="${c.n?'num':''}"${c.noSum?' data-nosum="1"':''}${c.noSort?' data-nosort="1"':''}>${c.t}</th>`).join('')}</tr></thead>
     <tbody>${rows.length?rows.map(tr).join(''):`<tr><td colspan="${C.length}"><div class="empty"><h3>${empty}</h3></div></td></tr>`}</tbody>
     ${foot?`<tfoot><tr>${foot.map((v,i)=>`<td class="${C[i]&&C[i].n?'num':''}">${v}</td>`).join('')}</tr></tfoot>`:''}
   </table></div>`;
@@ -503,6 +503,41 @@ function applySkin(sk){const de=document.documentElement;let ln=document.getElem
 function setLook(k){if(SKIN_BASE[k]){applySkin(k);store('pn_skin',k)}else{applySkin('');store('pn_skin','');document.documentElement.dataset.theme=k;store('rt_theme',k)}setTimeout(()=>RT.refreshCharts(),150)}
 function themeIcon(){RT.icons()}
 function setMenu(o){$('#pnSide').classList.toggle('open',o);$('#pnBack').classList.toggle('open',o)}
+
+/* ---------- unified list grid ----------
+   Every table.table inside the page or a modal gets, after each render: column chooser (kept per list in this browser),
+   Excel export (all rows, shown columns), page size 50 / 100 / 200 / all, sort by clicking a header, and a total row for
+   numeric columns (th.num, unless data-nosum). Skipped: tables with inputs (forms), .no-grid, tables already with tfoot get
+   no extra total. Numbers are read from the cell text (Persian digits, separators, minus, «میلیون/میلیارد/هزار»). */
+const GRID_SIZES=[50,100,200,0];
+P.num2=t=>{let s=String(t??'').replace(/[\u200e\u200f\u2066-\u2069]/g,'').trim();if(!s||s==='—'||s==='-')return null;s=s.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[٬,]/g,'').replace(/٫/g,'.').replace(/[−–]/g,'-');
+ const m=s.match(/^([+-]?)\s*(\d+(?:\.\d+)?)\s*(میلیارد|میلیون|هزار)?(?:\s*[^\d+\-\s][^\d]*)?$/);if(!m)return null;let v=Number(m[2])*(m[3]==='میلیارد'?1e9:m[3]==='میلیون'?1e6:m[3]==='هزار'?1e3:1);return m[1]==='-'?-v:v};
+P.loadXLSX=()=>window.XLSX?Promise.resolve(window.XLSX):P._xlsxP||(P._xlsxP=new Promise(async(ok,no)=>{for(const src of ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js','https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js']){try{await new Promise((a,b)=>{const s=document.createElement('script');s.src=src;s.onload=a;s.onerror=b;document.head.appendChild(s)});if(window.XLSX)return ok(window.XLSX)}catch(_){}}P._xlsxP=null;no(Error('کتابخانهٔ Excel بارگذاری نشد'))}));
+P.excelDownload=async(name,rows,sheet='Sheet1')=>{const X=await P.loadXLSX(),ws=X.utils.aoa_to_sheet(rows),wb=X.utils.book_new();ws['!cols']=(rows[0]||[]).map((_,i)=>({wch:Math.min(40,Math.max(8,...rows.slice(0,200).map(r=>String(r[i]??'').length+2)))}));X.utils.book_append_sheet(wb,ws,sheet.slice(0,31));wb.Workbook={Views:[{RTL:true}]};X.writeFile(wb,name)};
+function gridify(tb){if(tb.dataset.grid||tb.classList.contains('no-grid')||tb.closest('.no-grid')||tb.querySelector('input,select,textarea'))return;tb.dataset.grid='1';
+ const head=[...(tb.tHead?.rows[0]?.cells||[])];if(!head.length)return;const body=tb.tBodies[0];if(!body)return;
+ const all=[...body.rows].filter(r=>!(r.cells.length===1&&r.cells[0].colSpan>1));if(!all.length)return;const orig=all.slice();
+ const title=(tb.closest('.card')?.querySelector('.card-head h2,.card-head h3')?.innerText||'').trim(),key='pn_grid|'+location.hash.split('/').slice(0,3).join('/')+'|'+head.map(h=>h.innerText.trim()).join('|');
+ let hidden=new Set();try{hidden=new Set(JSON.parse(localStorage.getItem(key)||'[]'))}catch(_){}let size=50,page=0,sortI=-1,dir=1;
+ const numCol=head.map(h=>h.classList.contains('num')),hasUnit=head.some(h=>/واحد/.test(h.innerText)),MONEY=/ارزش|مبلغ|بها|تومان|ریال|هزینه|قیمت|پرداخت|خرید|سهم|حقوق|انعام|جریمه|درآمد|مانده|بدهی|طلب/,sumCol=head.map((h,i)=>numCol[i]&&!h.dataset.nosum&&(!hasUnit||MONEY.test(h.innerText)));
+ const vis=()=>{head.forEach((h,i)=>{const d=hidden.has(i)?'none':'';h.style.display=d;for(const r of [...body.rows,...(tb.tFoot?[...tb.tFoot.rows]:[])])if(r.cells[i]&&r.cells.length===head.length)r.cells[i].style.display=d})};
+ // totals (all rows)
+ if(!tb.tFoot&&all.length>1&&sumCol.some(Boolean)){const short=new Set,sums=head.map((_,i)=>{if(!sumCol[i])return null;let s=0,n=0;for(const r of all){const t=String(r.cells[i]?.innerText||'');if(/[٪%]/.test(t))return null;const v=P.num2(t);if(v===null){if(t.trim()&&t.trim()!=='—')return null;continue}if(/میلیارد|میلیون/.test(t))short.add(i);s+=v;n++}return n?s:null});
+  if(sums.some(v=>v!==null)){const f=tb.createTFoot(),tr=f.insertRow();head.forEach((h,i)=>{const td=tr.insertCell();td.className=numCol[i]?'num':'';td.innerHTML=sums[i]!==null&&short.has(i)?`<b>${RT.money(sums[i])}</b>`:sums[i]!==null?`<b>${P.fa(Math.round(sums[i]*100)/100===Math.round(sums[i])?Math.round(sums[i]).toLocaleString('en-US'):(Math.round(sums[i]*100)/100).toLocaleString('en-US'))}</b>`:(i===head.findIndex((_,k)=>!hidden.has(k))?'<b>جمع</b>':'')});tr.className='grid-total'}}
+ const bar=document.createElement('div');bar.className='grid-bar';const wrap=tb.closest('.table-wrap')||tb;wrap.parentNode.insertBefore(bar,wrap);
+ const draw=()=>{const rows=sortI<0?orig:orig.slice().sort((a,b)=>{const x=a.cells[sortI]?.innerText||'',y=b.cells[sortI]?.innerText||'',nx=P.num2(x),ny=P.num2(y);if(nx!==null&&ny!==null)return(nx-ny)*dir;if(nx!==null)return -1;if(ny!==null)return 1;return P.en(x).localeCompare(P.en(y),'fa')*dir});
+  if(sortI>=0)for(const r of rows)body.appendChild(r);const pages=size?Math.max(1,Math.ceil(rows.length/size)):1;if(page>=pages)page=pages-1;rows.forEach((r,k)=>{r.style.display=!size||(k>=page*size&&k<(page+1)*size)?'':'none'});
+  head.forEach((h,i)=>{h.classList.toggle('sorted',i===sortI);h.dataset.dir=i===sortI?(dir>0?'asc':'desc'):''});vis();
+  bar.innerHTML=`<div class="grid-tools"><span class="muted">${P.fa(rows.length)} ردیف</span><span class="grow"></span>${rows.length>GRID_SIZES[0]?`<select class="select grid-size" aria-label="ردیف در صفحه">${GRID_SIZES.map(n=>`<option value="${n}" ${n===size?'selected':''}>${n?P.fa(n)+' در صفحه':'همه'}</option>`).join('')}</select>${size&&pages>1?`<button class="btn btn-ghost btn-sm btn-icon" data-gp="-1" ${page?'':'disabled'} aria-label="صفحهٔ قبل">${P.ic('chevron-right')}</button><span class="muted">${P.fa(page+1)} از ${P.fa(pages)}</span><button class="btn btn-ghost btn-sm btn-icon" data-gp="1" ${page<pages-1?'':'disabled'} aria-label="صفحهٔ بعد">${P.ic('chevron-left')}</button>`:''}`:''}<div class="grid-cols-wrap"><button class="btn btn-ghost btn-sm" data-gc>${P.ic('columns-3')}ستون‌ها${hidden.size?' ('+P.fa(head.length-hidden.size)+')':''}</button><div class="grid-cols" hidden>${head.map((h,i)=>`<label class="check"><input type="checkbox" data-col="${i}" ${hidden.has(i)?'':'checked'}>${P.esc(h.innerText.trim()||'—')}</label>`).join('')}</div></div><button class="btn btn-ghost btn-sm" data-gx>${P.ic('file-spreadsheet')}Excel</button></div>`;RT.icons()};
+ bar.addEventListener('click',e=>{const p=e.target.closest('[data-gp]');if(p){page+=+p.dataset.gp;draw();return}if(e.target.closest('[data-gc]')){const box=bar.querySelector('.grid-cols');box.hidden=!box.hidden;return}
+  if(e.target.closest('[data-gx]')){const ci=head.map((_,i)=>i).filter(i=>!hidden.has(i)),rows=sortI<0?orig:[...body.rows].filter(r=>orig.includes(r)),cell=c=>{const t=(c?.innerText||'').replace(/\s+/g,' ').trim(),v=P.num2(t);return v!==null&&/^[\d۰-۹+\-−٫.,٬\s]+$/.test(t)?v:t};
+   P.excelDownload(`${(title||'list').replace(/[\\/?*[\]:]/g,' ').slice(0,40)}-${(window.InvEngine?.CAL?.today||'').replace(/\//g,'-')}.xlsx`,[ci.map(i=>head[i].innerText.trim()),...rows.map(r=>ci.map(i=>cell(r.cells[i]))),...(tb.tFoot?[...tb.tFoot.rows].map(r=>ci.map(i=>cell(r.cells[i]))):[])],title||'Sheet1').catch(x=>P.toast(x.message,'alert-triangle'))}});
+ bar.addEventListener('change',e=>{if(e.target.classList.contains('grid-size')){size=+e.target.value;page=0;draw();return}const c=e.target.dataset.col;if(c!==undefined){if(e.target.checked)hidden.delete(+c);else hidden.add(+c);try{localStorage.setItem(key,JSON.stringify([...hidden]))}catch(_){}vis();const b=bar.querySelector('[data-gc]');if(b)b.lastChild.textContent='ستون‌ها'+(hidden.size?' ('+P.fa(head.length-hidden.size)+')':'')}});
+ document.addEventListener('click',e=>{if(!bar.contains(e.target)){const box=bar.querySelector('.grid-cols');if(box)box.hidden=true}});
+ head.forEach((h,i)=>{if(h.dataset.nosort||!h.innerText.trim())return;h.classList.add('sortable');h.onclick=()=>{if(sortI===i){if(dir>0)dir=-1;else{sortI=-1;dir=1}}else{sortI=i;dir=numCol[i]?-1:1}page=0;draw()}});
+ draw()}
+P.grid=root=>{for(const tb of (root||document).querySelectorAll('#pnView table.table, #pnModal table.table'))gridify(tb)};
+let gridT=0;new MutationObserver(()=>{clearTimeout(gridT);gridT=setTimeout(()=>P.grid(),40)}).observe(document.documentElement,{childList:true,subtree:true});
 
 P.start=()=>{
   /* skin chosen in the look menu (night / bazaar), else the light or dark theme */

@@ -26,4 +26,9 @@ coverage/
 .env.*
 !.env.example
 # ابزار محلی Claude Code (worktree، lock)
-.claude/
+.claude/*
+!.claude/settings.json
+!.claude/commands/
+
+# کپی محلی دادهٔ زنده برای آزمون (tools/fetch-live-data.cjs) — هرگز ثبت نشود
+.local-data/
