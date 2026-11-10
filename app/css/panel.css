@@ -248,3 +248,7 @@ tfoot tr.grid-total td{background:var(--surface-2);border-top:2px solid var(--bo
 /* catalog item form: wide modal, three columns on desktop (less vertical scroll) */
 @media (min-width:900px){.ing-form .form-grid:not(.cu-row){grid-template-columns:repeat(3,minmax(0,1fr))}}
 .table.compact td:last-child{white-space:normal;min-width:170px}
+/* modal sizes: lg (most edit forms) was not defined in the app (fell back to 520px); on desktop the form grids of lg and
+   wide modals use three columns so edit forms need less vertical scroll */
+.modal.lg{width:min(900px,100%)}
+@media (min-width:900px){.modal.lg .form-grid:not([style*="grid-template-columns"]),.modal.wide .form-grid:not([style*="grid-template-columns"]){grid-template-columns:repeat(3,minmax(0,1fr))}}

@@ -105,15 +105,19 @@ function ingredientUsage(doc,id){const viaPrep=new Set(A(doc.preparedItems).filt
    ingredientRefs: where an item is used — recipes of active / inactive menu items, prepared items, recipe versions, and its
    history in inventory (counts, receipts, movements, waste, beverage controls, invoices, opening balances) and purchase
    prices from invoices. cleanupIngredients removes items with no reference at all (the removed rows go into the audit row
-   as a backup) and archives (inactive + isArchived) items whose only references are inactive menu items or history; an
+   as a backup; zero-only count lines are removed from the counts first, InvWrite.removeZeroCountLines) and archives (inactive + isArchived) items whose only references are inactive menu items or history; an
    item in an active recipe, an active prepared item or with stock on hand (onHand map from InvEngine.positions) is refused. Codes are never reused: removed codes are kept in
    doc.settings.retiredIngredientCodes and nextIngredientCode counts them. */
 const INV_HISTORY=['stocktakes','stockReceipts','inventoryMovements','wasteRecords','wasteShiftDeclarations','consumptionRecords','beverageDailyControls','purchaseInvoices','openingBalances','salesPeriods'];
-function ingredientRefs(doc,inv,id){const hit=x=>JSON.stringify(x).includes('"'+id+'"'),menus=new Map(A(doc.menuItems).map(m=>[m.id,m])),prepIds=new Set(A(doc.preparedItems).filter(p=>A(p.components).some(c=>c.ingredientId===id)).map(p=>p.id));
+// a record refers to the item through its own fields; its revision / recalculation history (removed lines) does not count
+const NO_HIST=(k,v)=>k==='revisionHistory'||k==='varianceRecalcHistory'?undefined:v;
+function ingredientRefs(doc,inv,id){const hit=x=>JSON.stringify(x,NO_HIST).includes('"'+id+'"'),menus=new Map(A(doc.menuItems).map(m=>[m.id,m])),prepIds=new Set(A(doc.preparedItems).filter(p=>A(p.components).some(c=>c.ingredientId===id)).map(p=>p.id));
  const recipeMenus=[...new Set(A(doc.recipes).filter(r=>r.ingredientId===id||(r.preparedItemId&&prepIds.has(r.preparedItemId))).map(r=>r.menuItemId))].map(k=>menus.get(k)).filter(Boolean);
- const history={};for(const k of INV_HISTORY){const n=A(inv?.[k]).filter(hit).length;if(n)history[k]=n}const ver=A(doc.recipeVersions).filter(hit).length,inv$=A(doc.ingredientPriceHistory).filter(h=>h.ingredientId===id&&S(h.source)==='supplierInvoice').length;
+ // a count where the item was only ever recorded as 0 (counted and not there) is not history: such lines go with the item
+ const stLines=A(inv?.stocktakes).flatMap(s=>A(s.lines).filter(l=>l.ingredientId===id)),zeroOnly=stLines.length>0&&stLines.every(l=>Number(l.actual)===0&&!A(l.preparedContributions).length);
+ const history={};for(const k of INV_HISTORY){if(k==='stocktakes'&&zeroOnly)continue;const n=A(inv?.[k]).filter(hit).length;if(n)history[k]=n}const zeroCounts=zeroOnly?stLines.length:0;const ver=A(doc.recipeVersions).filter(hit).length,inv$=A(doc.ingredientPriceHistory).filter(h=>h.ingredientId===id&&S(h.source)==='supplierInvoice').length;
  const prepared=A(doc.preparedItems).filter(p=>prepIds.has(p.id)),activePrep=prepared.filter(p=>p.status!=='غیرفعال'&&!p.isArchived);
- return{activeMenus:recipeMenus.filter(m=>m.status!=='غیرفعال'),inactiveMenus:recipeMenus.filter(m=>m.status==='غیرفعال'),prepared,activePrep,recipeVersions:ver,invoicePrices:inv$,history,hasHistory:Object.keys(history).length>0||ver>0||inv$>0}}
+ return{zeroCounts,activeMenus:recipeMenus.filter(m=>m.status!=='غیرفعال'),inactiveMenus:recipeMenus.filter(m=>m.status==='غیرفعال'),prepared,activePrep,recipeVersions:ver,invoicePrices:inv$,history,hasHistory:Object.keys(history).length>0||ver>0||inv$>0}}
 function cleanupPlan(doc,inv,id,{onHand}={}){const r=ingredientRefs(doc,inv,id),q=onHand?Number(onHand.get(id))||0:0;r.onHand=q;if(r.activeMenus.length||r.activePrep.length||Math.abs(q)>1e-6)return{id,action:'keep',refs:r};return{id,action:r.inactiveMenus.length||r.prepared.length||r.hasHistory?'archive':'delete',refs:r}}
 function cleanupIngredients(doc,ctx,{ids,inv,onHand}){const list=A(doc.ingredients),out={deleted:[],archived:[],kept:[]};doc.settings=doc.settings||{};
  for(const id of A(ids)){const i=list.find(x=>x.id===id);if(!i)continue;const p=cleanupPlan(doc,inv,id,{onHand});

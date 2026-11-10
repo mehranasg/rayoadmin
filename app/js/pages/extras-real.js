@@ -109,7 +109,7 @@ const hint=()=>P.note(`این صفحه <b>دادهٔ نمونه</b> است. بر
 function wire(modId,tabId,v){const m=P.mods[modId],t=m?.tabs?.find(x=>x.id===tabId);if(!t)return;const r0=t.render,m0=t.mount,a0=t.actions;
  t.render=r=>IC.ready()?(v.render?v.render(r):P.note(v.empty,'info')):hint()+r0(r);
  t.mount=(root,r)=>{if(IC.ready()&&v.render){v.mount&&v.mount(root,r)}else m0&&m0(root,r)};
- if((a0||v.actions)&&v.render)t.actions=r=>IC.ready()?(v.actions?v.actions():`<a class="btn btn-secondary" href="#/${modId}/legacy">${P.ic('external-link')}ثبت در پنل فعلی</a>`):(a0?a0(r):'')}
+ if((a0||v.actions)&&v.render)t.actions=r=>IC.ready()?(v.actions?v.actions():''):(a0?a0(r):'')}
 // purchase orders (purchase-real.js): inventory ← «درخواست خرید»
 if(window.PurchaseReal?.orders)wire('inventory','requests',window.PurchaseReal.orders);
 wire('finance','assets',{render:withModule('assets','دارایی‌ها',assetsView),mount:assetsMount,actions:()=>mods.assets?.doc?(window.CatalogReal?.assetAction?.()||'')+assetsActions():''});

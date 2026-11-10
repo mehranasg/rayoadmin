@@ -364,7 +364,7 @@ for(const [id,v] of Object.entries(REAL)){const t=inv.tabs.find(x=>x.id===id);if
  t.render=r=>IC.ready()?v.render(r):hint()+r0(r);
  t.mount=(root,r)=>{if(IC.ready()){v.mount&&v.mount(root,r)}else m0&&m0(root,r)};
  // sales, beverage and settings have their entry controls inside the page
- if(a0||ACTIONS[id])t.actions=r=>IC.ready()?(ACTIONS[id]?ACTIONS[id]():['sales','beverage','settings'].includes(id)?'':`<a class="btn btn-secondary" href="#/inventory/legacy">${P.ic('external-link')}ثبت در پنل فعلی</a>`):(a0?a0(r):'');}
+ if(a0||ACTIONS[id])t.actions=r=>IC.ready()?(ACTIONS[id]?ACTIONS[id]():['sales','beverage','settings'].includes(id)?'':''):(a0?a0(r):'');}
 /* stock tab badge = items needing order (real) */
 const ro=inv.tabs.find(x=>x.id==='reorder');if(ro){const b0=ro.badge;ro.badge=()=>IC.ready()?pos().filter(r=>r.needOrder).length:(b0?b0():0)}
 const st=inv.tabs.find(x=>x.id==='stock');if(st)st.badge=()=>IC.ready()?pos().filter(r=>r.needOrder).length:0;

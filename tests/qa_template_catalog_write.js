@@ -98,5 +98,7 @@ ok(AW.deleteAsset(a,ctx('assets'),{id:'AST-0003'})&&!a.assets.some(x=>x.id==='AS
  const c=ctx();const r=MW.cleanupIngredients(d,c,{ids:['I1','I2','I3','I4','I5'],inv});
  ok(r.deleted.map(x=>x.code).join()==='1004,1009'&&r.archived.join()==='1002,1003'&&r.kept.join()==='1001'&&d.ingredients.length===4,'clean-up result');
  ok(d.ingredients.find(x=>x.id==='I2').isArchived===true&&d.ingredients.find(x=>x.id==='I2').status==='غیرفعال'&&c.auditExtra.deleted.length===2,'archived inactive; deleted rows kept in the audit row');
- ok(MW.nextIngredientCode(d)==='1010','removed codes are not reused')}
+ ok(MW.nextIngredientCode(d)==='1010','removed codes are not reused')
+ const d2={settings:{},ingredients:[{id:'Z1',code:'2001'},{id:'Z2',code:'2002'}],menuItems:[],recipes:[]},inv2={stocktakes:[{id:'S1',lines:[{ingredientId:'Z1',actual:0},{ingredientId:'Z2',actual:3}]},{id:'S2',lines:[{ingredientId:'Z1',actual:0}]}]};
+ ok(MW.cleanupPlan(d2,inv2,'Z1').action==='delete'&&MW.ingredientRefs(d2,inv2,'Z1').zeroCounts===2&&MW.cleanupPlan(d2,inv2,'Z2').action==='archive','an item only ever counted as zero is deletable; a counted quantity is history')}
 console.log(`qa_template_catalog_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

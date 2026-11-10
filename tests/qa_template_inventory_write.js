@@ -74,6 +74,9 @@ throws(()=>W.addCount(doc,ctx(),{date:D5,entries:[{itemId:'i1',quantity:-1}]}),/
  throws(()=>W.removeCountLine(d3,ctx(),{date:D5,itemId:'i1',reason:''}),/علت/,'removing a counted item needs a reason');
  throws(()=>W.removeCountLine(d3,ctx(),{date:D3,itemId:'i1',reason:'x'}),/نیست/,'item not in that count');
  const r=W.removeCountLine(d3,ctx(),{date:D5,itemId:'i1',reason:'اشتباه'});ok(r.voided&&s3.status==='void'&&s3.lines.length===0&&s3.revisionHistory.at(-1).kind==='line-removed'&&near(s3.revisionHistory.at(-1).removed[0].actual,26),'counted item removed with its line in the revision; empty count becomes void')}
+{const d4={stocktakes:[{id:'A',date:'1405/08/01',status:'approved',lines:[{ingredientId:'z',actual:0},{ingredientId:'k',actual:2}]},{id:'B',date:'1405/08/02',status:'approved',lines:[{ingredientId:'z',actual:0}]}]};
+ const r=W.removeZeroCountLines(d4,ctx(),{ids:['z']});ok(r.lines===2&&r.voided===1&&d4.stocktakes[0].lines.length===1&&d4.stocktakes[1].status==='void'&&d4.stocktakes[0].revisionHistory[0].kind==='item-deleted','zero count lines of a deleted item removed with a revision; empty count voided');
+ throws(()=>W.removeZeroCountLines(d4,ctx(),{ids:['k']}),/مقدار دارد/,'a line with a quantity is never removed')}
 
 // 5. engine sees the new records
 const M=E.build({inventory:doc,pricing}),p=E.positions(M,T).find(r=>r.id==='i1');

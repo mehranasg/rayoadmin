@@ -325,7 +325,6 @@ const sampleTab=(mod,id)=>P.live()&&(SAMPLE_TABS[mod]||[]).includes(id);
 /* features of the current panel that are not in the new panel yet: one «در پنل فعلی» tab per section, opened in the same tab
    (the sign-in is kept for the browser tab, so the current panel opens signed in) */
 P.LEGACY={
- people:[['آموزش‌ها و پروتکل‌ها (ویرایش)','personnel.html?view=protocols','training'],['تعریف چک‌لیست‌ها','personnel.html?view=checklistTemplates','training'],['گزارش چک‌لیست‌ها','personnel.html?view=checklistReports','training']],
  inventory:[['شروع دوباره انبارداری از یک تاریخ و بازنشانی شمارش‌ها (با پشتیبان)','inventory.html','inventoryEdit']],
  settings:[['بازنشانی جداول برای رستوران جدید و بارگذاری اولیه (Initialize)','settings.html?view=dataManagement','settings']]};
 function legacyTab(mod){return{id:'legacy',label:'در پنل فعلی',icon:'external-link',liveOnly:true,desc:'امکاناتی از پنل فعلی که هنوز به پنل جدید منتقل نشده‌اند',

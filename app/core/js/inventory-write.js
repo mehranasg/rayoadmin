@@ -121,6 +121,15 @@ function removeCountLine(doc,ctx,{date,itemId,reason}){date=D(date);reason=S(rea
  if(!s.lines.length&&!A(s.preparedLines).length)Object.assign(s,{status:'void',voidReason:'همهٔ اقلام حذف شد: '+reason,voidedAt:ctx.at,voidedBy:ctx.actor});
  ctx.auditExtra={entityId:s.id,date,itemId,before:clone(ln),reason};return{id:s.id,voided:s.status==='void',name:ln.itemNameSnapshot}}
 
+/* catalog clean-up: before items are deleted, their count lines that are all zero are removed from the counts (each count
+   keeps them in revisionHistory, kind item-deleted); a count left without lines becomes void. Lines with a quantity are
+   never removed (such an item is archived, not deleted). */
+function removeZeroCountLines(doc,ctx,{ids}){const set=new Set(A(ids)),out={lines:0,counts:0,voided:0};
+ for(const s of A(doc.stocktakes)){const rm=A(s.lines).filter(l=>set.has(l.ingredientId));if(!rm.length)continue;if(rm.some(l=>Number(l.actual)!==0||A(l.preparedContributions).length))throw Error(`«${rm[0].itemNameSnapshot||rm[0].ingredientId}» در شمارش ${D(s.date)} مقدار دارد و حذف نمی‌شود`);
+  s.lines=A(s.lines).filter(l=>!set.has(l.ingredientId));s.revisionHistory=A(s.revisionHistory);s.revisionHistory.push({id:uid('STR',s.revisionHistory),kind:'item-deleted',at:ctx.at,by:ctx.actor,reason:'حذف قلم بی‌استفاده از کاتالوگ',added:[],replaced:[],removed:rm.map(clone)});s.updatedAt=ctx.at;s.updatedBy=ctx.actor;if(s.coverage)s.coverage={...s.coverage,counted:s.lines.length};out.lines+=rm.length;out.counts++;
+  if(!s.lines.length&&!A(s.preparedLines).length&&s.status!=='void'){Object.assign(s,{status:'void',voidReason:'همهٔ اقلام این شمارش حذف شدند',voidedAt:ctx.at,voidedBy:ctx.actor});out.voided++}}
+ ctx.auditExtra={ids:[...set],...out};return out}
+
 /* ---------- fryer oil change (js/32 saveOilChange) ---------- */
 function oilSettings(doc,pricing){const s=doc?.settings?.fryerOil||{},id=S(s.ingredientId)||A(pricing?.ingredients).find(i=>/^روغن سرخ ?کردنی$/.test(S(i.name)))?.id||'';return{ingredientId:id,density:Number(s.density)||0.91,logFrom:validDate(D(s.logFrom))?D(s.logFrom):'',fryers:A(s.fryers).length?A(s.fryers).map(f=>({id:S(f.id),name:S(f.name),liters:Number(f.liters)||0})):OIL_FRYERS_DEFAULT.map(f=>({...f}))}}
 function addOilChange(doc,ctx,input){const s=oilSettings(doc,ctx.pricing),f=s.fryers.find(x=>x.id===S(input.fryerId)),date=D(input.date),kind=input.kind==='TOP_UP'?'TOP_UP':'FULL',liters=N(input.liters)>0?N(input.liters):(kind==='FULL'?Number(f?.liters):0);
@@ -278,6 +287,6 @@ async function edit(io,{action,details={},mutate}){
   catch(e){if(sent){try{const c=await io.load();if(S(c?.meta?.serverSaveToken)===after.meta.serverSaveToken&&content(c)===content(after))return{out,doc:c}}catch(_){}state.uncertain=true}throw e}
  }finally{state.busy=false}}
 
-window.InvWrite={removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+window.InvWrite={removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();

@@ -68,7 +68,7 @@ function overviewMount(){if(!sup.doc&&!sup.err)loadSuppliers()}
 
 /* ---------- wiring ---------- */
 const hint=()=>P.note(`این صفحه <b>دادهٔ نمونه</b> است. برای دیدن دادهٔ واقعی، در «انبار ← داشبورد کنترل» به داده وصل شوید. <a href="#/inventory/control">اتصال</a>`,'database');
-const empty=what=>P.note(`<b>${what}</b> هنوز در پنل جدید نیست؛ از تب «در پنل فعلی» باز کنید. <a href="#/finance/legacy">در پنل فعلی</a>`,'info');
+const empty=what=>P.note(`<b>${what}</b> هنوز در پنل جدید نیست.`,'info');
 // «فاکتورها و بدهی‌ها» on real data: purchase-real.js (stage 6); suppliers are loaded here so its forms can list them
 const PD=window.PurchaseReal?.docs;
 const REAL={overview:{render:overviewReal,mount:overviewMount},cash:{render:cashReal,mount:cashMount},parties:{render:partiesReal,mount:partiesMount},
@@ -77,6 +77,6 @@ const REAL={overview:{render:overviewReal,mount:overviewMount},cash:{render:cash
 for(const [id,v] of Object.entries(REAL)){const t=fin.tabs.find(x=>x.id===id);if(!t)continue;const r0=t.render,m0=t.mount,a0=t.actions;
  t.render=r=>IC.ready()?(v.render?v.render(r):empty(v.empty)):hint()+r0(r);
  t.mount=(root,r)=>{if(IC.ready()&&v.render){v.mount&&v.mount(root,r)}else m0&&m0(root,r)};
- if(a0&&v.render)t.actions=r=>IC.ready()?(v.actions?v.actions():`<a class="btn btn-secondary" href="#/finance/legacy">${P.ic('external-link')}ثبت در پنل فعلی</a>`):a0(r);}
+ if(a0&&v.render)t.actions=r=>IC.ready()?(v.actions?v.actions():''):a0(r);}
 window.FinanceReal={monthStats,sales,mask,suppliers:()=>sup.doc,loadSuppliers,supState:sup,setSuppliers:d=>{sup.doc=d;sup.err=''}};
 })();

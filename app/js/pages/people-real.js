@@ -100,13 +100,13 @@ window.PeopleEntry={quick:quickHr,tip:tipForm,penalty:penaltyForm,penaltyStatus:
 
 /* ---------- wiring ---------- */
 const hint=()=>P.note(`این صفحه <b>دادهٔ نمونه</b> است. برای دیدن دادهٔ واقعی، در «انبار ← داشبورد کنترل» به داده وصل شوید. <a href="#/inventory/control">اتصال</a>`,'database');
-const empty=what=>P.note(`<b>${what}</b> هنوز در پنل جدید نیست؛ از تب «در پنل فعلی» باز کنید. <a href="#/people/legacy">در پنل فعلی</a>`,'info');
+const empty=what=>P.note(`<b>${what}</b> هنوز در پنل جدید نیست.`,'info');
 const REAL={staff:{render:gate(staffView),mount:staffMount},training:{render:gate(trainingView)},users:{render:gate(usersView),mount:usersMount},messages:{render:gate(messagesView),mount:messagesMount},
  attendance:{empty:'تردد (ورود و خروج) و برنامهٔ شیفت'},requests:{empty:'مرخصی، مساعده و اصلاح کارکرد'}};
 for(const [id,v] of Object.entries(REAL)){const t=mod.tabs.find(x=>x.id===id);if(!t)continue;const r0=t.render,m0=t.mount,a0=t.actions;
  t.render=r=>IC.ready()?(v.render?v.render(r):empty(v.empty)):hint()+r0(r);
  t.mount=(root,r)=>{if(IC.ready()&&v.render){v.mount&&v.mount(root,r)}else m0&&m0(root,r)};
  const ACT={messages:()=>wbtn('megaphone','پیام جدید','onclick="PeopleEntry.message()"')};
- if((a0||ACT[id])&&v.render)t.actions=r=>IC.ready()?(ACT[id]?(H()?ACT[id]():''):`<a class="btn btn-secondary" href="#/people/legacy">${P.ic('external-link')}ثبت در پنل فعلی</a>`):(a0?a0(r):'');}
+ if((a0||ACT[id])&&v.render)t.actions=r=>IC.ready()?(ACT[id]?(H()?ACT[id]():''):''):(a0?a0(r):'');}
 window.PeopleReal={doc:()=>hr.doc,load:loadHr,state:hr,tipShares,scrub,gate,saveHr,tenure,canWrite,whyLocked};
 })();
