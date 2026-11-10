@@ -34,6 +34,6 @@ http.createServer(async(req,res)=>{const u=new URL(req.url,'http://x'),p=decodeU
  if(p==='/__probe.js'){res.setHeader('Content-Type','application/javascript; charset=utf-8');return res.end(process.env.PROBE?fs.readFileSync(path.resolve(root,process.env.PROBE)):'')}
  const f=path.resolve(root,'.'+(p.endsWith('/')?p+'index.html':p));if(!f.toLowerCase().startsWith(root.toLowerCase())||f.includes(`${path.sep}.local-data${path.sep}`)){res.statusCode=403;return res.end()}
  fs.readFile(f,(e,b)=>{if(e){res.statusCode=404;return res.end('not found')}
-  if(/[\\/]app[\\/][a-z]+\.html$/.test(f))b=Buffer.from(b.toString().replace('<head>','<head><script>window.RAYO_TEMPLATE_API=location.origin;</script>'+SESSION).replace(/(src|href)="https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com)\//g,(m,a,h)=>`${a}="/__cdn/${h}/`).replace('</body>',process.env.PROBE?'<script src="/__probe.js"></script></body>':'</body>'));
+  if(/[\\/]app[\\/][a-z]+\.html$/.test(f))b=Buffer.from(b.toString().replace('<head>','<head><script>window.RAYO_TEMPLATE_API=location.origin;window.RAYO_CDN_PROXY="/__cdn/";</script>'+SESSION).replace(/(src|href)="https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com)\//g,(m,a,h)=>`${a}="/__cdn/${h}/`).replace('</body>',process.env.PROBE?'<script src="/__probe.js"></script></body>':'</body>'));
   res.setHeader('Content-Type',TYPES[path.extname(f)]||'application/octet-stream');res.end(b)})
 }).listen(PORT,'127.0.0.1',()=>console.log(`dev server http://127.0.0.1:${PORT}/app/index.html  (data: ${dataDir})`));
