@@ -85,4 +85,18 @@ throws(()=>AW.saveAsset(a,ctx('assets'),{id:'AST-0002',trackingMode:'quantity',n
 AW.archiveAsset(a,ctx('assets'),{id:'AST-0001',archived:false});ok(a.assets[0].isArchived===false,'restore from archive');
 throws(()=>AW.deleteAsset(a,ctx('assets'),{id:'AST-0002'}),/سابقه/,'asset with history is not deleted');
 ok(AW.deleteAsset(a,ctx('assets'),{id:'AST-0003'})&&!a.assets.some(x=>x.id==='AST-0003'),'asset without history is deleted');
+// latest-price template round trip (headers of the blank / sample file in the latest-prices form)
+{const H=['کد ماده','نام ماده','دسته‌بندی','واحد خرید','آخرین قیمت خرید (تومان)','تاریخ آخرین قیمت','مبلغ فعلی (تومان)','تاریخ مبلغ فعلی'],ings=[{id:'A',code:'11',name:'شکر'},{id:'B',code:'12',name:'نمک'}];
+ const r=MW.parsePriceSheets([['قیمت‌ها',[H,['11','شکر','','کیسه','250000','1405/08/10','200000','1405/07/01'],['12','نمک','','کیسه','','','90000','1405/07/01']]]],ings);
+ ok(r.rows.length===1&&r.rows[0].price===250000&&r.rows[0].date==='1405/08/10'&&!r.bad.length,'template: new price column read (not the current-price column); empty price skipped silently')}
+// catalog clean-up: delete unused, archive used-only-in-inactive or with history, keep active recipe items
+{const d={settings:{},ingredients:[{id:'I1',code:'1001'},{id:'I2',code:'1002'},{id:'I3',code:'1003'},{id:'I4',code:'1004'},{id:'I5',code:'1009'},{id:'I6',code:'1006'}],menuItems:[{id:'M1',status:'فعال'},{id:'M2',status:'غیرفعال'}],
+  recipes:[{menuItemId:'M1',ingredientId:'I1'},{menuItemId:'M2',ingredientId:'I2'},{menuItemId:'M1',preparedItemId:'PP1'}],preparedItems:[{id:'PP1',status:'فعال',components:[{ingredientId:'I6'}]}],ingredientPriceHistory:[{ingredientId:'I5',source:'manual'}]};
+ const inv={stocktakes:[{id:'S1',lines:[{ingredientId:'I3',actual:2}]}]};
+ ok(MW.cleanupPlan(d,inv,'I1').action==='keep'&&MW.cleanupPlan(d,inv,'I6').action==='keep'&&MW.cleanupPlan(d,inv,'I4',{onHand:new Map([['I4',2]])}).action==='keep','active recipe, active prepared item or stock on hand: kept');
+ ok(MW.cleanupPlan(d,inv,'I2').action==='archive'&&MW.cleanupPlan(d,inv,'I3').action==='archive'&&MW.cleanupPlan(d,inv,'I4').action==='delete'&&MW.cleanupPlan(d,inv,'I5').action==='delete','only in inactive menu / count history: archive; unused (manual price only): delete');
+ const c=ctx();const r=MW.cleanupIngredients(d,c,{ids:['I1','I2','I3','I4','I5'],inv});
+ ok(r.deleted.map(x=>x.code).join()==='1004,1009'&&r.archived.join()==='1002,1003'&&r.kept.join()==='1001'&&d.ingredients.length===4,'clean-up result');
+ ok(d.ingredients.find(x=>x.id==='I2').isArchived===true&&d.ingredients.find(x=>x.id==='I2').status==='غیرفعال'&&c.auditExtra.deleted.length===2,'archived inactive; deleted rows kept in the audit row');
+ ok(MW.nextIngredientCode(d)==='1010','removed codes are not reused')}
 console.log(`qa_template_catalog_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

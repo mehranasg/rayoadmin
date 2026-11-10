@@ -97,10 +97,30 @@ const ITEM_TYPES={MENU_INGREDIENT:'ماده اولیه منو',MENU_CONSUMABLE:'
 const DRIVERS={GUESTS:'تعداد مهمان',CHECKS:'تعداد فاکتور',OPEN_DAYS:'روز کاری',SHIFTS:'تعداد شیفت',WASH_CYCLES:'دفعات شست‌وشو'};
 const UNITS_DEFAULT=['بسته','عدد','لیتر','کیلوگرم','گرم'];
 function duplicateNames(doc){const by=new Map;for(const i of A(doc.ingredients)){const k=NORM(i.name);if(!k)continue;const l=by.get(k)||[];l.push(i.id);by.set(k,l)}return new Map([...by].filter(([,l])=>l.length>1))}
-function nextIngredientCode(doc){let m=0;for(const i of A(doc.ingredients)){const c=S(i.code);if(/^\d+$/.test(c))m=Math.max(m,+c)}return m?String(m+1):pcUid('INGCODE',doc.ingredients)}
+function nextIngredientCode(doc){let m=0;for(const c0 of [...A(doc.ingredients).map(i=>i.code),...A(doc.settings?.retiredIngredientCodes)]){const c=S(c0);if(/^\d+$/.test(c))m=Math.max(m,+c)}return m?String(m+1):pcUid('INGCODE',doc.ingredients)}
 const fam=u=>FAM[E().UK(u)]||'';
 // active menu items whose current recipe uses the ingredient (shown before deactivating it)
 function ingredientUsage(doc,id){const viaPrep=new Set(A(doc.preparedItems).filter(p=>A(p.components).some(c=>c.ingredientId===id)).map(p=>p.id)),ms=new Set(A(doc.recipes).filter(r=>r.ingredientId===id||(r.preparedItemId&&viaPrep.has(r.preparedItemId))).map(r=>r.menuItemId));return A(doc.menuItems).filter(m=>ms.has(m.id)&&m.status!=='غیرفعال')}
+/* ---------- catalog clean-up: unused items ----------
+   ingredientRefs: where an item is used — recipes of active / inactive menu items, prepared items, recipe versions, and its
+   history in inventory (counts, receipts, movements, waste, beverage controls, invoices, opening balances) and purchase
+   prices from invoices. cleanupIngredients removes items with no reference at all (the removed rows go into the audit row
+   as a backup) and archives (inactive + isArchived) items whose only references are inactive menu items or history; an
+   item in an active recipe, an active prepared item or with stock on hand (onHand map from InvEngine.positions) is refused. Codes are never reused: removed codes are kept in
+   doc.settings.retiredIngredientCodes and nextIngredientCode counts them. */
+const INV_HISTORY=['stocktakes','stockReceipts','inventoryMovements','wasteRecords','wasteShiftDeclarations','consumptionRecords','beverageDailyControls','purchaseInvoices','openingBalances','salesPeriods'];
+function ingredientRefs(doc,inv,id){const hit=x=>JSON.stringify(x).includes('"'+id+'"'),menus=new Map(A(doc.menuItems).map(m=>[m.id,m])),prepIds=new Set(A(doc.preparedItems).filter(p=>A(p.components).some(c=>c.ingredientId===id)).map(p=>p.id));
+ const recipeMenus=[...new Set(A(doc.recipes).filter(r=>r.ingredientId===id||(r.preparedItemId&&prepIds.has(r.preparedItemId))).map(r=>r.menuItemId))].map(k=>menus.get(k)).filter(Boolean);
+ const history={};for(const k of INV_HISTORY){const n=A(inv?.[k]).filter(hit).length;if(n)history[k]=n}const ver=A(doc.recipeVersions).filter(hit).length,inv$=A(doc.ingredientPriceHistory).filter(h=>h.ingredientId===id&&S(h.source)==='supplierInvoice').length;
+ const prepared=A(doc.preparedItems).filter(p=>prepIds.has(p.id)),activePrep=prepared.filter(p=>p.status!=='غیرفعال'&&!p.isArchived);
+ return{activeMenus:recipeMenus.filter(m=>m.status!=='غیرفعال'),inactiveMenus:recipeMenus.filter(m=>m.status==='غیرفعال'),prepared,activePrep,recipeVersions:ver,invoicePrices:inv$,history,hasHistory:Object.keys(history).length>0||ver>0||inv$>0}}
+function cleanupPlan(doc,inv,id,{onHand}={}){const r=ingredientRefs(doc,inv,id),q=onHand?Number(onHand.get(id))||0:0;r.onHand=q;if(r.activeMenus.length||r.activePrep.length||Math.abs(q)>1e-6)return{id,action:'keep',refs:r};return{id,action:r.inactiveMenus.length||r.prepared.length||r.hasHistory?'archive':'delete',refs:r}}
+function cleanupIngredients(doc,ctx,{ids,inv,onHand}){const list=A(doc.ingredients),out={deleted:[],archived:[],kept:[]};doc.settings=doc.settings||{};
+ for(const id of A(ids)){const i=list.find(x=>x.id===id);if(!i)continue;const p=cleanupPlan(doc,inv,id,{onHand});
+  if(p.action==='keep'){out.kept.push(i.code);continue}
+  if(p.action==='archive'){Object.assign(i,{status:'غیرفعال',isArchived:true,archivedAt:ctx.at,archivedBy:ctx.actor,archiveReason:'پاک‌سازی کاتالوگ: فقط در آیتم غیرفعال یا دارای سابقه'});out.archived.push(i.code);continue}
+  doc.ingredients=A(doc.ingredients).filter(x=>x.id!==id);doc.recipes=A(doc.recipes).filter(r=>r.ingredientId!==id);doc.settings.retiredIngredientCodes=[...new Set([...A(doc.settings.retiredIngredientCodes),S(i.code)])].filter(Boolean);out.deleted.push(JSON.parse(JSON.stringify(i)))}
+ ctx.auditExtra={deleted:out.deleted,archivedCodes:out.archived,keptCodes:out.kept};return out}
 function saveIngredient(doc,ctx,x){
  const ings=A(doc.ingredients),old=x.id?ings.find(i=>i.id===x.id):null;if(x.id&&!old)throw Error('قلم پیدا نشد');
  const name=S(x.name);if(!name)throw Error('نام قلم الزامی است');
@@ -212,7 +232,7 @@ function parsePriceSheets(sheets,ingredients){let best=null;
  const sep=['ضریبمصرف','نوعکالا','واحدمصرف'].every(k=>best.h.includes(k)),ings=A(ingredients),out={sheet:best.sheet,sepidz:sep,rows:[],notFound:[],bad:[]},seen=new Set;
  for(const row of best.rows.slice(best.r+1)){const g=k=>best.map[k]>=0?row[best.map[k]]:'',code=S(g('code')),name=S(g('name'));if(!code&&!name)continue;
   const i=ings.find(x=>code&&NORM(x.code)===NORM(code))||ings.find(x=>name&&NORM(x.name)===NORM(name));if(!i){out.notFound.push(name||code);continue}
-  const raw=N(g('price'));if(!(raw>0)){out.bad.push(i.name);continue}if(seen.has(i.id))continue;seen.add(i.id);
+  if(S(g('price'))==='')continue;const raw=N(g('price'));if(!(raw>0)){out.bad.push(i.name);continue}if(seen.has(i.id))continue;seen.add(i.id);
   out.rows.push({id:i.id,name:i.name,price:Math.round((sep?raw/10:raw)*100)/100,date:pxDate(g('date'))})}
  return out}
 function setLatestPrices(doc,ctx,{date,rows,source='manual-bulk'}){const d0=E().D(date);if(!d0)throw Error('تاریخ قیمت معتبر نیست');if(d0>E().CAL.today)throw Error('تاریخ قیمت بعد از امروز است');
@@ -223,5 +243,5 @@ function setLatestPrices(doc,ctx,{date,rows,source='manual-bulk'}){const d0=E().
   doc.ingredientPriceHistory.push({id:pcUid('IPH',doc.ingredientPriceHistory),ingredientId:i.id,date:d,priceToman:p,source,purchaseUnit:i.purchaseUnit,recipeUnit:i.recipeUnit,packageQuantity:Z(i.packageQuantity),createdAt:ctx.at,createdBy:ctx.actor});
   if(!last||d>=last)Object.assign(i,{lastPurchasePriceToman:p,lastPurchaseDate:d,lastPurchaseSource:source==='excel'?'excel':'manual',lastPurchaseInvoiceId:''});out.push({id:i.id,price:p,date:d,current:!last||d>=last})}
  if(!out.length)throw Error('قیمت تازه‌ای وارد نشده است');ctx.auditExtra={date:d0,count:out.length,source};return out}
-window.MenuWrite={prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+window.MenuWrite={ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();

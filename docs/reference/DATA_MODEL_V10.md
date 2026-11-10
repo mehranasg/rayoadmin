@@ -6,7 +6,7 @@
 
 | مفهوم | مالک حقیقت | رابطه و سازگاری |
 |---|---|---|
-| قلم | `pricing.ingredients` | `id` مرجع؛ `code` و `sepids` حفظ شوند |
+| قلم | `pricing.ingredients` | `id` مرجع؛ `code` و `sepids` حفظ شوند؛ آرشیو با `isArchived`, `archivedAt/By`, `archiveReason`؛ کد قلم حذف‌شده در `pricing.settings.retiredIngredientCodes` |
 | آیتم/رسپی | `pricing.menuItems/recipes/recipeVersions` | خط به menuItemId و ingredientId؛ نسخهٔ تاریخ‌دار |
 | تأمین‌کننده | `suppliers.suppliers` | id و code هر دو در دادهٔ Legacy مصرف می‌شوند |
 | تأمین قلم | `suppliers.supplierItems` | ingredientId به کاتالوگ؛ supplierCode/شناسه طبق رکورد موجود |
