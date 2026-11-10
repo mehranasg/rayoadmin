@@ -121,11 +121,26 @@ ok(fin.entries.length===5&&fin.obligations.length===4,'nothing removed (voided r
  FW.setOpening(fin4,ctx(),{accountKey:'account:A1',date:'1405/08/03',amountToman:90000000,notes:'اصلاح'});ok(op.status==='void'&&FW.openingOf(fin4,'account:A1').amountToman===90000000,'new opening replaces the old one (kept as void)');
  L=FW.accountLedger(src,{from:'1405/08/06',to:'1405/08/06'});ok(g('account:A1').start===90000000&&g('account:A1').out===3000000&&g('account:A1').balance===87000000,'period: balance at the start of the period, in and out inside it');
  ok(FW.monthEntries(fin4,'1405/08').length===1,'transfers and openings are not ledger documents (no P&L effect)')}
+// daily cash box
+{const inv={settings:{paymentLocations:[{id:'L1',name:'بانک'},{id:'L9',name:'صندوق نقدی'}]},supplierPayments:[{id:'SP1',date:'1405/08/05',amount:1e6,paymentLocationId:'L9',directionEffect:'payment',status:'posted'}]};
+ const fin5={settings:{},entries:[],openings:[]},hr={personnel:[{id:'P1',name:'علی'}],payments:[{id:'PAY-1',personnelId:'P1',type:'مساعده',date:'1405/08/06',amount:5e5,accountKey:'payment:L9'}]};
+ ok(FW.cashBoxKey({fin:fin5,inv})==='payment:L9','cash box: the payment location named «صندوق نقدی» by default');
+ FW.setOpening(fin5,ctx(),{accountKey:'payment:L9',date:'1405/08/01',amountToman:3e6,notes:'شروع'});
+ FW.addTransfer(fin5,ctx(),{date:'1405/08/05',fromKey:'payment:L1',toKey:'payment:L9',amountToman:2e6});
+ FW.addEntry(fin5,ctx(),{type:'expense',date:'1405/08/06',category:'سایر',amountToman:2e5,title:'پیک',paid:true,accountKey:'payment:L9'},{accountName:'صندوق نقدی'});
+ const src={fin:fin5,inv,hr,cash:{}},{row,days}=FW.cashBoxDays(src,'payment:L9',{from:'1405/08/01',to:'1405/08/30'});
+ ok(row.balance===3e6+2e6-1e6-5e5-2e5&&days.length===2,'cash box: opening + top-up − supplier − staff advance − courier expense; one row per day with moves');
+ ok(days[0].date==='1405/08/05'&&days[0].open===3e6&&days[0].close===4e6&&days[1].open===4e6&&days[1].out===7e5&&days[1].close===33e5,'cash box days: open and close chain');
+ const c1=FW.addCashCount(fin5,ctx(),{accountKey:'payment:L9',date:'1405/08/06',counted:'۳٬۲۰۰٬۰۰۰',expected:33e5});ok(/^CBC-\d{5}$/.test(c1.id)&&c1.diffToman===-1e5,'end-of-day count: shortage recorded');
+ const c2=FW.addCashCount(fin5,ctx(),{accountKey:'payment:L9',date:'1405/08/06',counted:33e5,expected:33e5});ok(c1.status==='void'&&c2.diffToman===0,'a new count of the same day voids the earlier');
+ ok(FW.cashBoxDays(src,'payment:L9',{from:'1405/08/01',to:'1405/08/30'}).days[1].diff===0,'count shown against the computed close');
+ throws(()=>FW.voidCashCount(fin5,ctx(),{id:c2.id,reason:''}),/علت/,'void needs a reason');FW.voidCashCount(fin5,ctx(),{id:c2.id,reason:'اشتباه'});ok(c2.status==='void'&&fin5.cashBoxCounts.length===2,'count voided, not deleted');
+ FW.setCashBoxKey(fin5,ctx(),{key:'payment:L1'});ok(FW.cashBoxKey({fin:fin5,inv})==='payment:L1','cash box account can be chosen')}
 // forecast and calculator
 {const f=FW.forecast({past:[{sales:1000,materials:300,staffMeal:10,expenseTotal:100},{sales:2000,materials:700,staffMeal:30,expenseTotal:200}],payroll:500,knownExpenses:250});
  ok(f.sales===1500&&Math.round(f.materialPercent*10)===325&&f.staffMeal===20&&f.otherExpenses===250&&f.payroll===500,'forecast: averages of recent months, known expenses when higher, payroll from contracts');
  const c=FW.calc({sales:1000,materialPercent:30,staffMeal:20,payroll:300,otherExpenses:100,reservePercent:2.5});ok(c.materials===300&&c.reserve===25&&c.profit===255&&Math.round(c.breakEven)===Math.round(420/0.675),'calculator: profit and break-even sales')}
 // pages
 const lr=fs.readFileSync(path.join(__dirname,'../app/js/pages/ledger-real.js'),'utf8'),ix=fs.readFileSync(path.join(__dirname,'../app/index.html'),'utf8');
-ok(/id:'ledger'/.test(lr)&&/id:'debts'/.test(lr)&&/id:'finset'/.test(lr)&&ix.includes('core/js/finance-write.js')&&ix.includes('js/pages/ledger-real.js'),'finance tabs wired');
+ok(/id:'ledger'/.test(lr)&&/id:'cashbox'/.test(lr)&&/id:'debts'/.test(lr)&&/id:'finset'/.test(lr)&&ix.includes('core/js/finance-write.js')&&ix.includes('js/pages/ledger-real.js'),'finance tabs wired');
 console.log(`qa_template_finance: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);
