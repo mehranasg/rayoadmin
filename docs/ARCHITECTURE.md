@@ -70,7 +70,7 @@ app/
 | `npm test` | همهٔ `tests/qa_template_*.js` با خلاصهٔ نتیجه |
 | `npm run verify` | هر دو |
 | `npm run fetch-data` | کپی **فقط‌خواندنی** همهٔ ماژول‌های API زنده در `.local-data/` (در git ثبت نمی‌شود و اطلاعات حساس دارد) |
-| `npm run serve` | سرور محلی: مخزن + API شبیه‌سازی‌شده روی کپی محلی (`tools/dev-server.cjs`). هیچ‌وقت به API واقعی وصل نمی‌شود؛ ذخیره‌ها فقط در حافظهٔ همان اجرا می‌مانند. آدرس: `http://127.0.0.1:8790/app/index.html` با ورود خودکار مالک |
+| `npm run serve` | سرور محلی: مخزن + API شبیه‌سازی‌شده روی کپی محلی (`tools/dev-server.cjs`). هیچ‌وقت به API واقعی وصل نمی‌شود؛ ذخیره‌ها فقط در حافظهٔ همان اجرا می‌مانند. آدرس: `http://127.0.0.1:8790/app/index.html` با ورود خودکار مالک اسکریپت‌های CDN (echarts، xlsx، آیکون) را یک بار می‌گیرد و در `.local-data/cdn/` نگه می‌دارد تا مرورگر آزمون بدون دسترسی Chrome به CDN هم نمودار داشته باشد. |
 | `npm run smoke` | سرور + Chrome بدون رابط + `tools/probes/smoke.js`: صفحه‌های اصلی را باز می‌کند و خطاهای JS را گزارش می‌دهد |
 | `node tools/smoke.cjs tools/probes/<x>.js` | اجرای probe دلخواه |
 | `node tools/browser-run.cjs <url> [ثانیه] [عرض] [نام عکس]` | اجرای مستقیم Chrome بدون رابط |

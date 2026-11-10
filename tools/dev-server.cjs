@@ -27,9 +27,13 @@ http.createServer(async(req,res)=>{const u=new URL(req.url,'http://x'),p=decodeU
    if(b.operation==='insert'){if(i>=0){res.statusCode=400;return res.end('{"message":"exists"}')}list.push(b.data)}else if(b.operation==='update'){if(i<0){res.statusCode=404;return res.end('{"message":"not found"}')}list[i]=b.data}else if(b.operation==='archive'){if(i<0){res.statusCode=404;return res.end('{"message":"not found"}')}list[i]={...list[i],...b.data,isArchived:true}}
    REQ.add(b.requestId);VER[m]++;return res.end(JSON.stringify({version:VER[m]}))}
   res.statusCode=405;return res.end('{}')}
+ // CDN scripts and styles (echarts, xlsx, icons, fonts css) go through a local cache in .local-data/cdn/, fetched once by
+ // Node: headless Chrome may not reach the CDN (system proxy), and later runs work offline
+ if(p.startsWith('/__cdn/')){const u='https://'+decodeURIComponent(p.slice(7)),k=path.join(dataDir,'cdn',u.replace(/[^a-z0-9.]+/gi,'_'));const send=b=>{res.setHeader('Content-Type',TYPES[path.extname(u.split('?')[0])]||'application/octet-stream');res.end(b)};
+  if(fs.existsSync(k))return send(fs.readFileSync(k));try{const r=await fetch(u);if(!r.ok)throw Error('HTTP '+r.status);const b=Buffer.from(await r.arrayBuffer());fs.mkdirSync(path.dirname(k),{recursive:true});fs.writeFileSync(k,b);return send(b)}catch(e){res.statusCode=502;return res.end(String(e.message))}}
  if(p==='/__probe.js'){res.setHeader('Content-Type','application/javascript; charset=utf-8');return res.end(process.env.PROBE?fs.readFileSync(path.resolve(root,process.env.PROBE)):'')}
  const f=path.resolve(root,'.'+(p.endsWith('/')?p+'index.html':p));if(!f.toLowerCase().startsWith(root.toLowerCase())||f.includes(`${path.sep}.local-data${path.sep}`)){res.statusCode=403;return res.end()}
  fs.readFile(f,(e,b)=>{if(e){res.statusCode=404;return res.end('not found')}
-  if(/[\\/]app[\\/][a-z]+\.html$/.test(f))b=Buffer.from(b.toString().replace('<head>','<head><script>window.RAYO_TEMPLATE_API=location.origin;</script>'+SESSION).replace('</body>',process.env.PROBE?'<script src="/__probe.js"></script></body>':'</body>'));
+  if(/[\\/]app[\\/][a-z]+\.html$/.test(f))b=Buffer.from(b.toString().replace('<head>','<head><script>window.RAYO_TEMPLATE_API=location.origin;</script>'+SESSION).replace(/(src|href)="https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com)\//g,(m,a,h)=>`${a}="/__cdn/${h}/`).replace('</body>',process.env.PROBE?'<script src="/__probe.js"></script></body>':'</body>'));
   res.setHeader('Content-Type',TYPES[path.extname(f)]||'application/octet-stream');res.end(b)})
 }).listen(PORT,'127.0.0.1',()=>console.log(`dev server http://127.0.0.1:${PORT}/app/index.html  (data: ${dataDir})`));
