@@ -151,6 +151,8 @@ Gateway با spread سطح بالا و merge شیءهای شناخته‌شده 
 
 `inventory.purchaseInvoices` و `inventory.supplierPayments` با `supplierId: 'MISC'` = فروشندهٔ متفرقه؛ نام در `supplierNameSnapshot` (پرداخت‌ها از این نسخه `supplierNameSnapshot` دارند).
 
+`personnel.lists` بعد از ساختار استاندارد: `sectionGroups` (سکشن ← گروه)، `managementPositions`، `hallPositions`، `kitchenPositions`، `servicePositions`، `sections`، `kitchenRanks`، `structureVersion: 'standard-1'`. گروه `مدیریت` در `personnel[].personnelGroup`.
+
 `finance.cashBoxCounts` (صندوق نقدی): id `CBC-NNNNN`، accountKey، date، countedToman، expectedToman، diffToman، note، status (active/void)، voidReason، createdAt/By. `finance.settings.cashBoxKey`: کلید حساب صندوق (`payment:ID`، `cash:ID` یا `account:ID`).
 
 `finance.obligations`: id، direction (payable/receivable)، partySource/partyId، title، category، amountToman، date، dueDate، entryType (normal/opening)، period، reference، description، status/audit. `settlements`: id, requestId, reference, accountKey, obligationId, direction, date, amountToman, method, notes, status/audit. تسویه روی گردش وجه اثر دارد اما income/expense نیست. `checks`: id, obligationId, type, number, bank, amountToman, issueDate, dueDate, partySource, partyId, status, notes, createdAt. pending چک تسویه نیست؛ `calcObligation` مانده و بخش بدون پوشش را محاسبه می‌کند. این مدل double-entry ledger رسمی نیست.

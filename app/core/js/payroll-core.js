@@ -47,7 +47,7 @@ function config(hr){const s=hr?.settings||{},y=N(s.payrollStartYear),m=N(s.payro
   reasons:reasons.length?reasons:DEF_REASONS.map(x=>({...x,active:true})),items:items.length?items:DEF_ITEMS.map(x=>({...x,active:true})),methods:methods.length?methods:DEF_METHODS.slice()}}
 function reasonKind(hr,pay,cfg=config(hr)){if(pay?.tipSettlement===true)return'tip';if(KINDS[pay?.reasonKind])return pay.reasonKind;const t=S(pay?.type),r=cfg.reasons.find(x=>x.title===t);if(r)return r.kind;if(LEGACY_REASON[t])return LEGACY_REASON[t];if(t==='مساعده')return'advance';if(/انعام/.test(t))return'tip';return'salary'}
 function itemKind(hr,item,cfg=config(hr)){const t=S(item?.type),r=cfg.items.find(x=>x.title===t);if(r)return r.kind;if(LEGACY_ITEM[t])return LEGACY_ITEM[t];return /جریمه|کسر/.test(t)?'deduction':'addition'}
-const isManager=p=>S(p?.section)==='مدیریت';
+const isManager=p=>S(p?.section)==='مدیریت'||S(p?.personnelGroup)==='مدیریت';
 
 /* ---------- months ---------- */
 const startCode=hr=>{const s=config(hr).start;return s?code(s.year,s.month):0};

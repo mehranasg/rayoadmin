@@ -28,7 +28,7 @@ const person=(doc,id)=>A(doc.personnel).find(p=>p.id===id);
 // js/00 tipCode: TIPG-<year><month>-<4 digits>, numbered within the month of the tip date
 function tipCode(doc,date){const [y,m]=date.split('/'),prefix=`TIPG-${y}${m}-`;let mx=0;A(doc.tipGroups).filter(x=>S(x.id).startsWith(prefix)).forEach(x=>mx=Math.max(mx,+S(x.id).split('-').pop()||0));return prefix+String(mx+1).padStart(4,'0')}
 // js/00 tipDefaultSelectedV5: «کلی» = everyone active, «سالن» = hall group in the hall sections, «فردی» = nobody preselected
-function tipDefault(type,p){if(type==='کلی')return true;if(type==='سالن')return p.personnelGroup==='سالن'&&['سالن بالا','سالن پایین','بار','هاست'].includes(p.section);return false}
+function tipDefault(type,p){if(type==='کلی')return true;if(type==='سالن')return p.personnelGroup==='سالن'&&['سالن بالا','سالن پایین','بار','هاست','صندوق و پذیرش'].includes(p.section);return false}
 
 /* ---------- tips ---------- */
 function addTip(doc,ctx,x){const date=D(x.date);assertDate(date);const type=list(doc,'tipTypes',TIP_TYPES).includes(x.type)?x.type:'',total=NUM(x.totalAmount);if(!type)throw Error('نوع انعام را انتخاب کنید');if(!(total>0))throw Error('مبلغ انعام باید مثبت باشد');
@@ -76,15 +76,54 @@ const ACC_ITEMS=['تیشرت','ایپرون','روپوش','کلاه','بیسیم
 const PERMS=[['cashReport','ثبت گزارش صندوق روزانه'],['purchaseRequests','ثبت سفارش خرید'],['purchaseInvoices','ثبت فاکتور خرید'],['tips','ثبت انعام'],['surveys','ثبت نظرسنجی مشتری'],['suppliersView','مشاهدهٔ اطلاعات تأمین‌کنندگان']];
 const mainSection=s=>['سالن بالا','سالن پایین','حیاط','تراس'].includes(S(s))?HALL:S(s);
 // js/03 sectionsForGroupV51 / positions lists of the personnel module
-function sectionsFor(doc,g){const all=[...new Set(A(doc?.lists?.sections).map(mainSection).filter(Boolean))];return g==='آشپزخانه'?all.filter(x=>x==='آشپزخانه'):g==='خدمات'?all.filter(x=>x==='خدمات'):all.filter(x=>!['آشپزخانه','خدمات'].includes(x))}
-function positionsFor(doc,g){const k=g==='آشپزخانه'?'kitchenPositions':g==='خدمات'?'servicePositions':'hallPositions';return A(doc?.lists?.[k])}
+/* standard structure (decided 2026-11-10): four groups — مدیریت، سالن (front of house)، آشپزخانه (back of house)، خدمات.
+   After the owner applies it (applyStandard), lists.sectionGroups maps every section to its group and
+   lists.managementPositions holds the management roles; before that the old three-group lists keep working. */
+const STD={groups:['مدیریت','سالن','آشپزخانه','خدمات'],
+ sections:{'مدیریت':['مدیریت'],'سالن':['سالن','بار','صندوق و پذیرش','قلیان','پیک','پارکینگ'],'آشپزخانه':['خط گرم','خط سرد','آماده‌سازی','شستشو'],'خدمات':['خدمات']},
+ positions:{managementPositions:['مدیر رستوران','سرپرست شیفت','حسابدار'],hallPositions:['گارسون','رانر','هاست','صندوقدار','باریستا','قلیان‌چی','پیک','پارکبان'],kitchenPositions:['سرآشپز','سوشف','آشپز گریل','پیتزازن','پاستازن','آشپز سرد','آماده‌ساز','ظرفشور','اکسپدیتور'],servicePositions:['خدمات و نظافت']},
+ kitchenRanks:['سرآشپز','آشپز','کمک‌آشپز'],
+ posMap:{'سالن‌کار':'گارسون','ویتر':'گارسون','مدیر/سرپرست':'سرپرست شیفت','مدیریت':'مدیر رستوران','قلیان‌زن':'قلیان‌چی','پارک‌بان':'پارکبان','تخته‌کار':'آماده‌ساز','وسط‌کار':'آماده‌ساز','سالادزن':'آشپز سرد','ساندویچ‌زن':'آشپز سرد','گریل‌کار':'آشپز گریل','فیش‌خوان':'اکسپدیتور','خدماتی':'خدمات و نظافت'},
+ secMap:{'هاست':'صندوق و پذیرش','صندوق':'صندوق و پذیرش','قلیان‌خانه':'قلیان'},
+ kitchenSecOf:{'سرآشپز':'خط گرم','سوشف':'خط گرم','آشپز گریل':'خط گرم','پیتزازن':'خط گرم','پاستازن':'خط گرم','اکسپدیتور':'خط گرم','آشپز سرد':'خط سرد','آماده‌ساز':'آماده‌سازی','ظرفشور':'شستشو'}};
+const POS_KEY={'مدیریت':'managementPositions','سالن':'hallPositions','آشپزخانه':'kitchenPositions','خدمات':'servicePositions'};
+const isStd=doc=>!!doc?.lists?.sectionGroups&&typeof doc.lists.sectionGroups==='object';
+const groupsOf=doc=>isStd(doc)?STD.groups:['سالن','آشپزخانه','خدمات'];
+function sectionsFor(doc,g){const all=[...new Set(A(doc?.lists?.sections).map(mainSection).filter(Boolean))];
+ if(isStd(doc)){const m=doc.lists.sectionGroups;return all.filter(x=>(m[x]||'سالن')===g)}
+ return g==='آشپزخانه'?all.filter(x=>x==='آشپزخانه'):g==='خدمات'?all.filter(x=>x==='خدمات'):g==='سالن'?all.filter(x=>!['آشپزخانه','خدمات'].includes(x)):[]}
+function positionsFor(doc,g){return A(doc?.lists?.[POS_KEY[g]||'hallPositions'])}
+/* preview and apply of the standard structure: new lists, every person's group / section / positions, the shift-plan
+   cells (location~position keys) and staffing requirements renamed the same way; positions not in the map are kept and
+   added to their group's list. The audit row keeps every value before the change (rollback). */
+function stdPerson(p){const pos0=S(p.mainPosition),pos=STD.posMap[pos0]||pos0,bpos0=S(p.backupPosition),bpos=STD.posMap[bpos0]||bpos0;let g=S(p.personnelGroup)||'سالن';if(STD.positions.managementPositions.includes(pos))g='مدیریت';
+ let sec=mainSection(p.section),sub=S(p.subSection);if(g==='مدیریت'){sec='مدیریت';sub=''}else if(g==='آشپزخانه'){sec=STD.kitchenSecOf[pos]||'خط گرم';sub=''}else if(g==='خدمات'){sec='خدمات';sub=''}else{sec=STD.secMap[sec]||(sec==='مدیریت'?'سالن':sec);if(!STD.sections['سالن'].includes(sec))sec=sec||'سالن';if(sec!=='سالن')sub=''}
+ return{personnelGroup:g,section:sec,subSection:sub,mainPosition:pos,backupPosition:bpos===pos?'':bpos,kitchenRank:g==='آشپزخانه'?S(p.kitchenRank):''}}
+function stdLocation(loc,pos){const l=S(loc);if(['سالن بالا','سالن پایین','حیاط','تراس'].includes(l))return l;if(l==='آشپزخانه')return STD.kitchenSecOf[pos]||'خط گرم';if(STD.positions.managementPositions.includes(pos))return'مدیریت';return STD.secMap[l]||l}
+function standardPlan(doc){const extra={};const people=A(doc.personnel).map(p=>{const to=stdPerson(p),k=POS_KEY[to.personnelGroup];for(const x of [to.mainPosition,to.backupPosition])if(x&&!STD.positions[k].includes(x)&&!Object.values(STD.positions).flat().includes(x))(extra[k]=extra[k]||new Set).add(x);
+  const from={personnelGroup:p.personnelGroup,section:p.section,subSection:p.subSection,mainPosition:p.mainPosition,backupPosition:p.backupPosition,kitchenRank:p.kitchenRank};return{id:p.id,name:p.name,status:p.status,from,to,changed:Object.keys(to).some(k=>S(from[k])!==S(to[k]))}});
+ // a backup position from another group is cleared (the form only offers the person's own group)
+ for(const x of people){const all=[...STD.positions[POS_KEY[x.to.personnelGroup]],...(extra[POS_KEY[x.to.personnelGroup]]||[])];if(x.to.backupPosition&&!all.includes(x.to.backupPosition)){x.to.backupPosition='';x.changed=true}}
+ const lists={...STD.positions};for(const [k,set] of Object.entries(extra))lists[k]=[...lists[k],...set];
+ const secs=Object.entries(STD.sections).flatMap(([g,ss])=>ss.map(s=>[s,g])),sectionGroups=Object.fromEntries(secs);
+ let cells=0,plans=0;for(const pl of A(doc.monthlyPlans)){let n=0;for(const k of Object.keys(pl.cells||{})){const r=stdKey(k);if(r!==k)n++}if(n){cells+=n;plans++}}
+ const reqs=A(doc.staffingRequirements).filter(r=>{const pos=STD.posMap[S(r.position)]||S(r.position),sec=stdLocation(r.section,pos);return pos!==S(r.position)||sec!==S(r.section)}).length;
+ return{people,lists:{...lists,sections:secs.map(x=>x[0]),sectionGroups,kitchenRanks:STD.kitchenRanks},cells,plans,reqs,already:isStd(doc)}}
+function stdKey(k){const p=String(k).split('|');if(p.length!==3)return k;const [l,pos]=String(p[1]).split('~'),dl=decodeURIComponent(l||''),dp=decodeURIComponent(pos||''),np=STD.posMap[dp]||dp,nl=stdLocation(dl,np);return np===dp&&nl===dl?k:`${p[0]}|${encodeURIComponent(nl)}~${encodeURIComponent(np)}|${p[2]}`}
+function applyStandard(doc,ctx){const plan=standardPlan(doc);if(plan.already)throw Error('ساختار استاندارد قبلاً اعمال شده است');doc.lists=doc.lists||{};
+ const before={lists:{},people:[],cells:{},reqs:[]};for(const k of [...Object.keys(STD.positions),'sections','sectionGroups','kitchenRanks'])before.lists[k]=clone(doc.lists[k]??null);
+ Object.assign(doc.lists,plan.lists);
+ for(const x of plan.people){if(!x.changed)continue;const p=person(doc,x.id);before.people.push({id:p.id,...x.from,salaryPosition:p.salaryProfile?.position});Object.assign(p,x.to);if(p.salaryProfile)p.salaryProfile.position=p.mainPosition;p.updatedAt=ctx.at;p.updatedBy=ctx.actor}
+ for(const pl of A(doc.monthlyPlans)){const old=pl.cells||{},nu={};let ch=false;for(const [k,ids] of Object.entries(old)){const r=stdKey(k);if(r!==k)ch=true;nu[r]=[...new Set([...A(nu[r]),...A(ids)])]}if(ch){before.cells[pl.id]=clone(old);pl.cells=nu;pl.updatedAt=ctx.at}}
+ for(const r of A(doc.staffingRequirements)){const pos=STD.posMap[S(r.position)]||S(r.position),sec=stdLocation(r.section,pos);if(pos===S(r.position)&&sec===S(r.section))continue;before.reqs.push({id:r.id,section:r.section,subSection:r.subSection,position:r.position});r.position=pos;r.section=sec;if(!['سالن'].includes(sec)&&!['سالن بالا','سالن پایین'].includes(sec))r.subSection='';r.updatedAt=ctx.at}
+ doc.lists.structureVersion='standard-1';ctx.auditExtra={before};return{people:before.people.length,plans:Object.keys(before.cells).length,cells:plan.cells,reqs:before.reqs.length}}
 const latinD=v=>S(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
 const today=()=>window.InvEngine.CAL.today,curMonth=()=>today().slice(0,7);
 const NN=s=>S(s).normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[‌\s]+/g,' ').toLowerCase();
 function personDuplicate(doc,{id,name,phone}){const ph=latinD(phone).replace(/\D/g,'');return A(doc.personnel).find(p=>p.id!==id&&((name&&NN(p.name)===NN(name))||(ph.length>=10&&latinD(p.phone).replace(/\D/g,'')===ph)))||null}
 function savePerson(doc,ctx,x){
  const old=x.id?person(doc,x.id):null;if(x.id&&!old)throw Error('پرسنل پیدا نشد');const name=S(x.name);if(!name)throw Error('نام و نام خانوادگی الزامی است');
- const g=GROUPS.includes(x.personnelGroup)?x.personnelGroup:'';if(!g)throw Error('گروه کلی را انتخاب کنید');
+ const g=groupsOf(doc).includes(x.personnelGroup)?x.personnelGroup:'';if(!g)throw Error('گروه کلی را انتخاب کنید');
  const section=mainSection(x.section),sub=g===HALL&&section===HALL?S(x.subSection):'';if(!sectionsFor(doc,g).includes(section))throw Error('سکشن با گروه نمی‌خواند');if(section===HALL&&g===HALL&&!A(doc.lists?.hallSubSections).includes(sub))throw Error('محدودهٔ سالن را انتخاب کنید (سالن بالا یا پایین)');
  const pos=positionsFor(doc,g);if(!pos.includes(S(x.mainPosition)))throw Error('پوزیشن اصلی با گروه نمی‌خواند');if(S(x.backupPosition)&&!pos.includes(S(x.backupPosition)))throw Error('پوزیشن بک‌آپ با گروه نمی‌خواند');
  const start=D(x.startDate);if(S(x.startDate)&&!start)throw Error('تاریخ شروع معتبر نیست');
@@ -182,5 +221,5 @@ function cancelLeave(doc,ctx,{id,reason}){const l=A(doc.leaves).find(x=>x.id===i
  Object.assign(l,{status:LEAVE_CANCEL,cancelledCount:NUM(l.count)||0,count:0,cancelReason:S(reason),cancelledAt:ctx.at,cancelledBy:ctx.actor});
  const r=l.requestId&&A(doc.leaveRequests).find(x=>x.id===l.requestId);if(r)Object.assign(r,{status:LEAVE_CANCEL,managerNote:`لغو پس از تأیید: ${S(reason)}`,reviewedAt:ctx.at,reviewedBy:ctx.actor});ctx.auditExtra={entityId:id};return true}
 
-window.PeopleWrite={BASE_LISTS,saveBaseSettings,GROUPS,ACC_ITEMS,PERMS,ENDED,sectionsFor,positionsFor,personDuplicate,savePerson,saveSalaryTerms,saveAccount,personRefs,removePerson,violationRepeats,saveViolation,voidViolation,saveViolationTypes,LEAVE_CANCEL,dayCount,leaveOverlap,leaveUsed,reviewLeave,addLeave,cancelLeave,TIP_TYPES,TIP_STATUS,PAY,PR_TYPES,APPROVAL,RES_STATUS,tipCode,tipDefault,addTip,settleTip,voidTip,addPenalty,setPenaltyStatus,addMessage,archiveMessage,addReservation,setReservationStatus,validPersonnel,list};
+window.PeopleWrite={STD,groupsOf,standardPlan,applyStandard,BASE_LISTS,saveBaseSettings,GROUPS,ACC_ITEMS,PERMS,ENDED,sectionsFor,positionsFor,personDuplicate,savePerson,saveSalaryTerms,saveAccount,personRefs,removePerson,violationRepeats,saveViolation,voidViolation,saveViolationTypes,LEAVE_CANCEL,dayCount,leaveOverlap,leaveUsed,reviewLeave,addLeave,cancelLeave,TIP_TYPES,TIP_STATUS,PAY,PR_TYPES,APPROVAL,RES_STATUS,tipCode,tipDefault,addTip,settleTip,voidTip,addPenalty,setPenaltyStatus,addMessage,archiveMessage,addReservation,setReservationStatus,validPersonnel,list};
 })();
