@@ -382,7 +382,6 @@ function buildSidebar(active){
       ${group('کار روزانه و ماهانه',['finance','inventory','people','menu','customers'].map(item).join(''))}
       ${group('تحلیل و پیکربندی',baseLinks()+['reports','settings'].map(item).join(''))}
       ${P.owner()?`<div class="nav-label">طرح</div>${item('plan')}`:''}
-      ${P.live()?`<div class="nav-label">پنل فعلی</div><a class="nav-link" href="${P.CUR()}index.html">${P.ic('external-link')}<span>امکانات منتقل‌نشده</span></a>`:''}
       ${P.realOwner()&&!AAx().preview()?`<div class="nav-label">نرم‌افزارهای داخل مجموعه (دمو)</div>${DEMOS.map(([h,l,i])=>`<a class="nav-link" href="${h}" target="_blank" rel="noopener">${P.ic(i)}<span>${l}</span><span class="nav-meta">نمونه</span></a>`).join('')}`:''}
     </nav>
     <div class="sidebar-foot"><div class="role-chip" style="cursor:default">
