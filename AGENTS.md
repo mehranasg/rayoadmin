@@ -1,66 +1,10 @@
-# Rayo Admin — Codex Instructions
+# Rayo — agent instructions
 
-## Project baseline
+All instructions for AI agents (Claude, Codex, others) are in **[CLAUDE.md](CLAUDE.md)**. Read it first; it is binding.
 
-- Current operational baseline: Rayo Admin v10.12.1
-- Read `docs/RAYO_ADMIN_MASTER_HANDOFF_v10_12_1.md` before architectural changes.
-- The current application is a multi-page HTML/CSS/JavaScript application.
-- The project is operational and uses real data.
-- The `main` branch of this repository is the only development baseline. Every deployed copy (for example `rayocafe.ir/panel`, `rayocafe.ir/panel4`) uses the same live API and data from `js/app-config.js`; deploy only from `main`.
-
-## Data safety
-
-- Never write Seed data during normal Load, Bootstrap or automatic Migration.
-- Never automatically Save DEFAULT_DATA after a failed API Load.
-- Initialize, Reset and Merge require an explicit administrator action.
-- Before destructive or structural data changes, require Backup, Preview and Rollback.
-- Do not change existing IDs or Sepidz codes.
-- Do not physically delete records with sales, recipe, purchase, payment or inventory history.
-- Use inactive, archived, reversal or soft-delete states for historical records.
-- Do not commit live JSON backups, passwords, bank details or other sensitive data.
-
-## Current data authority
-
-- `pricing.ingredients` is the current master catalog.
-- `suppliers.items` is a legacy compatibility mirror and must not become the master catalog.
-- `category` and `itemType` are independent concepts.
-- Inventory is single-warehouse: `RayoInventoryV10.unifiedMode()` always returns true and internal transfers are not recorded. Each item continues from its own latest whole count unless its control level is «دقیق» (PRECISE).
-- Keep historical names, codes, prices and recipe data as snapshots or versions.
-- Preserve the current 10-tab inventory structure (stock, receipt, sales, waste, count & variance, daily beverage control, reorder, consumption management, reports, settings) unless the product owner explicitly requests a change. The issue and periodic-variance tabs were removed at the owner's request (single warehouse); the read-only consumption management tab was added at the owner's request.
-
-## Working rules
-
-- Inspect the relevant HTML, CSS and all loaded JavaScript patches before editing.
-- Do not add another patch file unless the change cannot safely be made in the current implementation.
-- Prefer modifying the current owning file instead of adding another override.
-- Do not rewrite unrelated files.
-- Preserve Persian RTL layout, IRANSansX and the existing visual theme.
-- Explain whether a requested change affects JSON, Backend DTO, migration or live data.
-- For structural changes, describe migration and rollback before implementation.
-- Do not replace the current application with React unless explicitly requested.
-
-## Verification
-
-After JavaScript changes:
-
-- Run JavaScript syntax checks.
-- Run the latest relevant QA scripts.
-- Inspect `git diff`.
-- Test the affected page manually.
-- Verify normal Load does not trigger Seed or automatic Save.
-- Report changed files, tests, JSON impact and Backend impact.
-
-## Versioning
-
-- Small changes do not require sending or creating a complete ZIP.
-- Use Git commits for normal changes.
-- Create full ZIP releases only for milestones, deployment packages or explicit requests.
-- Do not change version numbers for incomplete work.
-
-## Documentation entry point
-
-- Start with `docs/AI_START_HERE.md`, then read only the reference sections and source/tests relevant to the task.
-- The master handoff path above is a compatibility pointer to the current references. Do not load every versioned document, archive, seed source workbook or backup by default.
-- For implementation facts, use current source/tests, then the latest explicit user request, current reference docs, and history only as context. User requests define intended changes; they do not prove a feature exists.
-- Historical documents are not current requirements. Record discrepancies and preserve all data-safety rules above.
-- Docs describe the current state only. Update the owning document in the same commit as the code change (see `docs/DOCUMENTATION_POLICY.md`); record owner decisions with their reason in the decision log of `docs/REBUILD_AND_MIGRATION_GUIDE.md`. Do not add work reports, delivery notes or versioned copies to `docs/`.
+Short version:
+- Active code is `app/` (admin panel + in-venue demos); tests are `tests/`; docs are `docs/` (index `docs/README.md`).
+- `legacy/` is the frozen old panel: do not change it.
+- Messages that start with «ثبت کن:», «ایده:», «باگ:», «بررسی کن:», «به طرح توسعه اضافه کن:» or «تصمیم:» are **record-only**: write them to `docs/BACKLOG.md`, `docs/ROADMAP.md` or `docs/DECISIONS.md` as CLAUDE.md describes. Do not change code.
+- Data-safety rules in CLAUDE.md apply to every change. The app runs on live restaurant data.
+- Reply to the owner in Persian.
