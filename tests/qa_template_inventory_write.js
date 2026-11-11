@@ -77,6 +77,7 @@ throws(()=>W.addCount(doc,ctx(),{date:D5,entries:[{itemId:'i1',quantity:-1}]}),/
 {const d4={stocktakes:[{id:'A',date:'1405/08/01',status:'approved',lines:[{ingredientId:'z',actual:0},{ingredientId:'k',actual:2}]},{id:'B',date:'1405/08/02',status:'approved',lines:[{ingredientId:'z',actual:0}]}]};
  const r=W.removeZeroCountLines(d4,ctx(),{ids:['z']});ok(r.lines===2&&r.voided===1&&d4.stocktakes[0].lines.length===1&&d4.stocktakes[1].status==='void'&&d4.stocktakes[0].revisionHistory[0].kind==='item-deleted','zero count lines of a deleted item removed with a revision; empty count voided');
  throws(()=>W.removeZeroCountLines(d4,ctx(),{ids:['k']}),/مقدار دارد/,'a line with a quantity is never removed')}
+{const d5={stocktakes:[{id:'O',date:'1405/06/01',baselineBoundary:'START',isOpeningBaseline:true,status:'approved',lines:[{ingredientId:'a',actual:11},{ingredientId:'b',actual:12}]}]};throws(()=>W.removeZeroCountLines(d5,ctx(),{ids:['b']}),/مقدار دارد/,'opening line with a quantity needs the opening flag');const r=W.removeZeroCountLines(d5,ctx(),{ids:['b'],opening:true,reason:'قلم تکراری'});ok(r.lines===1&&d5.stocktakes[0].lines.length===1&&d5.stocktakes[0].revisionHistory[0].reason==='قلم تکراری'&&d5.stocktakes[0].status==='approved','opening line removed with its reason; the opening count stays')}
 
 // 5. engine sees the new records
 const M=E.build({inventory:doc,pricing}),p=E.positions(M,T).find(r=>r.id==='i1');

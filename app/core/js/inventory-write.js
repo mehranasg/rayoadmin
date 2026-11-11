@@ -123,10 +123,11 @@ function removeCountLine(doc,ctx,{date,itemId,reason}){date=D(date);reason=S(rea
 
 /* catalog clean-up: before items are deleted, their count lines that are all zero are removed from the counts (each count
    keeps them in revisionHistory, kind item-deleted); a count left without lines becomes void. Lines with a quantity are
-   never removed (such an item is archived, not deleted). */
-function removeZeroCountLines(doc,ctx,{ids}){const set=new Set(A(ids)),out={lines:0,counts:0,voided:0};
- for(const s of A(doc.stocktakes)){const rm=A(s.lines).filter(l=>set.has(l.ingredientId));if(!rm.length)continue;if(rm.some(l=>Number(l.actual)!==0||A(l.preparedContributions).length))throw Error(`«${rm[0].itemNameSnapshot||rm[0].ingredientId}» در شمارش ${D(s.date)} مقدار دارد و حذف نمی‌شود`);
-  s.lines=A(s.lines).filter(l=>!set.has(l.ingredientId));s.revisionHistory=A(s.revisionHistory);s.revisionHistory.push({id:uid('STR',s.revisionHistory),kind:'item-deleted',at:ctx.at,by:ctx.actor,reason:'حذف قلم بی‌استفاده از کاتالوگ',added:[],replaced:[],removed:rm.map(clone)});s.updatedAt=ctx.at;s.updatedBy=ctx.actor;if(s.coverage)s.coverage={...s.coverage,counted:s.lines.length};out.lines+=rm.length;out.counts++;
+   never removed (such an item is archived, not deleted) — except, with opening:true (owner deleting a duplicate that only
+   appears in the opening count), the lines of opening counts (START / isOpeningBaseline). */
+function removeZeroCountLines(doc,ctx,{ids,opening=false,reason=''}){const set=new Set(A(ids)),out={lines:0,counts:0,voided:0},isOpen=s=>s?.isOpeningBaseline===true||s?.baselineBoundary==='START';
+ for(const s of A(doc.stocktakes)){const rm=A(s.lines).filter(l=>set.has(l.ingredientId));if(!rm.length)continue;if(rm.some(l=>A(l.preparedContributions).length||(Number(l.actual)!==0&&!(opening&&isOpen(s)))))throw Error(`«${rm[0].itemNameSnapshot||rm[0].ingredientId}» در شمارش ${D(s.date)} مقدار دارد و حذف نمی‌شود`);
+  s.lines=A(s.lines).filter(l=>!set.has(l.ingredientId));s.revisionHistory=A(s.revisionHistory);s.revisionHistory.push({id:uid('STR',s.revisionHistory),kind:'item-deleted',at:ctx.at,by:ctx.actor,reason:S(reason)||'حذف قلم بی‌استفاده از کاتالوگ',added:[],replaced:[],removed:rm.map(clone)});s.updatedAt=ctx.at;s.updatedBy=ctx.actor;if(s.coverage)s.coverage={...s.coverage,counted:s.lines.length};out.lines+=rm.length;out.counts++;
   if(!s.lines.length&&!A(s.preparedLines).length&&s.status!=='void'){Object.assign(s,{status:'void',voidReason:'همهٔ اقلام این شمارش حذف شدند',voidedAt:ctx.at,voidedBy:ctx.actor});out.voided++}}
  ctx.auditExtra={ids:[...set],...out};return out}
 
