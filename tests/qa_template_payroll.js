@@ -147,4 +147,10 @@ const a=PC.archive(hr);ok(a.tipShares.length===1&&a.tipShares[0].amount===900000
 const pr=fs.readFileSync(path.join(__dirname,'../app/js/pages/payroll-real.js'),'utf8'),ix=fs.readFileSync(path.join(__dirname,'../app/index.html'),'utf8');
 ok(ix.includes('core/js/payroll-core.js')&&ix.includes('js/pages/payroll-real.js')&&!ix.includes('payroll-engine.js'),'index loads the new payroll files only');
 ok(/id:'work'/.test(pr)&&/id:'payset'/.test(pr),'tabs «کارکرد ماه» and «تنظیمات حقوق»');
+// tip rounding: down to 5,000 in months not finalized; the difference is shown; finalizing stamps the step; an old finalized month keeps exact shares
+{const h={settings:{payrollStartYear:1405,payrollStartMonth:7},personnel:[{id:'A'},{id:'B'},{id:'C'}],payrollClosures:[{year:1405,month:7,active:true,engine:'v2',rows:[]}],tipGroups:[{id:'T1',receiveDate:'1405/08/03',totalAmount:1000000,participants:[{personnelId:'A'},{personnelId:'B'},{personnelId:'C'}]},{id:'T2',receiveDate:'1405/07/03',totalAmount:1000000,participants:[{personnelId:'A'},{personnelId:'B'},{personnelId:'C'}]}],payments:[]};
+ ok(PC.tipShares(h.tipGroups[0],h).every(x=>x.amount===330000)&&PC.tipRoundDiff(h.tipGroups[0],h)===10000,'open month: 1,000,000 ÷ 3 → 330,000 each, 10,000 difference');
+ ok(Math.abs(PC.tipShares(h.tipGroups[1],h)[0].amount-333333.333)<0.01&&Math.abs(PC.tipShares(h.tipGroups[0])[0].amount-333333.333)<0.01,'finalized month without step and calls without hr keep exact shares');
+ h.tipGroups[1].shareRoundingStep=5000;ok(PC.tipShares(h.tipGroups[1],h)[0].amount===330000,'a stored step always rounds');
+ const g={id:'T3',receiveDate:'1405/08/05',totalAmount:100000,participants:[{personnelId:'A',weight:2},{personnelId:'B'}]};ok(PC.tipShares(g,h).map(x=>x.amount).join()==='65000,30000','weights then round down');ok(PC.tipShares({receiveDate:'1405/08/05',totalAmount:197000,participants:[{personnelId:'A'}]},h)[0].amount===197000,'a one-person tip is not rounded')}
 console.log(`qa_template_payroll: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

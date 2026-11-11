@@ -166,7 +166,7 @@ if(st){const r0=st.render,m0=st.mount;st.render=r=>IC_()?PR.gate(staffView)(r):r
 const rs={from:'',to:'',pid:'',sort:'tips'};
 function repMetrics(hr,pid,from,to){const PC=window.PayrollCore,inR=d=>{d=E.D(d);return!!d&&d>=from&&d<=to},dead=x=>/لغو|رد|ابطال|void/.test(S(x?.status));
  const salary=A(hr.payments).filter(p=>p.personnelId===pid&&!dead(p)&&inR(p.date)&&PC.reasonKind(hr,p)==='salary').reduce((a,p)=>a+Z(p.amount),0);
- let tips=0;for(const g of A(hr.tipGroups))if(!dead(g)&&inR(g.receiveDate)){const sh=PC.tipShares(g).find(x=>x.personnelId===pid);if(sh)tips+=sh.amount}
+ let tips=0;for(const g of A(hr.tipGroups))if(!dead(g)&&inR(g.receiveDate)){const sh=PC.tipShares(g,hr).find(x=>x.personnelId===pid);if(sh)tips+=sh.amount}
  const items=A(hr.penaltiesRewards).filter(x=>x.personnelId===pid&&!dead(x)&&inR(x.date)),late=items.filter(x=>S(x.type)==='کسر تأخیر').reduce((a,x)=>a+Z(x.amount),0),fines=items.filter(x=>S(x.type)!=='کسر تأخیر'&&PC.itemKind(hr,x)==='deduction').reduce((a,x)=>a+Z(x.amount),0),rewards=items.filter(x=>PC.itemKind(hr,x)==='addition').reduce((a,x)=>a+Z(x.amount),0);
  const leaves=A(hr.leaves).filter(l=>l.personnelId===pid&&S(l.status)!=='لغوشده'&&E.D(l.toDate||l.fromDate)>=from&&E.D(l.fromDate||l.toDate)<=to).reduce((a,l)=>a+(Z(l.count)||1),0);
  const violations=A(hr.workViolations).filter(x=>x.personnelId===pid&&S(x.status)!=='ابطال‌شده'&&inR(x.date)).length;

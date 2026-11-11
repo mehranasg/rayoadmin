@@ -111,11 +111,18 @@ function earlierBalances(hr,y,m){const out=[];for(const x of months(hr,`${y}/${p
 function personMonths(hr,pid,today){const p=A(hr?.personnel).find(x=>x.id===pid);if(!p)return[];return months(hr,today).filter(x=>inPayroll(hr,p,x.year,x.month)).map(x=>calc(hr,p,x.year,x.month))}
 
 /* ---------- tips: own ledger from the start date ---------- */
-function tipShares(g){const ps=A(g?.participants),w=ps.reduce((a,x)=>a+(N(x.weight)||1),0)||1;return ps.map(x=>({personnelId:x.personnelId,amount:N(g.totalAmount)*(N(x.weight)||1)/w}))}
+/* tip shares: total × weight ÷ sum of weights, rounded DOWN to the tip rounding step (5,000 toman; decided 2026-11-11).
+   A tip is rounded when it carries its step (shareRoundingStep: new tips, and the tips of a month when the month is
+   finalized) or, with hr given, when its month is not finalized yet; tips of an already finalized month without a step
+   keep their exact shares; a tip of one person is never rounded (the share is the amount). The rest (total − sum of shares) is the rounding difference, shown, not paid. */
+const TIP_STEP=5000;
+function tipStep(g,hr){const s=N(g?.shareRoundingStep);if(s>0)return s;if(!hr)return 0;const d=D(g?.receiveDate);if(!d)return 0;return isClosed(hr,+d.slice(0,4),+d.slice(5,7))?0:TIP_STEP}
+function tipShares(g,hr){const ps=A(g?.participants),w=ps.reduce((a,x)=>a+(N(x.weight)||1),0)||1,step=ps.length>1?tipStep(g,hr):0;return ps.map(x=>{const raw=N(g.totalAmount)*(N(x.weight)||1)/w;return{personnelId:x.personnelId,raw,amount:step?Math.floor(raw/step+1e-9)*step:raw}})}
+const tipRoundDiff=(g,hr)=>N(g?.totalAmount)-tipShares(g,hr).reduce((a,x)=>a+x.amount,0);
 const startDate=hr=>{const s=config(hr).start;return s?`${s.year}/${pad(s.month)}/01`:''};
 const tipGroupsFrom=hr=>{const s=startDate(hr);return s?A(hr?.tipGroups).filter(g=>!VOID.includes(S(g.status))&&D(g.receiveDate)>=s):[]};
 const tipPaymentsFrom=hr=>{const s=startDate(hr),cfg=config(hr);return s?A(hr?.payments).filter(x=>!isVoid(x)&&D(x.date)>=s&&reasonKind(hr,x,cfg)==='tip'):[]};
-function tipLedger(hr,pid){const byMonth={};let earned=0;for(const g of tipGroupsFrom(hr)){const sh=tipShares(g).find(x=>x.personnelId===pid);if(!sh)continue;const k=D(g.receiveDate).slice(0,7);byMonth[k]=(byMonth[k]||0)+sh.amount;earned+=sh.amount}
+function tipLedger(hr,pid){const byMonth={};let earned=0;for(const g of tipGroupsFrom(hr)){const sh=tipShares(g,hr).find(x=>x.personnelId===pid);if(!sh)continue;const k=D(g.receiveDate).slice(0,7);byMonth[k]=(byMonth[k]||0)+sh.amount;earned+=sh.amount}
  const pays=tipPaymentsFrom(hr).filter(x=>x.personnelId===pid),paid=pays.reduce((a,x)=>a+N(x.amount),0);return{earned,paid,balance:earned-paid,byMonth,payments:pays}}
 
 /* ---------- writes ---------- */
@@ -181,6 +188,7 @@ function closeMonth(hr,ctx,{year,month,today,note}){const c=closeCheck(hr,year,m
  const rows=c.rows.map(r=>({personnelId:r.personnelId,personnelName:nm(r.personnelId),contract:r.contract,days:r.days,monthDays:r.monthDays,hours:r.hours,overtimeHours:r.overtimeHours,undertimeHours:r.undertimeHours,menuUsed:r.menuUsed,menuPercent:r.menuPercent,lines:r.lines,base:r.base,overtime:r.overtime,undertime:r.undertime,additions:r.additions,deductions:r.deductions,menu:r.menu,net:r.net,
   /* fields the current panel reads from a closure row (no carry-forward, no tips in the new payroll) */netToman:r.net,advance:r.advance,paid:r.paid,unpaid:r.balance,previousBalance:0,tips:0,tipsSettled:0,monthSettled:0,status:r.balance<=0.5?'تسویه‌شده':(r.advance+r.paid>0?'پرداخت ناقص':'پرداخت‌نشده')}));
  const cl={id:uid('PCL',hr.payrollClosures),year:+year,month:+month,engine:'v2',version,active:true,finalizedAt:ctx.at,finalizedBy:ctx.actor,note:S(note),rows,totals:{people:rows.length,net:c.net,paidAtClose:c.paid,balanceAtClose:c.balance},warnings:c.warnings};
+ const pre=`${year}/${pad(month)}/`;for(const g of A(hr.tipGroups))if(D(g.receiveDate).startsWith(pre)&&!(N(g.shareRoundingStep)>0))g.shareRoundingStep=TIP_STEP;
  hr.payrollClosures.push(cl);ctx.auditExtra={entityId:cl.id,year:+year,month:+month,people:rows.length,net:c.net};return cl}
 function reopenMonth(hr,ctx,{year,month,reason}){const cl=closureOf(hr,year,month);if(!cl)throw Error('این ماه قطعی نشده است');if(!S(reason))throw Error('علت بازگشایی لازم است');
  Object.assign(cl,{active:false,reopenedAt:ctx.at,reopenedBy:ctx.actor,reopenReason:S(reason)});ctx.auditExtra={entityId:cl.id,year:+year,month:+month,reason:S(reason)};return cl}
@@ -229,5 +237,5 @@ function voidPayment(hr,ctx,{id,reason}){const p=A(hr.payments).find(x=>x.id===i
 
 window.PayrollCore={MONTHS,KINDS,ITEM_KINDS,DEF_REASONS,DEF_ITEMS,DEF_METHODS,N,D,label,code,monthLength,config,reasonKind,itemKind,isManager,monthState,months,closureOf,isClosed,
  termsFor,contractOf,contractText,employedDays,adjOf,itemsOf,salaryPaymentsOf,inPayroll,calc,monthRows,monthSummary,earlierBalances,personMonths,
- tipShares,tipLedger,tipGroupsFrom,tipPaymentsFrom,sig,saveWork,saveSettings,itemSalaryMonth,archive,isVoid,forecast,checkPayment,addPayments,voidPayment,closeCheck,closeMonth,reopenMonth};
+ TIP_STEP,tipStep,tipRoundDiff,tipShares,tipLedger,tipGroupsFrom,tipPaymentsFrom,sig,saveWork,saveSettings,itemSalaryMonth,archive,isVoid,forecast,checkPayment,addPayments,voidPayment,closeCheck,closeMonth,reopenMonth};
 })();

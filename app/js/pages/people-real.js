@@ -26,7 +26,7 @@ const monthsFrom=list=>[...new Set(list.filter(Boolean))].sort();
 const tenure=d=>{const a=E.CAL.i(E.D(d)),b=E.CAL.i(E.CAL.today);if(a===null||b===null)return'—';const m=Math.floor((b-a)/30.44);return m>=12?`${fa(Math.floor(m/12))} سال${m%12?` و ${fa(m%12)} ماه`:''}`:`${fa(m)} ماه`};
 
 /* ---------- tips: share of each participant by weight ---------- */
-function tipShares(g){const ps=A(g.participants),w=ps.reduce((a,p)=>a+(Z(p.weight)||1),0)||1;return ps.map(p=>({id:p.personnelId,amount:Z(g.totalAmount)*(Z(p.weight)||1)/w}))}
+function tipShares(g){if(window.PayrollCore)return window.PayrollCore.tipShares(g,H()).map(x=>({id:x.personnelId,amount:x.amount}));const ps=A(g.participants),w=ps.reduce((a,p)=>a+(Z(p.weight)||1),0)||1;return ps.map(p=>({id:p.personnelId,amount:Z(g.totalAmount)*(Z(p.weight)||1)/w}))}
 
 /* ---------- staff ---------- */
 let sQ='',sOnly='active';
