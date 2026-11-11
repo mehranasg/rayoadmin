@@ -125,6 +125,66 @@ function cleanupIngredients(doc,ctx,{ids,inv,onHand}){const list=A(doc.ingredien
   if(p.action==='archive'){Object.assign(i,{status:'غیرفعال',isArchived:true,archivedAt:ctx.at,archivedBy:ctx.actor,archiveReason:'پاک‌سازی کاتالوگ: فقط در آیتم غیرفعال یا دارای سابقه'});out.archived.push(i.code);continue}
   doc.ingredients=A(doc.ingredients).filter(x=>x.id!==id);doc.recipes=A(doc.recipes).filter(r=>r.ingredientId!==id);doc.settings.retiredIngredientCodes=[...new Set([...A(doc.settings.retiredIngredientCodes),S(i.code)])].filter(Boolean);out.deleted.push(JSON.parse(JSON.stringify(i)))}
  ctx.auditExtra={deleted:out.deleted,archivedCodes:out.archived,keptCodes:out.kept};return out}
+/* ---------- item types and the standard catalog structure (decided 1405/08/20) ----------
+   The five types are behaviours (recipe, inventory, operational consumption, stock only, no stock) and stay fixed; their
+   names are editable (pricing.lists.itemTypeLabels). Every group has a default type for new items
+   (pricing.lists.ingredientGroupTypes {group: TYPE}). CATALOG_STD = the proposed 16 groups; classifyItem() suggests a group and
+   type from an item's name and current group; applyCatalogStructure() applies the reviewed rows once (audit keeps the
+   previous group / type of every item). */
+const TYPE_STD={MENU_INGREDIENT:'مادهٔ اولیهٔ غذا و نوشیدنی',MENU_CONSUMABLE:'بسته‌بندی و یکبارمصرف سرو',OPERATIONAL_CONSUMABLE:'مصرفی عملیاتی',GENERAL_INVENTORY:'کالای عمومی و تجهیزات کوچک',NON_STOCK:'خدمت و هزینه'};
+const typeLabels=doc=>({...ITEM_TYPES,...(doc?.lists?.itemTypeLabels&&typeof doc.lists.itemTypeLabels==='object'?doc.lists.itemTypeLabels:{})});
+const groupType=(doc,g)=>{const t=doc?.lists?.ingredientGroupTypes?.[S(g)];return ITEM_TYPES[t]?t:''};
+const CATALOG_STD=[['گوشت، مرغ و دریایی','MENU_INGREDIENT'],['لبنیات و تخم‌مرغ','MENU_INGREDIENT'],['نان و خمیر','MENU_INGREDIENT'],['میوه و سبزی تازه','MENU_INGREDIENT'],['غلات، حبوبات و خشکبار','MENU_INGREDIENT'],['سس، چاشنی و ادویه','MENU_INGREDIENT'],['روغن','MENU_INGREDIENT'],['کنسرو، ترشی و غذای نیمه‌آماده','MENU_INGREDIENT'],['نوشیدنی آماده','MENU_INGREDIENT'],['مواد بار و قهوه','MENU_INGREDIENT'],['شیرینی و دسر آماده','MENU_INGREDIENT'],['قلیان','MENU_INGREDIENT'],['بسته‌بندی و یکبارمصرف','MENU_CONSUMABLE'],['ظروف و تجهیزات','GENERAL_INVENTORY'],['شوینده و بهداشتی','OPERATIONAL_CONSUMABLE'],['عمومی، اداری و خدمات','GENERAL_INVENTORY']];
+const G=Object.fromEntries(CATALOG_STD.map(([g],i)=>[i,g]));
+// name rules, first match wins: [regex, group index, type or '' (= group default)]. Food rules run first for items now in a
+// food group, non-food rules first for items in a non-food group (old groups بهداشتی، ظروف، غیره، سایر).
+const W=s=>new RegExp('(^|[ (])('+s+')($|[ )])');
+const NONFOOD_RULES=[
+ [/کرایه|هزینه ارسال|متفرقه\(|خدمات چاپ/,15,'NON_STOCK'],
+ [/تنباکو|زغال|ذغال|فویل|لبی قلیون|شلنگ یکبارمصرف قلیان/,11,''],[/قلیان|قلیون|هوکر|سری سیلیکونی/,11,'GENERAL_INVENTORY'],
+ [/یکبار ?مصرف|جعبه|ظرف (هات|مایکرو|ماکرو|سالاد|سس|بیرون|فوم|\d)|ظرف مایکروویو|ظرف ماکروویو|ظرف بزرگ شیرینی|نی سایز|نی مک|لیوان (دوجداره|شیک|استارکاپ|سه ?گوش|کاغذی)|در حبابی|پاکت|بطری|سینگل|کیسه فریزر|کیسه دسته|سلفون|محافظ غذا|نایلکس|لیبل|بیرونبر|زیربشقابی|کاغذ (روغنی|مومی)|طلق|قیف|سیخ چوبی|چوب گارنیش|ماکرو ?\d/,12,''],
+ [/تی ?شرت|تیشرت|خودکار|دفتر|رول کاغذ|کارت ویزیت|دمپایی|پتو|تشک|پکیج خواب|جاکفشی|قفل|نوار برق|دو ?شاخه|محافظ برق|باتری|فندک|اسپری گاز|باکس|برچسب|تابلو|قوطی \d|ضد ?زنگ|کاور شمعی|روغن سوخته|دینام|جاشلنگی|عود/,15,''],
+ [W('مش|قلمو'),15,''],
+ [/دستمال|مایع (دستشویی|ظرفشویی|شیشه|ضد|سفید|لباسشویی|ماشین)|اسکاچ|سیم ظرفشویی|کیسه زباله|دستکش|جرم ?گیر|شوینده|پودر (لباسشویی|ماشین)|دامستوس|الکل|ضد ?عفونی|گند ?زدا|کلاه یکبار|شیشه ?شور|کهنه|حشره|مالاتیون|پشه|وایتکس|شامپو فرش|تمیزکننده|سفید ?کننده|پارچه تنظیف|چاه ?باز ?کن|چنته|ابر استیل/,14,''],
+ [/جارو|سطل زباله|زمین ?شو|فرچه|یدک|سمپاش|دسته طی|طی حوله|تی نخی|تی چرخشی/,14,'GENERAL_INVENTORY'],[W('سم'),14,''],
+ [/کارد|چنگال|قاشق|انبر|دیس|پیش ?دستی|ملامین|قالب (?!ی)|^قالب|وارمر|لیوان شیشه|پمپ سس|سینی|کاتر|ظرف \d/,13,'']];
+const FOOD_RULES=[
+ [/تنباکو|زغال|ذغال/,11,''],
+ [/سیروپ|قهوه|اسپرسو|دم ?نوش|چای (?!دوغزال)|^چای|ماچا|هات ?چاکلت|وایت چاکلت|ثعلب|مونین|تاپینگ|تخم شربتی|خاکشیر|سکنجبین|بهار ?نارنج|گل گاوزبان|به لیمو|غنچه گل|گل (خوراکی|بابونه|پنیرک)|نبات|عرق |گلاب|اسانس|باوارین|بریلو|فوندانت|ورق طلا|کربن|سورل|فیسالیس/,9,''],[W('یخ'),9,''],
+ [/کیک|باقلوا|پاناکوتا|رد ولوت|چیز ?کیک|تارت|شیرینی|بیسکو?ئ?یت|ساقه طلایی|توئیست|شکلات|کروسان|دسر|بستنی|ماکارون(?!ی)|کوکی|براونی|تیرامیسو|نوتلا|لوتوس|کرم بروله|میلفوی|پای سیب|کرامبل|ترافل|پتی ?بور|چری تن/,10,''],
+ [/کوکا ?کولا|کوکاکولا|فانتا|اسپرایت|نوشابه|آب ?معدنی|ماء ?الشعیر|ماالشعیر|دوغ|لیموناد|سن ?ایچ|آب (میوه|انار|سیب|آلبالو|گوجه|گاز ?دار|آلوورا)|شربت|سودا|تونیک|دلستر|پیناکولادا/,8,''],
+ [/تخم ?مرغ|پنیر|شیر (پرچرب|فرا|خشک|کم|تترا)|^شیر$|خامه|^کره(?! بادام)|کره (حیوانی|کاله|تکنفره|یکنفره|گیاهی)|ماست|کشک|موزارلا|پارمسان|گودا|لبنه|ماسکارپونه/,1,''],
+ [/روغن(?! سوخته)(?!ی)/,6,''],
+ [/ناگت|نودل|سوپ|کنسرو|ترشی|خیار ?شور|رب (گوجه|انار)|^رب|گوجه پوست|کاپاریس|زیتون|هالوپینو|سیب ?زمینی (کاله|تنوری)|منجمد|سبزی پلویی|پولد بیف|گوشت پیتزا|سوسیس|پپرونی|روست بیف|فلافل|کوکتل|مربا|ارده|پیتزا کباب/,7,''],
+ [/مایه ?خمیر|بیکینگ پودر|بهبود ?دهنده|جوش ?شیرین|پودر قند/,4,''],
+ [/نان|باگت|لوف|چاپاتا|پیتا|تافتون|خمیر|سیمیت|سنگک|ترتیلا|یوفکا/,2,''],
+ [/آرد|ماکارونی|اسپاگتی|پنه|لازانیا|برنج|پرک|بادام|گردو|پسته|فندق|فندوق|کشمش|نارگیل|عدس|نخود|لوبیا|قند|شکر|کاکائو|نشاسته|گلوتن|گلت|اسپرولینا/,4,''],[W('جو'),4,''],
+ [/سس|ادویه|نمک|فلفل(?! دلمه)|زردچوبه|دارچین|سماق|اورگانو|آرگانو|پاپریکا|پولبیبر|زعفران|عصاره|سرکه|بالزامیک|ورچستر|سویا|آرومات|تندرایزر|خردل|مایونز|کچاپ|باربیکیو|آبلیمو|عسل|وانیل|جوز|گشنیز|سیاه ?دانه|رزماری|آویشن|پودر (زنجبیل|سیر)|کنجد|گلوکز|رنگ (مایع )?خوراکی|ژلاتین|پکتین/,5,''],[W('هل'),5,''],
+ [/گوساله|گوسفند|مرغ|بوقلمون|میگو|ماهی|بیکن|سالامی|ژامبون|کالباس|همبرگر|بیرشینگن|استیک|توپوز|کوهان|ریب آی|راسته|فیله|ران مرغ|قلوه|دنبه|گردن|سر سینه|گوشت|بالا ران|کعب/,0,''],[W('ران'),0,'']];
+const NONFOOD_OLD=new Set(['بهداشتی','ظروف','غیره','سایر']);
+const OLD_GROUP_FALLBACK={'میوه تره بار':3,'کافه بار و قلیون':9,'بهداشتی':14,'ظروف':13,'غیره':15,'سایر':15};
+const NORMn=s=>S(s).replace(/ي/g,'ی').replace(/ك/g,'ک').replace(/‌/g,' ').replace(/\s+/g,' ');
+function classifyItem(i){const n=NORMn(i.name),old=S(i.category);
+ if(old==='میوه تره بار'&&!/ترشی|کاله/.test(n))return{group:G[3],type:'MENU_INGREDIENT',sure:true};
+ for(const [re,gi,t] of NONFOOD_OLD.has(old)?[...NONFOOD_RULES,...FOOD_RULES]:[...FOOD_RULES,...NONFOOD_RULES])if(re.test(n))return{group:G[gi],type:t||CATALOG_STD[gi][1],sure:true};
+ const gi=OLD_GROUP_FALLBACK[old]??7;return{group:G[gi],type:CATALOG_STD[gi][1],sure:false}}
+// the plan: per item the suggestion, adjusted so that an item in a recipe keeps a recipe type and an item with stock history stays tracked
+function catalogPlan(doc,inv){const inRecipe=new Set([...A(doc.recipes).map(r=>r.ingredientId),...A(doc.preparedItems).flatMap(p=>A(p.components).map(c=>c.ingredientId))].filter(Boolean)),hist=new Set;
+ for(const k of ['stocktakes','stockReceipts','inventoryMovements','wasteRecords'])for(const r of A(inv?.[k])){if(r.ingredientId)hist.add(r.ingredientId);for(const l of A(r.lines))if(l.ingredientId)hist.add(l.ingredientId)}
+ return A(doc.ingredients).map(i=>{const c=classifyItem(i);let type=c.type,note='';
+  if(inRecipe.has(i.id)&&!['MENU_INGREDIENT','MENU_CONSUMABLE'].includes(type)){type=c.group===G[12]||c.group===G[13]?'MENU_CONSUMABLE':'MENU_INGREDIENT';note='در رسپی است'}
+  if(type==='NON_STOCK'&&hist.has(i.id)){type='GENERAL_INVENTORY';note='سابقهٔ انبار دارد'}
+  return{id:i.id,code:i.code,name:i.name,status:i.status,archived:!!i.isArchived,fromGroup:S(i.category)||'سایر',fromType:i.itemType||'MENU_INGREDIENT',group:c.group,type,sure:c.sure,note}})}
+function applyCatalogStructure(doc,ctx,{rows,typeLabels:labels}){doc.lists=doc.lists&&typeof doc.lists==='object'?doc.lists:{};const byId=new Map(A(doc.ingredients).map(i=>[i.id,i])),before=[];
+ for(const r of A(rows)){const i=byId.get(r.id);if(!i)continue;const g=S(r.group),t=ITEM_TYPES[r.type]?r.type:'';if(!g||!t)throw Error(`گروه یا نوع «${i.name}» معتبر نیست`);
+  if((S(i.category)||'سایر')===g&&(i.itemType||'MENU_INGREDIENT')===t)continue;before.push({id:i.id,category:i.category,itemType:i.itemType});
+  Object.assign(i,{category:g,itemType:t,recipeCapable:['MENU_INGREDIENT','MENU_CONSUMABLE'].includes(t),inventoryTracked:t!=='NON_STOCK',updatedAt:ctx.at})}
+ const used=[...new Set(A(doc.ingredients).map(i=>S(i.category)||'سایر'))];doc.lists.ingredientCategories=[...CATALOG_STD.map(([g])=>g),...used.filter(g=>!CATALOG_STD.some(([x])=>x===g))];
+ doc.lists.ingredientGroupTypes={...Object.fromEntries(CATALOG_STD),...(doc.lists.ingredientGroupTypes||{})};doc.lists.itemTypeLabels={...TYPE_STD,...(labels||{})};doc.lists.catalogStructureVersion='standard-1';
+ ctx.auditExtra={before,count:before.length};return{changed:before.length}}
+function saveTypeSettings(doc,ctx,{labels,groupTypes}){doc.lists=doc.lists&&typeof doc.lists==='object'?doc.lists:{};const before={labels:doc.lists.itemTypeLabels||null,groupTypes:doc.lists.ingredientGroupTypes||null};
+ const L={};for(const k of Object.keys(ITEM_TYPES)){const v=S(labels?.[k]);if(!v)throw Error('نام هر نوع لازم است');L[k]=v}if(new Set(Object.values(L)).size!==5)throw Error('نام دو نوع یکسان است');
+ const GT={};for(const [g,t] of Object.entries(groupTypes||{}))if(S(g)&&ITEM_TYPES[t])GT[S(g)]=t;doc.lists.itemTypeLabels=L;doc.lists.ingredientGroupTypes=GT;ctx.auditExtra={before};return{labels:5,groups:Object.keys(GT).length}}
 /* item groups (pricing.lists.ingredientCategories): a group is only a label of the items. rows = [{from, to}] in the
    order shown — from '' = new group; to '' = remove (only a group without items); a changed name renames the group on all
    its items (two groups renamed to the same name merge). The list order is the order of rows. */
@@ -256,5 +316,5 @@ function setLatestPrices(doc,ctx,{date,rows,source='manual-bulk'}){const d0=E().
   doc.ingredientPriceHistory.push({id:pcUid('IPH',doc.ingredientPriceHistory),ingredientId:i.id,date:d,priceToman:p,source,purchaseUnit:i.purchaseUnit,recipeUnit:i.recipeUnit,packageQuantity:Z(i.packageQuantity),createdAt:ctx.at,createdBy:ctx.actor});
   if(!last||d>=last)Object.assign(i,{lastPurchasePriceToman:p,lastPurchaseDate:d,lastPurchaseSource:source==='excel'?'excel':'manual',lastPurchaseInvoiceId:''});out.push({id:i.id,price:p,date:d,current:!last||d>=last})}
  if(!out.length)throw Error('قیمت تازه‌ای وارد نشده است');ctx.auditExtra={date:d0,count:out.length,source};return out}
-window.MenuWrite={saveIngredientGroups,groupCounts,ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+window.MenuWrite={TYPE_STD,typeLabels,groupType,CATALOG_STD,classifyItem,catalogPlan,applyCatalogStructure,saveTypeSettings,saveIngredientGroups,groupCounts,ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();

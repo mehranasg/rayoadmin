@@ -151,6 +151,8 @@ Gateway با spread سطح بالا و merge شیءهای شناخته‌شده 
 
 `inventory.purchaseInvoices` و `inventory.supplierPayments` با `supplierId: 'MISC'` = فروشندهٔ متفرقه؛ نام در `supplierNameSnapshot` (پرداخت‌ها از این نسخه `supplierNameSnapshot` دارند).
 
+`pricing.lists.itemTypeLabels` {نوع: نام}، `pricing.lists.ingredientGroupTypes` {گروه: نوع پیش‌فرض}، `pricing.lists.catalogStructureVersion: 'standard-1'` بعد از اعمال ساختار استاندارد کاتالوگ.
+
 `personnel.lists` بعد از ساختار استاندارد: `sectionGroups` (سکشن ← گروه)، `managementPositions`، `hallPositions`، `kitchenPositions`، `servicePositions`، `sections`، `kitchenRanks`، `structureVersion: 'standard-1'`. گروه `مدیریت` در `personnel[].personnelGroup`.
 
 `finance.cashBoxCounts` (صندوق نقدی): id `CBC-NNNNN`، accountKey، date، countedToman، expectedToman، diffToman، note، status (active/void)، voidReason، createdAt/By. `finance.settings.cashBoxKey`: کلید حساب صندوق (`payment:ID`، `cash:ID` یا `account:ID`).
