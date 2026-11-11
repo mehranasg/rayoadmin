@@ -125,6 +125,15 @@ function cleanupIngredients(doc,ctx,{ids,inv,onHand}){const list=A(doc.ingredien
   if(p.action==='archive'){Object.assign(i,{status:'غیرفعال',isArchived:true,archivedAt:ctx.at,archivedBy:ctx.actor,archiveReason:'پاک‌سازی کاتالوگ: فقط در آیتم غیرفعال یا دارای سابقه'});out.archived.push(i.code);continue}
   doc.ingredients=A(doc.ingredients).filter(x=>x.id!==id);doc.recipes=A(doc.recipes).filter(r=>r.ingredientId!==id);doc.settings.retiredIngredientCodes=[...new Set([...A(doc.settings.retiredIngredientCodes),S(i.code)])].filter(Boolean);out.deleted.push(JSON.parse(JSON.stringify(i)))}
  ctx.auditExtra={deleted:out.deleted,archivedCodes:out.archived,keptCodes:out.kept};return out}
+/* item groups (pricing.lists.ingredientCategories): a group is only a label of the items. rows = [{from, to}] in the
+   order shown — from '' = new group; to '' = remove (only a group without items); a changed name renames the group on all
+   its items (two groups renamed to the same name merge). The list order is the order of rows. */
+function saveIngredientGroups(doc,ctx,{rows}){doc.lists=doc.lists&&typeof doc.lists==='object'?doc.lists:{};const before=A(doc.lists.ingredientCategories).slice(),items=A(doc.ingredients),count=g=>items.filter(i=>(S(i.category)||'سایر')===g).length;
+ const out=[],renamed=[],removed=[];for(const r of A(rows)){const from=S(r.from),to=S(r.to);if(!to){if(from){if(count(from))throw Error(`گروه «${from}» ${count(from)} قلم دارد؛ اول اقلامش را به گروه دیگری ببرید یا نامش را به گروه دیگری تغییر دهید تا ادغام شود`);removed.push(from)}continue}
+  if(from&&from!==to){renamed.push([from,to]);for(const i of items)if((S(i.category)||'سایر')===from){i.category=to;i.updatedAt=ctx.at}}if(!out.includes(to))out.push(to)}
+ for(const i of items){const g=S(i.category)||'سایر';if(!out.includes(g))out.push(g)}// every group in use stays listed
+ doc.lists.ingredientCategories=out;ctx.auditExtra={before,after:out,renamed,removed};return{groups:out.length,renamed:renamed.length,removed:removed.length}}
+const groupCounts=doc=>{const m=new Map;for(const g of A(doc?.lists?.ingredientCategories))m.set(g,0);for(const i of A(doc?.ingredients)){const g=S(i.category)||'سایر';m.set(g,(m.get(g)||0)+1)}return m};
 function saveIngredient(doc,ctx,x){
  const ings=A(doc.ingredients),old=x.id?ings.find(i=>i.id===x.id):null;if(x.id&&!old)throw Error('قلم پیدا نشد');
  const name=S(x.name);if(!name)throw Error('نام قلم الزامی است');
@@ -247,5 +256,5 @@ function setLatestPrices(doc,ctx,{date,rows,source='manual-bulk'}){const d0=E().
   doc.ingredientPriceHistory.push({id:pcUid('IPH',doc.ingredientPriceHistory),ingredientId:i.id,date:d,priceToman:p,source,purchaseUnit:i.purchaseUnit,recipeUnit:i.recipeUnit,packageQuantity:Z(i.packageQuantity),createdAt:ctx.at,createdBy:ctx.actor});
   if(!last||d>=last)Object.assign(i,{lastPurchasePriceToman:p,lastPurchaseDate:d,lastPurchaseSource:source==='excel'?'excel':'manual',lastPurchaseInvoiceId:''});out.push({id:i.id,price:p,date:d,current:!last||d>=last})}
  if(!out.length)throw Error('قیمت تازه‌ای وارد نشده است');ctx.auditExtra={date:d0,count:out.length,source};return out}
-window.MenuWrite={ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+window.MenuWrite={saveIngredientGroups,groupCounts,ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();

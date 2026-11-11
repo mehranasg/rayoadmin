@@ -308,7 +308,7 @@ P.pay=({party,dir='out',docs,title,date,amount,ref,method}={})=>{
    Writes are checked again inside every save (InvEntry.allowed); this is a browser-side guard, not server security. */
 const AAx=()=>window.AdminAccess;
 const MOD_KEYS={home:['dashboard','monitor'],finance:['financeLedger','purchase','cash','assets'],inventory:['inventory','inventoryEdit'],people:['personnel','payroll','shift','training'],menu:['menu','pricing'],customers:['reports','personnel'],reports:['reports','sales'],settings:['settings']};
-const TAB_KEYS={finance:{overview:['financeLedger'],ledger:['financeLedger'],debts:['financeLedger'],pnl:['financeLedger'],meals:['financeLedger'],cashbox:['financeLedger','cash'],accounts:['financeLedger'],plan:['financeLedger'],finset:['financeLedger'],docs:['purchase','financeLedger'],payments:['purchase','financeLedger'],parties:['purchase','financeLedger'],cash:['cash','financeLedger'],petty:['financeLedger'],assets:['assets'],reports:['financeLedger'],legacy:['financeLedger','purchase','cash']},
+const TAB_KEYS={finance:{overview:['financeLedger'],ledger:['financeLedger'],debts:['financeLedger'],pnl:['financeLedger'],meals:['financeLedger'],cashbox:['financeLedger','cash'],accounts:['financeLedger'],plan:['financeLedger'],finset:['financeLedger'],docs:['purchase','financeLedger'],payments:['purchase','financeLedger'],parties:['purchase','financeLedger'],cash:['cash','financeLedger'],petty:['financeLedger'],assets:['assets'],reports:['financeLedger']},
  people:{shifts:['shift'],presence:['personnel','payroll','shift'],violations:['personnel'],leaves:['personnel'],payroll:['payroll'],work:['payroll'],payments:['payroll'],payset:['payroll'],tips:['payroll','personnel'],staffreport:['personnel','payroll'],training:['training','personnel'],users:['settings'],attendance:['personnel','payroll','shift']},menu:{pricing:['pricing','menu']},reports:{sales:['sales','reports']},inventory:{requests:['inventory','purchase']}};
 P.session=()=>AAx()?.session?.()||null;
 P.owner=()=>P.session()?.role==='owner';
@@ -322,13 +322,6 @@ P.CUR=()=>window.RAYO_CURRENT_PANEL||'/panel/';
 /* tabs that are still sample designs in the new panel: hidden once real data is connected */
 const SAMPLE_TABS={finance:['ai','close','forecast','calculator','settings','reports'],people:['planning','salarytools','reports','settings','attendance','requests'],reports:['library','ai','audit'],menu:['channels'],settings:['index','integrations']};
 const sampleTab=(mod,id)=>P.live()&&(SAMPLE_TABS[mod]||[]).includes(id);
-/* features of the current panel that are not in the new panel yet: one «در پنل فعلی» tab per section, opened in the same tab
-   (the sign-in is kept for the browser tab, so the current panel opens signed in) */
-P.LEGACY={
- inventory:[['شروع دوباره انبارداری از یک تاریخ و بازنشانی شمارش‌ها (با پشتیبان)','inventory.html','inventoryEdit']],
- settings:[['بازنشانی جداول برای رستوران جدید و بارگذاری اولیه (Initialize)','settings.html?view=dataManagement','settings']]};
-function legacyTab(mod){return{id:'legacy',label:'در پنل فعلی',icon:'external-link',liveOnly:true,desc:'امکاناتی از پنل فعلی که هنوز به پنل جدید منتقل نشده‌اند',
- render:()=>{const L=P.LEGACY[mod].filter(x=>P.owner()||AAx()?.has?.(x[2]));return P.card({title:'هنوز در پنل فعلی',sub:'روی دادهٔ مشترک کار می‌کنند؛ با همین ورود در همین زبانه باز می‌شوند',flush:1,body:P.table(['امکان',''],L.map(([l,h])=>[l,`<a class="btn btn-secondary btn-sm" href="${P.CUR()}${h}">${P.ic('external-link')}باز کردن</a>`]),{empty:'موردی برای دسترسی شما نیست'})})}}}
 function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
 
 /* ---------- registry & router ---------- */
@@ -577,7 +570,6 @@ P.start=()=>{
   const SHORT={finance:{docs:'فاکتورها',payments:'پرداخت‌ها',cash:'صندوق',ledger:'هزینه‌ها',debts:'بدهی و چک',accounts:'حساب‌ها',plan:'محاسبه‌گر',finset:'تنظیمات'},
    inventory:{receipt:'ورود کالا',count:'شمارش',beverage:'شمارش نوشیدنی',consumption:'مصرف',reorder:'سفارش',requests:'درخواست خرید'}};
   for(const [mid,map] of Object.entries(SHORT))for(const t of P.mods[mid]?.tabs||[])if(map[t.id]&&t.label!==map[t.id]){t.title=t.title||t.label;t.label=map[t.id]}
-  for(const id of Object.keys(P.LEGACY)){const m=P.mods[id];if(m&&m.tabs&&!m.tabs.some(t=>t.id==='legacy'))m.tabs.push(legacyTab(id))}
   buildTopbar();
   window.addEventListener('hashchange',()=>{P.render();window.scrollTo(0,0)});
   P.render();

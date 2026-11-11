@@ -89,6 +89,14 @@ ok(AW.deleteAsset(a,ctx('assets'),{id:'AST-0003'})&&!a.assets.some(x=>x.id==='AS
 {const H=['کد ماده','نام ماده','دسته‌بندی','واحد خرید','آخرین قیمت خرید (تومان)','تاریخ آخرین قیمت','مبلغ فعلی (تومان)','تاریخ مبلغ فعلی'],ings=[{id:'A',code:'11',name:'شکر'},{id:'B',code:'12',name:'نمک'}];
  const r=MW.parsePriceSheets([['قیمت‌ها',[H,['11','شکر','','کیسه','250000','1405/08/10','200000','1405/07/01'],['12','نمک','','کیسه','','','90000','1405/07/01']]]],ings);
  ok(r.rows.length===1&&r.rows[0].price===250000&&r.rows[0].date==='1405/08/10'&&!r.bad.length,'template: new price column read (not the current-price column); empty price skipped silently')}
+// item groups: rename moves items, rename to an existing group merges, empty group removed, group with items refused
+{const d={lists:{ingredientCategories:['لبنیات','لبنی','خالی']},ingredients:[{id:'1',category:'لبنیات'},{id:'2',category:'لبنی'},{id:'3',category:'نان'}]};
+ throws(()=>MW.saveIngredientGroups(JSON.parse(JSON.stringify(d)),ctx(),{rows:[{from:'لبنیات',to:''}]}),/قلم دارد/,'group with items is not removed');
+ const c=ctx(),r=MW.saveIngredientGroups(d,c,{rows:[{from:'لبنیات',to:'لبنیات و تخم‌مرغ'},{from:'لبنی',to:'لبنیات و تخم‌مرغ'},{from:'خالی',to:''},{from:'',to:'تازه'}]});
+ ok(d.ingredients.filter(i=>i.category==='لبنیات و تخم‌مرغ').length===2&&d.lists.ingredientCategories.join()==='لبنیات و تخم‌مرغ,تازه,نان'&&r.removed===1&&c.auditExtra.renamed.length===2,'rename, merge, add, remove; groups in use stay listed')}
+// bulk add from Excel: several new items in one save get consecutive codes
+{const d={settings:{},lists:{},ingredients:[{id:'ING-1',code:'100',name:'شکر'}]};const add=n=>MW.saveIngredient(d,ctx(),{name:n,category:'خشکبار',recipeUnit:'گرم',purchaseUnit:'کیلوگرم',packageQuantity:'1000',price:'',countingUnits:[]});const a1=add('بادام'),a2=add('گردو');
+ ok(a1.code==='101'&&a2.code==='102'&&d.lists.ingredientCategories.includes('خشکبار'),'items added one after another get the next codes; new group listed');throws(()=>add('شکر'),/قبلاً تعریف شده/,'existing name refused')}
 // catalog clean-up: delete unused, archive used-only-in-inactive or with history, keep active recipe items
 {const d={settings:{},ingredients:[{id:'I1',code:'1001'},{id:'I2',code:'1002'},{id:'I3',code:'1003'},{id:'I4',code:'1004'},{id:'I5',code:'1009'},{id:'I6',code:'1006'}],menuItems:[{id:'M1',status:'فعال'},{id:'M2',status:'غیرفعال'}],
   recipes:[{menuItemId:'M1',ingredientId:'I1'},{menuItemId:'M2',ingredientId:'I2'},{menuItemId:'M1',preparedItemId:'PP1'}],preparedItems:[{id:'PP1',status:'فعال',components:[{ingredientId:'I6'}]}],ingredientPriceHistory:[{ingredientId:'I5',source:'manual'}]};

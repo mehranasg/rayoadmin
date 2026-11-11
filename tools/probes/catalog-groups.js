@@ -1,0 +1,14 @@
+// Probe: catalog → «گروه‌ها» (rename / merge) and «افزودن از Excel» (file built in the page). Saves on the dev server only.
+window.__errs=[];window.addEventListener('error',e=>__errs.push(String(e.message)+' @'+(e.filename||'').split('/').pop()+':'+e.lineno));
+(async()=>{const wait=ms=>new Promise(r=>setTimeout(r,ms)),out={};const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const shot=async n=>{window.__shotReq=n;for(let i=0;i<60&&window.__shotDone!==n;i++)await wait(200)};const waitClose=async()=>{for(let i=0;i<40&&$('.modal-backdrop.open');i++)await wait(300);await wait(800)};
+try{if(!/127\.0\.0\.1|localhost/.test(location.host))throw Error('only on the dev server');for(let i=0;i<120&&!(window.InvControl&&InvControl.ready());i++)await wait(500);
+ location.hash='#/inventory/catalog';await wait(3500);out.buttons=$$('.page-actions button, #pnActions button, .ph-actions button').map(b=>b.innerText.trim()).filter(Boolean);out.legacyTab=$$('.tabs a, .tab').some(t=>/پنل فعلی/.test(t.innerText));
+ CatalogReal.groupsForm();await wait(1000);out.groups=$$('#pnModal .grp-row').length;await shot('catalog-groups');const r=$$('#pnModal .grp-row').find(x=>/\d|[۰-۹]/.test(x.innerText)&&!x.querySelector('[data-rm]').disabled===false);
+ const first=$('#pnModal .grp-row input');const old=first.value;first.value=old+' (آزمون)';$$('#pnModal .modal-foot button').find(b=>/ذخیره/.test(b.innerText)).click();await waitClose();
+ const pr=InvControl.state.raw.pricing;out.renamed={listed:pr.lists.ingredientCategories.includes(old+' (آزمون)'),items:pr.ingredients.filter(i=>i.category===old+' (آزمون)').length,oldLeft:pr.ingredients.filter(i=>i.category===old).length};
+ CatalogReal.itemsImport();await wait(1000);const X=await P.loadXLSX(),wb=X.utils.book_new();X.utils.book_append_sheet(wb,X.utils.aoa_to_sheet([['نام قلم','گروه','واحد مصرف','واحد خرید','مقدار هر واحد خرید','آخرین قیمت خرید (تومان)'],['قلم آزمون الف','آزمون','گرم','کیلوگرم','1000','120000'],['قلم آزمون ب','آزمون','عدد','بسته','12',''],[pr.ingredients[0].name,'','گرم','کیلوگرم','1000','']]),'داده');
+ const dt=new DataTransfer();dt.items.add(new File([X.write(wb,{type:'array',bookType:'xlsx'})],'t.xlsx'));$('#imF').files=dt.files;$('#imF').dispatchEvent(new Event('change'));await wait(1500);out.preview=$('#imP')?.innerText.replace(/\s+/g,' ').slice(0,260);await shot('catalog-import');
+ $$('#pnModal .modal-foot button').find(b=>/ذخیره/.test(b.innerText)).click();await waitClose();const p2=InvControl.state.raw.pricing;out.added=p2.ingredients.filter(i=>/قلم آزمون/.test(i.name)).map(i=>({code:i.code,cat:i.category,price:i.lastPurchasePriceToman}));
+ out.errs=__errs}catch(e){out.err=String(e.stack||e);out.errs=__errs}
+const pre=document.createElement('pre');pre.id='qa-result';pre.textContent=JSON.stringify(out,null,1);document.body.appendChild(pre)})();
