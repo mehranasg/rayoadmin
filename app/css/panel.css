@@ -259,3 +259,8 @@ tfoot tr.grid-total td{background:var(--surface-2);border-top:2px solid var(--bo
 .wk-table td:first-child{white-space:normal;min-width:130px}
 .wk-table .input.num{padding-inline:6px}
 .help-i{display:inline-flex;vertical-align:middle;cursor:help;color:var(--text-3)}.help-i svg{width:14px;height:14px}
+
+/* bulk selection in lists (catalog) */
+.sel-box{display:inline-flex;cursor:pointer;color:var(--text-3);padding:2px}.sel-box.on{color:var(--primary)}.sel-box svg{width:18px;height:18px}
+tr.sel>td{background:color-mix(in srgb,var(--primary) 8%,transparent)}
+.bulk-bar{border-bottom:1px solid var(--border)}

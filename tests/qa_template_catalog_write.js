@@ -108,6 +108,10 @@ ok(AW.deleteAsset(a,ctx('assets'),{id:'AST-0003'})&&!a.assets.some(x=>x.id==='AS
 {const d={settings:{},ingredients:[{id:'T1',code:'1',name:'تنباکو'},{id:'T2',code:'2',name:'تنباکو'}],menuItems:[],recipes:[]},inv={stocktakes:[{id:'O',date:'1405/06/01',baselineBoundary:'START',isOpeningBaseline:true,status:'approved',lines:[{ingredientId:'T1',actual:11},{ingredientId:'T2',actual:12}]}]},oh=new Map([['T2',12]]);
  ok(MW.cleanupPlan(d,inv,'T2',{onHand:oh}).action==='keep'&&MW.cleanupPlan(d,inv,'T2',{onHand:oh,allowOpening:true}).action==='delete','opening-only item: kept normally, deletable with allowOpening');
  inv.stocktakes.push({id:'L',date:'1405/07/01',status:'approved',lines:[{ingredientId:'T2',actual:3}]});ok(MW.cleanupPlan(d,inv,'T2',{onHand:oh,allowOpening:true}).action==='keep','a later count makes it real history')}
+// bulk status and group
+{const d={lists:{ingredientCategories:['الف']},ingredients:[{id:'1',status:'فعال',category:'الف'},{id:'2',status:'غیرفعال',category:'الف'},{id:'3',status:'فعال',category:'ب'}]},c=ctx();
+ const r=MW.bulkIngredients(d,c,{ids:['1','2'],status:'غیرفعال'});ok(r.changed===1&&r.selected===2&&d.ingredients[0].status==='غیرفعال'&&c.auditExtra.before[0].status==='فعال','bulk status: only changed items counted, previous value in the audit');
+ MW.bulkIngredients(d,ctx(),{ids:['1','3'],group:'ج'});ok(d.ingredients[2].category==='ج'&&d.lists.ingredientCategories.includes('ج'),'bulk group, new group listed');throws(()=>MW.bulkIngredients(d,ctx(),{ids:[],status:'فعال'}),/انتخاب/,'nothing selected')}
 // catalog clean-up: delete unused, archive used-only-in-inactive or with history, keep active recipe items
 {const d={settings:{},ingredients:[{id:'I1',code:'1001'},{id:'I2',code:'1002'},{id:'I3',code:'1003'},{id:'I4',code:'1004'},{id:'I5',code:'1009'},{id:'I6',code:'1006'}],menuItems:[{id:'M1',status:'فعال'},{id:'M2',status:'غیرفعال'}],
   recipes:[{menuItemId:'M1',ingredientId:'I1'},{menuItemId:'M2',ingredientId:'I2'},{menuItemId:'M1',preparedItemId:'PP1'}],preparedItems:[{id:'PP1',status:'فعال',components:[{ingredientId:'I6'}]}],ingredientPriceHistory:[{ingredientId:'I5',source:'manual'}]};
