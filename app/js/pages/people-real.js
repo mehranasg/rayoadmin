@@ -3,7 +3,8 @@
    Sensitive fields are removed right after loading and never reach the page: staff passwords (userPassword), card /
    account / IBAN numbers and admin password hashes.
    Real tabs: «پرسنل» (profiles); «انعام» and «حقوق ماه» are js/pages/payroll-real.js (stage 6),
-   «حقوق ماه» is js/pages/payroll-real.js (stage 6), «آموزش و چک‌لیست» (checklist templates), «کاربران و دسترسی» (admin users without hashes), «پیام روز».
+   «حقوق ماه» is js/pages/payroll-real.js (stage 6), «آموزش و چک‌لیست» (checklist templates), «کاربران و دسترسی» (admin users without hashes).
+   «پیام روز» was removed (owner, 2026-11-13: not used); the recorded dailyMessages stay in the data untouched.
    «شیفت و حضور» and «درخواست‌ها» stay on sample data: no punches, shift plan cells, leave or advance requests are
    recorded yet. Nothing is saved here. */
 (function(){
@@ -47,7 +48,7 @@ function profile(id){const p=person(id);if(!p)return;const d=H(),tips=A(d.tipGro
 
 /* ---------- salary of the month: js/pages/payroll-real.js (core/js/payroll-core.js) ---------- */
 
-/* ---------- training / users / messages ---------- */
+/* ---------- training / users ---------- */
 function trainingView(){const ts=A(H().checklistTemplates);return P.card({title:'قالب‌های چک‌لیست',sub:`${fa(ts.filter(t=>t.isActive!==false).length)} فعال از ${fa(ts.length)} · هیچ اجرای چک‌لیستی هنوز ثبت نشده است (${fa(A(H().checklistRecords).length)})`,flush:1,body:P.table(['نام','حالت','بخش','سمت‌ها','شیفت',{t:'آیتم',n:1},'وضعیت'],ts.map(t=>[`<b>${esc(t.name||'')}</b>`,esc(t.mode||''),esc(t.section||''),esc(A(t.positions).join('، ')),esc(A(t.shifts).join('، ')),fa(A(t.items).length),t.isActive===false?P.b('غیرفعال','neutral'):P.b('فعال','success',1)]))})}
 function usersView(){const au=A(H().settings?.adminUsers),appUsers=staff().filter(p=>p.username),AA=window.AdminAccess,can=AA?.canManage?.()&&IE.live(),names=Object.fromEntries((AA?.SECTIONS||[]).map(x=>x));
  return`<div class="grid grid-2">${P.card({title:'کاربران پنل مدیریت',sub:'مشترک با پنل فعلی (تنظیمات پرسنل). رمز فقط به‌صورت Hash ذخیره می‌شود و اینجا خوانده نمی‌شود.',flush:1,actions:can?`<button class="btn btn-primary btn-sm" data-usr="">${P.ic('user-plus')}کاربر جدید</button>`:'',body:P.table(['نام کاربری','نام','دسترسی','وضعیت',''],au.map(u=>[`<b dir="ltr">${esc(u.username||'')}</b>`,esc(u.displayName||''),u.fullAccess?P.b('دسترسی کامل','warning',1):`<span class="wrap">${A(u.sections).map(k=>esc(names[k]||k)).join('، ')||'—'}</span>`,String(u.status)==='غیرفعال'?P.b('غیرفعال','danger',1):P.b('فعال','success',1),can?`<button class="btn btn-ghost btn-sm" data-usr="${esc(u.id)}">ویرایش</button>`:'']),{empty:'کاربری تعریف نشده'})})}
@@ -62,8 +63,6 @@ function userForm(id){const AA=window.AdminAccess,u=A(H().settings?.adminUsers).
   onSave:(m,btn)=>{const v=n=>P.$(`[name=${n}]`,m).value,input={id,username:v('un'),displayName:v('dn'),password:v('pw'),status:v('st'),fullAccess:P.$('[name=full]',m).checked,sections:[...m.querySelectorAll('[data-sec]:checked')].map(x=>x.dataset.sec)};
    saveHr(btn,{action:id?'ADMIN_USER_EDITED':'ADMIN_USER_ADDED',details:{username:input.username},mutate:(d,c)=>AA.saveUser(d,c,input),done:x=>`کاربر ${x.username} ذخیره شد`})}})}
 function usersMount(root){(P.$('#pnTab',root)||root).addEventListener('click',e=>{const b=e.target.closest('[data-usr]');if(b)userForm(b.dataset.usr)})}
-function messagesView(){const ms=A(H().dailyMessages).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));return P.card({title:'پیام‌های روز',flush:1,body:P.table(['تاریخ','عنوان','متن','ثبت','وضعیت'],ms.map(m=>[fa(m.date||''),`<b>${esc(m.title||'')}</b>`,`<span class="wrap">${esc(m.text||'')}</span>`,esc(m.createdBy||''),m.isArchived?P.b('بایگانی','neutral'):P.b('فعال','success',1)+(canWrite()?` <button class="btn btn-ghost btn-sm" data-msa="${esc(m.id)}">بایگانی</button>`:'')]),{empty:'پیامی ثبت نشده'})})}
-function messagesMount(root){(P.$('#pnTab',root)||root).addEventListener('click',e=>{const b=e.target.closest('[data-msa]');if(b)archiveMsg(b,b.dataset.msa)})}
 
 /* ---------- entries (stage 13, core/js/people-write.js) ----------
    Each save loads the full personnel document (with its sensitive fields, untouched), changes one collection, saves and
@@ -91,22 +90,19 @@ function penaltyForm(pre={}){const d=H();const types=window.PayrollCore?PayrollC
   onSave:(m,btn)=>{const v=n=>P.$(`[name=${n}]`,m).value,x={date:E.D(v('date')),personnelId:v('pid'),type:v('type'),amount:P.num(v('amount')),status:v('status'),approvedBy:v('by'),reason:v('reason'),notes:v('notes')};saveHr(btn,{action:'PENALTY_REWARD_ADDED',details:{personnelId:x.personnelId},mutate:(d,c)=>PW.addPenalty(d,c,x),done:r=>`${r.type} ${P.t(r.amount)} تومان برای ${person(r.personnelId)?.name||''} ثبت شد`})}})}
 function penaltyStatusForm(id){const x=A(H().penaltiesRewards).find(r=>r.id===id);if(!x)return;form({title:'تأیید یا لغو',ok:'ذخیره روی سرور',body:`<div class="sum-box"><span>${fa(x.date)} · ${esc(person(x.personnelId)?.name||'')} · ${esc(x.type)}</span><b>${T(x.amount)}</b></div>${P.field('وضعیت جدید',`<select class="select" name="st">${x.status!=='تاییدشده'?'<option value="تاییدشده">تأیید</option>':''}<option value="لغوشده">لغو</option></select>`)}${P.field('علت لغو','<input class="input" name="reason">')}`,
   onSave:(m,btn)=>{const st=P.$('[name=st]',m).value,reason=P.$('[name=reason]',m).value;saveHr(btn,{action:'PENALTY_REWARD_STATUS',details:{entityId:id,status:st},mutate:(d,c)=>PW.setPenaltyStatus(d,c,{id,status:st,reason}),done:()=>st==='تاییدشده'?'تأیید شد':'لغو شد'})}})}
-function messageForm(){form({title:'پیام روز',ok:'ذخیره روی سرور',body:`<div class="form-grid">${P.field('تاریخ',dateIn())}${P.field('عنوان','<input class="input" name="title" placeholder="مثلاً نکتهٔ مهم امروز">')}</div>${P.field('متن *','<textarea class="textarea" name="text" rows="4"></textarea>')}${P.note('پیام در پنل پرسنل نمایش داده می‌شود.','megaphone')}`,
-  onSave:(m,btn)=>{const v=n=>P.$(`[name=${n}]`,m).value;saveHr(btn,{action:'DAILY_MESSAGE_ADDED',details:{},mutate:(d,c)=>PW.addMessage(d,c,{date:E.D(v('date')),title:v('title'),text:v('text')}),done:()=>'پیام ثبت شد'})}})}
-async function archiveMsg(btn,id){if(!confirm('این پیام بایگانی شود؟'))return;await saveHr(btn,{action:'DAILY_MESSAGE_ARCHIVED',details:{entityId:id},mutate:(d,c)=>PW.archiveMessage(d,c,{id}),done:()=>'پیام بایگانی شد'})}
 // a save without a button (e.g. a status select): the control is disabled while saving
 async function quickHr(el,{action,details,mutate,done}){el.disabled=true;try{const {out,doc}=await W.edit(ioHr,{action,details,mutate});hr.doc=scrub(doc);P.render();P.toast(done(out),'check')}catch(e){P.toast(e.message||String(e),'alert-triangle');P.render()}finally{el.disabled=false}}
-window.PeopleEntry={quick:quickHr,tip:tipForm,penalty:penaltyForm,penaltyStatus:penaltyStatusForm,message:messageForm,canWrite,whyLocked,saveHr,form};
+window.PeopleEntry={quick:quickHr,tip:tipForm,penalty:penaltyForm,penaltyStatus:penaltyStatusForm,canWrite,whyLocked,saveHr,form};
 
 /* ---------- wiring ---------- */
 const hint=()=>P.note(`این صفحه <b>دادهٔ نمونه</b> است. برای دیدن دادهٔ واقعی، در «انبار ← داشبورد کنترل» به داده وصل شوید. <a href="#/inventory/control">اتصال</a>`,'database');
 const empty=what=>P.note(`<b>${what}</b> هنوز در پنل جدید نیست.`,'info');
-const REAL={staff:{render:gate(staffView),mount:staffMount},training:{render:gate(trainingView)},users:{render:gate(usersView),mount:usersMount},messages:{render:gate(messagesView),mount:messagesMount},
+const REAL={staff:{render:gate(staffView),mount:staffMount},training:{render:gate(trainingView)},users:{render:gate(usersView),mount:usersMount},
  attendance:{empty:'تردد (ورود و خروج) و برنامهٔ شیفت'},requests:{empty:'مرخصی، مساعده و اصلاح کارکرد'}};
 for(const [id,v] of Object.entries(REAL)){const t=mod.tabs.find(x=>x.id===id);if(!t)continue;const r0=t.render,m0=t.mount,a0=t.actions;
  t.render=r=>IC.ready()?(v.render?v.render(r):empty(v.empty)):hint()+r0(r);
  t.mount=(root,r)=>{if(IC.ready()&&v.render){v.mount&&v.mount(root,r)}else m0&&m0(root,r)};
- const ACT={messages:()=>wbtn('megaphone','پیام جدید','onclick="PeopleEntry.message()"')};
+ const ACT={};
  if((a0||ACT[id])&&v.render)t.actions=r=>IC.ready()?(ACT[id]?(H()?ACT[id]():''):''):(a0?a0(r):'');}
 window.PeopleReal={doc:()=>hr.doc,load:loadHr,state:hr,tipShares,scrub,gate,saveHr,tenure,canWrite,whyLocked};
 })();

@@ -153,4 +153,25 @@ ok(/id:'work'/.test(pr)&&/id:'payset'/.test(pr),'tabs «کارکرد ماه» an
  ok(Math.abs(PC.tipShares(h.tipGroups[1],h)[0].amount-333333.333)<0.01&&Math.abs(PC.tipShares(h.tipGroups[0])[0].amount-333333.333)<0.01,'finalized month without step and calls without hr keep exact shares');
  h.tipGroups[1].shareRoundingStep=5000;ok(PC.tipShares(h.tipGroups[1],h)[0].amount===330000,'a stored step always rounds');
  const g={id:'T3',receiveDate:'1405/08/05',totalAmount:100000,participants:[{personnelId:'A',weight:2},{personnelId:'B'}]};ok(PC.tipShares(g,h).map(x=>x.amount).join()==='65000,30000','weights then round down');ok(PC.tipShares({receiveDate:'1405/08/05',totalAmount:197000,participants:[{personnelId:'A'}]},h)[0].amount===197000,'a one-person tip is not rounded')}
+// menu credit (decided 2026-11-13): (use − credit, not below zero) × (1 − discount); credit of the person, else the default
+{const h=clone(hr0),q=id=>h.personnel.find(x=>x.id===id),menu=id=>PC.calc(h,q(id),1405,7);
+ ok(PC.config(h).menuCredit===0&&menu('F').menu===700000&&menu('F').menuCredit===0&&menu('F').menuExcess===1000000,'no credit set: the whole use, with the discount');
+ h.settings.defaultMonthlyCredit=400000;ok(menu('F').menu===420000&&menu('F').menuCredit===400000&&menu('F').menuExcess===600000,'default credit: (1,000,000 − 400,000) × 70%');
+ ok(menu('M').menu===300000,'managers: same credit, their own discount');
+ q('F').monthlyCredit=2500000;ok(menu('F').menu===0&&menu('F').menuExcess===0&&!menu('F').lines.some(l=>l.k==='menu'),'credit of the person above the use: nothing deducted and nothing paid back');
+ q('F').monthlyCredit=0;ok(menu('F').menu===420000,'person credit 0 = the default');
+ const sh=PC.menuShare(2500000,1000000,20);ok(sh.excess===1500000&&sh.deduction===1200000,'owner example: 2.5m use, 1m credit, 20% → 1.5m then 1.2m');
+ q('F').salaryHistory=[{effectiveYear:0,effectiveMonth:0,terms:{salaryContract:fixed,monthlyCredit:0}},{effectiveYear:1405,effectiveMonth:8,terms:{salaryContract:fixed,monthlyCredit:900000}}];q('F').monthlyCredit=900000;
+ ok(PC.menuTerms(h,q('F'),1405,7).credit===400000&&PC.menuTerms(h,q('F'),1405,8).credit===900000&&PC.menuTerms(h,q('F'),1405,8).own,'a credit changed from a month does not touch the months before');
+ const base={startYear:1405,startMonth:7,overtimeFactor:1.4,menuStaff:30,menuManagers:50,tipStep:5000,advanceWarnPercent:50,reasons:PC.DEF_REASONS,items:PC.DEF_ITEMS,methods:PC.DEF_METHODS};
+ PC.saveSettings(h,ctx(),{...base,menuCredit:1000000});ok(h.settings.defaultMonthlyCredit===1000000,'default credit saved in settings.defaultMonthlyCredit');
+ throws(()=>PC.saveSettings(h,ctx(),{...base,menuCredit:1000000}),/تغییری/,'same settings: nothing to save');throws(()=>PC.saveSettings(h,ctx(),{...base,menuCredit:-5}),/اعتبار/,'negative credit refused');
+ delete q('F').salaryHistory;q('F').monthlyCredit=0;h.penaltiesRewards.find(x=>x.id==='PR-00003').status='لغوشده';q('O').employmentEndDate='1405/06/30';const cl=PC.closeMonth(h,ctx(),{year:1405,month:7,today:T,note:''}),row=cl.rows.find(r=>r.personnelId==='F');
+ ok(row.menuCredit===1000000&&row.menuExcess===0,'closure keeps the credit and the excess');h.settings.defaultMonthlyCredit=0;ok(PC.calc(h,q('F'),1405,7).menuCredit===1000000&&PC.calc(h,q('F'),1405,7).menu===0,'a closed month keeps its credit when the setting changes')}
+// agreed shifts per week and the estimate of a month
+{const h=clone(hr0);PW.saveSalaryTerms(h,ctx(),{id:'F',type:'fixedMonthly',monthlySalary:36000000,weeklyShifts:6,effective:'1405/08'});const f=h.personnel.find(p=>p.id==='F');
+ ok(f.salaryContract.weeklyShifts===6&&PC.weeklyShifts(f,1405,8)===6&&PC.shiftEstimate(f,1405,9)===26,'6 shifts a week: 26 in a 30-day month');
+ ok(PC.weeklyShifts(f,1405,7)===0&&PC.shiftEstimate(f,1405,7)===0,'weekly shifts set from a month do not touch the months before');
+ f.employmentEndDate='1405/09/14';ok(PC.shiftEstimate(f,1405,9)===12&&PC.shiftEstimate(f,1405,10)===0,'estimate follows the days employed');
+ throws(()=>PW.saveSalaryTerms(h,ctx(),{id:'F',type:'fixedMonthly',monthlySalary:36000000,weeklyShifts:30,effective:'1405/08'}),/شیفت در هفته/,'weekly shifts range')}
 console.log(`qa_template_payroll: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

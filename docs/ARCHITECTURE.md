@@ -41,6 +41,7 @@ app/
 | `attendance` | `attendance-real.js` | `attendance-write.js` (قواعد: `attendance-core.js`) |
 | `suppliers` | `FinanceReal` (`finance-real.js`) | `purchase-write.js` |
 | `finance`، `assets`، `errorlog` | `ExtrasReal` (`extras-real.js`) | `finance-write.js`، `petty-write.js`، `assets-write.js` |
+| همهٔ ماژول‌ها (فقط خواندن) | گزارش‌های دوره‌ای: `core/js/report-core.js` (جمع دوره، فروش هر ماه، گروه‌های گزارش، حقوق دوره) و `js/pages/reports-real.js` (پنج تب اول «گزارش‌ها») | — |
 
 موتور انبار (`InvEngine.build`، `positions`، `analyze`):
 - موجودی هر قلم از آخرین شمارش خودش ساخته می‌شود، به‌علاوهٔ ورود، منهای مصرف رسپیِ فروش، منهای پرتی و مصرف مجاز.
@@ -83,6 +84,13 @@ app/
 - با `window.__shotReq='name'` عکس در `.local-data/shots/` ذخیره می‌کند.
 
 نمونه: `tools/probes/smoke.js`.
+
+## گزارش‌های دوره‌ای (`reports-real.js`)
+- بازه (`ReportsReal.st`: طول ۱، ۳، ۶ یا ۱۲ ماه و ماه پایان) بین پنج تب مشترک است. `ReportCore.span` کلید ماه‌ها را می‌دهد.
+- سود و زیان هر ماه همان `LedgerReal.monthPnl` (صفحهٔ «مالی ← سود و زیان») است و `ReportCore.sumPnl` ماه‌ها را جمع می‌کند؛ قاعدهٔ تازه‌ای ندارد.
+- فروش آیتم‌ها از `ReportCore.salesMonths` می‌آید: هر فایل فروش روی روزهایش پخش می‌شود و سهم هر ماه تقویمی جدا می‌شود.
+- نمودارها با `RT.chart` (ECharts) و رنگ‌های `--c1` تا `--c6` ساخته می‌شوند؛ رنگ هر گروه ثابت است (نه بر اساس رتبه). میله‌های افقی، خط‌های خلاصه و راهنمای دونات HTML ساده‌اند (`.rp-*` در `panel.css`).
+- چاپ: `window.print()`؛ نوار انتخاب بازه `no-print` است.
 
 ## جدول یکپارچه (`P.grid` در `shell.js`)
 هر جدول `table.table` داخل صفحه یا مودال، بعد از هر render خودکار این‌ها را می‌گیرد:

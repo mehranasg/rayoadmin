@@ -2,7 +2,8 @@
    Rayo waiter app prototype — waiter.js (phone)
    Sign in · table map with status and time-at-table · open table · customer lookup ·
    menu with notes → cart → send to stations · "ready" alerts → served ·
-   void request (needs cashier) · bill request · move table.
+   void request (needs cashier) · print bill · settle · discount (per waiter permission) · move table ·
+   follow-up alerts (late items, long stays, seated without order) · kitchen queue on the menu.
    ========================================================= */
 (function(){
 'use strict';
@@ -16,7 +17,10 @@ const app=()=>$('#app');
 const myOrders=()=>S().orders.filter(o=>o.table&&o.waiter===me);
 const readyItems=()=>myOrders().flatMap(o=>O.live(o).filter(i=>i.status==='ready').map(i=>({o,i})));
 const cartN=()=>W.cart.reduce((a,c)=>a+c.qty,0);
-const nav=()=>{const r=readyItems().length;return`<nav class="w-nav">
+const can=k=>!!((S().settings.waiterPerms||{})[me]||{})[k];
+/* my tables that need a visit: food late, sitting long, or seated without an order */
+const follow=()=>myOrders().map(o=>({o,late:O.late(o),long:O.longStay(o),idle:O.noOrderLong(o)})).filter(x=>x.late.length||x.long||x.idle);
+const nav=()=>{const r=readyItems().length+follow().length;return`<nav class="w-nav">
   ${[['tables','میزها','layout-grid'],['mine','میزهای من','user'],['alerts','اعلان‌ها','bell']].map(([k,l,i])=>`<button class="${W.tab===k&&!W.scr?'active':''}" data-tab="${k}">${ic(i)}${l}${k==='alerts'&&r?`<span class="count">${fa(r)}</span>`:''}</button>`).join('')}</nav>`};
 const topbar=(title,sub,back,right='')=>`<header class="w-top">${back?`<button class="icon-btn" data-back>${ic('arrow-right')}</button>`:`<span class="brand-mark" style="width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--accent);color:#fff;font-weight:800">ر</span>`}
   <div class="grow"><h1>${title}</h1><small>${sub||''}</small></div>${right}</header>`;
@@ -34,11 +38,11 @@ function login(){
 /* ---------- tables ---------- */
 function tables(mineOnly){
   const T=O.TABLES.filter(x=>(W.area==='all'||x.area===W.area)&&(!mineOnly||O.atTable(x.id)?.waiter===me));
-  const card=x=>{const s=O.tstate(x),o=O.atTable(x.id),rd=o&&O.live(o).some(i=>i.status==='ready');
-    return`<button class="wt st-${s}" data-t="${x.id}">${rd?`<span class="ready badge badge-success">${ic('bell-ring')}</span>`:o&&o.waiter===me?'<span class="mine"></span>':''}
+  const card=x=>{const s=O.tstate(x),o=O.atTable(x.id),rd=o&&O.live(o).some(i=>i.status==='ready'),lt=o&&O.late(o).length,lg=o&&O.longStay(o),idle=o&&O.noOrderLong(o);
+    return`<button class="wt st-${s} ${lg?'long':''}" data-t="${x.id}">${rd?`<span class="ready badge badge-success">${ic('bell-ring')}</span>`:lt?`<span class="ready badge badge-danger" title="پیگیری آشپزخانه">${ic('alarm-clock')}</span>`:idle?`<span class="ready badge badge-info" title="بدون سفارش">${ic('hand')}</span>`:o&&o.waiter===me?'<span class="mine"></span>':''}
       <span class="tno">${fa(x.no)}</span>
       <small>${o?`${fa(o.guests)} نفر · <span class="timer">${O.dur(o.openedAt)}</span>`:S().reserved[x.id]?'رزرو '+S().reserved[x.id].at:fa(x.seats)+' نفره'}</small>
-      <small style="font-weight:600;color:var(--st)">${O.TSTATE[s][0].split(' — ')[0]}</small></button>`};
+      <small style="font-weight:600;color:var(--st)">${lg?'بیش از '+fa(O.set().longStayMin)+' دقیقه':O.TSTATE[s][0].split(' — ')[0]}</small></button>`};
   const cnt=O.TABLES.filter(x=>O.tstate(x)==='free').length;
   return topbar(mineOnly?'میزهای من':'میزها',`${O.staff(me).name} · ${fa(cnt)} میز آزاد`,false,`<button class="icon-btn" data-tab="alerts">${ic('bell')}${readyItems().length?`<span class="count">${fa(readyItems().length)}</span>`:''}</button><button class="icon-btn" data-out title="خروج">${ic('log-out')}</button>`)+
   `<div class="w-body"><div class="cat-strip">${[['all','همه'],...O.AREAS.map(a=>[a.id,a.name])].map(([k,l])=>`<button class="chip ${W.area===k?'active':''}" data-area="${k}">${l}</button>`).join('')}</div>
@@ -58,18 +62,21 @@ function detail(){
   `<div class="w-body">
     <button class="w-card" data-sh="cust" style="width:100%;text-align:start;font:inherit;color:inherit;cursor:pointer;display:flex;gap:10px;align-items:center">
       <span class="thumb kpi-icon" style="width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)">${ic(c?'user-check':'user-plus')}</span>
-      <div class="grow">${c?`<b>${c.name}</b><small class="muted" style="display:block">${fa(c.visits)} بار آمده · آخرین ${fa(c.last)}</small>${c.note?`<small style="display:block;color:var(--warning);font-weight:600">${ic('alert-triangle','')} ${O.esc(c.note)}</small>`:''}`:'<b>افزودن مشتری</b><small class="muted" style="display:block">با شماره تلفن؛ سابقه و حساسیت‌ها را می‌بینید</small>'}</div>${ic('chevron-left')}</button>
+      <div class="grow">${c?`<b>${c.name}</b><small class="muted" style="display:block">${fa(c.visits)} بار آمده · آخرین ${fa(c.last)}${c.pct?' · '+fa(c.pct)+'٪ باشگاه':''}${c.credit?' · اعتبار '+t(c.credit):''}</small>${c.note?`<small style="display:block;color:var(--warning);font-weight:600">${ic('alert-triangle','')} ${O.esc(c.note)}</small>`:''}`:'<b>افزودن مشتری</b><small class="muted" style="display:block">با شماره تلفن؛ سابقه و حساسیت‌ها را می‌بینید</small>'}</div>${ic('chevron-left')}</button>
     ${o.status==='bill'?`<div class="alert alert-warning mt" style="margin-top:10px">${ic('receipt')}<div>صورتحساب درخواست شده — ${t(O.due(o))} تومان</div></div>`:''}
-    ${rounds.map(r=>{const items=L.filter(i=>(i.round||1)===r),sent=items.find(i=>i.sentAt)?.sentAt,wait=items.some(i=>i.status==='sent')&&sent&&O.min(sent)>=20;
+    ${rounds.map(r=>{const items=L.filter(i=>(i.round||1)===r),sent=items.find(i=>i.sentAt)?.sentAt,wait=items.some(i=>O.late(o).includes(i));
       return`<div class="w-sec"><span>نوبت ${fa(r)}</span><span class="timer" style="${wait?'color:var(--danger)':''}">${sent?O.clock(sent)+' · '+O.dur(sent)+' پیش':''}</span></div><div class="w-card">
-      ${items.map(i=>`<div class="w-line ${i.status==='void'?'void':''}" ${i.status!=='void'?`data-it="${i.uid}"`:''}><b>${fa(i.qty)}×</b><div><b>${i.name}</b>${i.mods&&i.mods.length?`<small style="color:var(--info)">+ ${O.modTxt(i)}</small>`:''}${i.note?`<small class="nt">» ${O.esc(i.note)}</small>`:''}${pend.includes(i.uid)?'<small style="color:var(--danger)">درخواست ابطال در انتظار صندوق</small>':''}</div>${O.b(pst[i.status][0],pst[i.status][1])}</div>`).join('')}</div>`}).join('')}
+      ${items.map(i=>`<div class="w-line ${i.status==='void'?'void':''}" ${i.status!=='void'?`data-it="${i.uid}"`:''}><b>${fa(i.qty)}×</b><div><b>${i.name}</b>${i.mods&&i.mods.length?`<small style="color:var(--info)">+ ${O.modTxt(i)}</small>`:''}${i.note?`<small class="nt">» ${O.esc(i.note)}</small>`:''}${pend.includes(i.uid)?'<small style="color:var(--danger)">درخواست ابطال در انتظار صندوق</small>':''}</div><span class="row" style="gap:4px">${O.b(pst[i.status][0],pst[i.status][1])}${i.status!=='void'?`<button type="button" class="btn btn-ghost btn-sm btn-icon" data-again="${i.uid}" title="یکی دیگر از همین">${ic('plus')}</button>`:''}</span></div>`).join('')}</div>`}).join('')}
     ${o.items.some(i=>i.status==='new'&&i.hold)?`<div class="w-sec"><span>نگه‌داشته تا اعلام</span><button class="btn btn-primary btn-sm" data-fire>${ic('flame')}اجرا</button></div><div class="w-card">${o.items.filter(i=>i.status==='new'&&i.hold).map(i=>`<div class="w-line"><b>${fa(i.qty)}×</b><div><b>${i.name}</b>${i.note?`<small class="nt">» ${O.esc(i.note)}</small>`:''}</div>${O.b('نگه‌داشته','info')}</div>`).join('')}</div>`:''}
     ${!o.items.length?'<p class="muted" style="text-align:center;margin-top:30px">هنوز سفارشی ثبت نشده</p>':''}
     <div class="w-sec"><span>جمع تا این لحظه</span><b>${t(O.total(o))} تومان</b></div>
     <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
       <button class="btn btn-ghost btn-sm" data-sh="move">${ic('arrow-left-right')}تغییر میز</button>
       <button class="btn btn-ghost btn-sm" data-sh="guests">${ic('users')}نفرات</button>
-      <button class="btn btn-ghost btn-sm" data-sh="bill" ${o.status==='bill'?'disabled':''}>${ic('receipt')}درخواست صورتحساب</button></div>
+      ${can('bill')?`<button class="btn btn-ghost btn-sm" data-sh="print">${ic('printer')}چاپ صورتحساب</button>`:`<button class="btn btn-ghost btn-sm" data-sh="bill" ${o.status==='bill'?'disabled':''}>${ic('receipt')}درخواست صورتحساب</button>`}
+      ${can('discount')?`<button class="btn btn-ghost btn-sm" data-sh="disc">${ic('percent')}تخفیف</button>`:''}
+      ${can('settle')?`<button class="btn btn-secondary btn-sm" data-sh="settle" ${O.due(o)>0?'':'disabled'}>${ic('wallet')}تسویه</button>`:''}</div>
+    ${o.discount?`<small class="muted" style="display:block;margin-top:6px">تخفیف: ${O.esc(o.discount.reason)} (−${t(O.disc(o))})</small>`:''}
   </div>
   <div class="w-foot">${O.live(o).some(i=>i.status==='ready')?`<button class="btn btn-secondary" data-served>${ic('check-check')}سرو شد</button>`:''}
     <button class="btn btn-primary" data-menu>${ic('plus')}${W.cart.length?'ادامهٔ سفارش ('+fa(cartN())+')':'افزودن سفارش'}</button></div>`;
@@ -77,13 +84,13 @@ function detail(){
 
 /* ---------- menu & cart ---------- */
 function menu(){
-  const o=O.order(W.oid),q=W.q.trim(),list=O.MENU.filter(m=>(!W.cat||m.cat===W.cat)&&(!q||m.name.includes(q)));
+  const o=O.order(W.oid),Q=O.queue(),q=W.q.trim(),list=O.MENU.filter(m=>(!W.cat||m.cat===W.cat)&&(!q||m.name.includes(q)));
   const inCart=mid=>W.cart.filter(c=>c.mid===mid);
   return topbar('سفارش میز '+fa(O.table(o.table).no),'روی نام آیتم بزنید تا توضیح بنویسید',true)+
   `<div class="w-body"><div class="search">${ic('search')}<input class="input" id="wq" placeholder="جستجو…" value="${O.esc(W.q)}"></div>
     <div class="cat-strip" style="margin-top:8px"><button class="chip ${!W.cat?'active':''}" data-cat="">همه</button>${O.CATS.map(c=>`<button class="chip ${W.cat===c?'active':''}" data-cat="${c}">${c}</button>`).join('')}</div>
     <div style="margin-top:8px">${list.map(m=>{const cs=inCart(m.id),n=cs.reduce((a,c)=>a+c.qty,0),notes=cs.map(cTxt).filter(Boolean);
-      return`<div class="wm ${O.isOut(m.id)?'out':''}"><div class="nm" ${O.isOut(m.id)?'':`data-nm="${m.id}"`}><b>${m.name}</b><small>${O.isOut(m.id)?'ناموجود':t(O.unit(o,m))+' · '+O.st(m.station).name}</small>${notes.map(n=>`<small class="nt">» ${O.esc(n)}</small>`).join('')}</div>
+      return`<div class="wm ${O.isOut(m.id)?'out':''}"><div class="nm" ${O.isOut(m.id)?'':`data-nm="${m.id}"`}><b>${m.name}</b><small>${O.isOut(m.id)?'ناموجود':t(O.unit(o,m))+' · '+O.st(m.station).name}</small>${(w=>w.busy&&!O.isOut(m.id)?`<small class="qwait">${ic('hourglass')}${O.waitTxt(w)} — به مشتری بگویید</small>`:'')(O.wait(m.id,Q))}${notes.map(n=>`<small class="nt">» ${O.esc(n)}</small>`).join('')}</div>
         ${O.isOut(m.id)?'':`<div class="stp">${n?`<button data-cm="${m.id}">${ic('minus')}</button><b>${fa(n)}</b>`:''}<button data-cp="${m.id}" style="${n?'':'background:var(--accent);color:#fff;border-color:var(--accent)'}">${ic('plus')}</button></div>`}</div>`}).join('')}</div></div>
   <div class="w-foot"><button class="btn btn-primary" data-review ${W.cart.length?'':'disabled'}>${ic('send')}مرور و ارسال ${W.cart.length?'('+fa(cartN())+' قلم · '+t(W.cart.reduce((a,c)=>a+cPrice(c)*c.qty,0))+')':''}</button></div>`;
 }
@@ -95,7 +102,9 @@ const subCart=mid=>{const L=W.cart.filter(x=>x.mid===mid),c=L[L.length-1];if(!c)
 /* ---------- alerts ---------- */
 function alerts(){
   const R=readyItems(),req=S().requests.filter(r=>r.by===me&&r.status!=='pending').slice(0,5),bills=myOrders().filter(o=>o.status==='bill');
+  const F=follow();
   return topbar('اعلان‌ها',O.staff(me).name)+`<div class="w-body">
+    ${F.length?`<div class="w-sec"><span>سر بزنید</span><span>${fa(F.length)}</span></div>${F.map(({o,late,long,idle})=>`<div class="alert-card" data-t="${o.table}" style="cursor:pointer"><span class="thumb tone-${late.length?'danger':long?'warning':'info'}">${ic(late.length?'alarm-clock':long?'hourglass':'hand')}</span><div><b>میز ${fa(O.table(o.table).no)}</b><small class="muted" style="display:block">${[late.length?'دیر شده: '+late.map(i=>fa(i.qty)+'× '+i.name+' ('+O.dur(i.sentAt)+')').join('، ')+' — از آشپزخانه بپرسید':'',long?O.dur(o.openedAt)+' نشسته‌اند — سر بزنید (صورتحساب؟ سفارش تازه؟)':'',idle?O.dur(o.openedAt)+' نشسته‌اند و هنوز سفارش نداده‌اند':''].filter(Boolean).join(' · ')}</small></div>${ic('chevron-left')}</div>`).join('')}`:''}
     <div class="w-sec"><span>آمادهٔ سرو</span><span>${fa(R.length)}</span></div>
     ${R.map(({o,i})=>`<div class="alert-card"><span class="thumb tone-success">${ic('bell-ring')}</span><div><b>میز ${fa(O.table(o.table).no)} — ${fa(i.qty)}× ${i.name}</b><small class="muted" style="display:block">${O.st(i.station).name} · آماده از ${O.dur(i.readyAt||i.sentAt)} پیش</small></div><button class="btn btn-primary btn-sm" data-srv="${o.id}:${i.uid}">سرو شد</button></div>`).join('')||'<p class="muted">چیزی منتظر سرو نیست</p>'}
     ${bills.length?`<div class="w-sec"><span>صورتحساب خواسته</span></div>${bills.map(o=>`<div class="alert-card"><span class="thumb tone-warning">${ic('receipt')}</span><div><b>میز ${fa(O.table(o.table).no)}</b><small class="muted" style="display:block">منتظر تسویه در صندوق · ${t(O.due(o))}</small></div><span></span></div>`).join('')}`:''}
@@ -173,7 +182,30 @@ const SH={
   move:o=>sheet('انتقال به میز آزاد',`<div class="w-grid">${O.TABLES.filter(x=>O.tstate(x)==='free').map(x=>`<button type="button" class="wt st-free" data-to="${x.id}"><span class="tno">${fa(x.no)}</span><small>${O.AREAS.find(a=>a.id===x.area).name}</small></button>`).join('')}</div>
     <small class="muted">ادغام دو میز پر فقط از صندوق انجام می‌شود.</small>`,'',(el,close)=>$$('[data-to]',el).forEach(b=>b.onclick=()=>{const from=O.table(o.table).no;o.table=b.dataset.to;O.log(o,`انتقال از میز ${fa(from)} به میز ${fa(O.table(o.table).no)} (سفارش‌گیر)`,me);
       [...new Set(O.live(o).filter(i=>i.status==='sent'||i.status==='ready').map(i=>i.station))].forEach(st=>O.ticket(o,st,[{name:'انتقال میز',qty:1,note:'از میز '+fa(from)+' به میز '+fa(O.table(o.table).no)}],'انتقال',me));close();O.save();O.toast('میز تغییر کرد')})),
-  bill:o=>{if(W.cart.length){O.toast('سبد ارسال‌نشده دارید','alert-triangle');return}o.status='bill';O.log(o,'درخواست صورتحساب (سفارش‌گیر)',me);O.save();O.toast('درخواست صورتحساب به صندوق رفت','receipt')}
+  bill:o=>{if(W.cart.length){O.toast('سبد ارسال‌نشده دارید','alert-triangle');return}o.status='bill';O.log(o,'درخواست صورتحساب (سفارش‌گیر)',me);O.save();O.toast('درخواست صورتحساب به صندوق رفت','receipt')},
+  /* print the bill on the cashier printer (or the waiter's portable printer) and show it */
+  print:o=>{if(W.cart.length||o.items.some(i=>i.status==='new'&&!i.hold)){O.toast('اول سبد را ارسال کنید','alert-triangle');return}
+    const again=S().prints.some(p=>p.order===o.id&&p.kind==='پیش‌فاکتور');o.status='bill';const html=O.printBill(o,'پیش‌فاکتور',me,true);if(again)O.flag(o,'چاپ دوبارهٔ صورتحساب');
+    O.log(o,'صورتحساب چاپ شد (سفارش‌گیر)',me);O.save();
+    sheet('صورتحساب میز '+fa(O.table(o.table).no),`<div style="display:grid;place-items:center">${html}</div><small class="muted">به چاپگر صندوق فرستاده شد.</small>`,can('settle')?`<button class="btn btn-primary" data-ok>${ic('wallet')}تسویه</button>`:'',(el,close)=>{const b=$('[data-ok]',el);b&&(b.onclick=()=>{close();SH.settle(o)})})},
+  disc:o=>{const c=o.customer&&O.cust(o.customer);
+    sheet('تخفیف',`${c&&c.pct?`<button type="button" class="btn btn-secondary" data-club>${ic('gift')}تخفیف باشگاه ${O.esc(c.name)}: ${fa(c.pct)}٪</button>`:''}
+      <div class="field"><label>درصد</label>${O.chips('p',['۵','۱۰','۱۵','۲۰'])}</div><div class="field"><label>دلیل</label>${O.chips('r',['مشتری دائمی','جبران تأخیر','مهمان مدیر'])}</div>
+      ${o.discount?`<button type="button" class="btn btn-ghost btn-sm" data-rm>حذف تخفیف فعلی (${O.esc(o.discount.reason)})</button>`:''}<small class="muted">بیش از ۲۰٪ فقط از صندوق؛ همهٔ تخفیف‌ها در «کنترل» صندوق دیده می‌شوند.</small>`,
+      `<button class="btn btn-primary" data-ok>${ic('check')}اعمال</button>`,(el,close,f)=>{
+        const cl=$('[data-club]',el);cl&&(cl.onclick=()=>{O.applyClub(o,me);close();O.save();O.toast('تخفیف باشگاه اعمال شد','percent')});
+        const rm=$('[data-rm]',el);rm&&(rm.onclick=()=>{o.discount=null;O.log(o,'حذف تخفیف',me);close();O.save()});
+        $('[data-ok]',el).onclick=()=>{const p=O.int(O.vals(f,'p')[0]||''),r=O.vals(f,'r')[0];if(!p||!r){O.toast('درصد و دلیل را بزنید','alert-triangle');return}
+          o.discount={kind:'pct',value:p,reason:r};O.log(o,`تخفیف ${fa(p)}٪ — ${r} (سفارش‌گیر)`,me);close();O.save()}})},
+  settle:o=>{if(o.items.some(i=>i.status==='new')){O.toast('آیتم ارسال‌نشده دارد','alert-triangle');return}
+    const c=o.customer&&O.cust(o.customer),due=O.due(o),meth=['card','cash','transfer',...(c&&c.credit>0?['club']:[]),...(c?['credit']:[])];
+    sheet('تسویه میز '+fa(O.table(o.table).no),`<div class="between"><span>قابل پرداخت</span><b style="font-size:20px">${t(due)} تومان</b></div>
+      ${c?`<small class="muted">${O.esc(c.name)}${c.credit?' · اعتبار باشگاه '+t(c.credit):''}${O.debt(c.id)>0?' · بدهی قبلی '+t(O.debt(c.id)):''}</small>`:''}
+      <div class="field"><label>روش</label><div class="chips">${meth.map((k,j)=>`<label class="chip-opt"><input type="radio" name="m" value="${k}" ${!j?'checked':''}><span>${O.PAY[k][0]}</span></label>`).join('')}</div></div>
+      <div class="field"><label>مبلغ (کمتر = پرداخت بخشی؛ بقیه با روش دیگر)</label><input class="input" name="a" inputmode="numeric" value="${fa(due)}"></div>`,
+      `<button class="btn btn-primary" data-ok>${ic('check')}ثبت پرداخت</button>`,(el,close,f)=>{$('[data-ok]',el).onclick=()=>{
+        const a=Math.min(O.int(f.a.value),O.due(o)),r=O.pay(o,[{method:O.vals(f,'m')[0],amount:a}],me);if(!r.ok){O.toast(r.msg,'alert-triangle');return}
+        close();if(r.closed){W.scr=null;W.oid=null;O.toast('تسویه شد؛ رسید چاپ شد و میز آزاد شد','check-circle')}else O.toast('ثبت شد؛ مانده '+t(O.due(o)),'wallet');O.save()}})}
 };
 
 /* ---------- render & events ---------- */
@@ -200,6 +232,7 @@ app().addEventListener('click',e=>{
   if((x=g('data-fire'))){const n=O.send(o,me,true);O.save();O.toast(fa(n)+' قلم اجرا شد','flame');return}
   if((x=g('data-served'))){O.live(o).forEach(i=>{if(i.status==='ready')i.status='served'});O.save();O.toast('سرو شد');return}
   if((x=g('data-sh'))){SH[x.dataset.sh](o);return}
+  if((x=g('data-again'))){const i=o.items.find(z=>z.uid===x.dataset.again);addCart(i.mid,i.note||'',i.mods||[],false);O.toast('یک '+i.name+' به سبد اضافه شد','plus');draw();return}
   if((x=g('data-it'))){itemSheet(o,o.items.find(i=>i.uid===x.dataset.it));return}
   if((x=g('data-cat'))){W.cat=x.dataset.cat||null;draw();return}
   if((x=g('data-cp'))){addCart(x.dataset.cp);draw();return}

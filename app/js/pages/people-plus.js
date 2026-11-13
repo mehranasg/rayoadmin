@@ -1,4 +1,4 @@
-/* Rayo Panel prototype — پرسنل: برنامه‌ریزی نیرو، ابزار حقوق، پیام روز (sample data) */
+/* Rayo Panel prototype — پرسنل: برنامه‌ریزی نیرو، ابزار حقوق (sample data). «پیام روز» was removed (owner, 2026-11-13: not used). */
 (function(){
 'use strict';
 const ppl=P.mods.people,R=RT.rng(1408);
@@ -32,15 +32,9 @@ function salaryTools(){const r=calc(30000000,20,170000);
 function calcView(r){return P.table(['شرح',{t:'مبلغ',n:1}],[['حقوق پایه',P.t(r.base)],['حق مسکن و بن',P.t(RULE.housing+RULE.food)],['اضافه‌کار (×۱٫۴)',P.t(r.ot)],['<b>ناخالص</b>','<b>'+P.t(r.gross)+'</b>'],['بیمهٔ سهم کارگر (۷٪)','−'+P.t(r.ins)],['مالیات',`−${P.t(r.tax)}`],['<b>خالص دریافتی</b>','<b>'+P.t(r.net)+'</b>']])}
 function reverse(target,otH,hourly){let lo=0,hi=target*2;for(let i=0;i<50;i++){const mid=(lo+hi)/2;if(calc(mid,otH,hourly).net<target)lo=mid;else hi=mid}return Math.ceil(hi/10000)*10000}
 function mountSalary(root){const f=n=>P.num(P.$(`[name=${n}]`,root).value);const up=()=>{P.$('#ppCalc',root).innerHTML=calcView(calc(f('sb'),f('so'),f('sh')));const b=reverse(f('rn'),f('ro'),f('sh')),r=calc(b,f('ro'),f('sh'));P.$('#ppRev',root).innerHTML=`<div class="sum-box"><span>حقوق پایهٔ لازم</span><b>${P.T(b)}</b></div><p class="muted mt">ناخالص ${P.t(r.gross)} · بیمه ${P.t(r.ins)} · مالیات ${P.t(r.tax)} · خالص ${P.t(r.net)}</p>`};P.$$('input',root).forEach(i=>i.addEventListener('input',up));up()}
-/* daily message */
-const MSGS=[{date:'1405/08/15',text:'امروز رزرو گروهی ساعت ۲۰ — میزهای ۱۲ تا ۱۶ از ساعت ۱۹ خالی بمانند.',by:'مدیر داخلی',reads:9,total:12},{date:'1405/08/14',text:'سس پستوی جدید از امروز در پاستا؛ مقدار طبق رسپی جدید.',by:'سرآشپز',reads:12,total:12},{date:'1405/08/12',text:'یادآوری: ثبت ضایعات همان لحظه از پنل پرسنل.',by:'مدیر داخلی',reads:11,total:12}];
-function messages(){return`<div class="split">${P.card({title:'پیام امروز',sub:'در پنل پرسنل اول از همه دیده می‌شود؛ خواندنش ثبت می‌شود',body:`<textarea class="textarea" rows="4" placeholder="مثلاً: امروز منوی ویژه…"></textarea><div class="form-grid mt">${P.field('برای',`<select class="select">${P.opts([['all','همه'],['سالن','سالن'],['بار','بار'],['آشپزخانه','آشپزخانه']])}</select>`)}${P.field('تا تاریخ',`<input class="input" value="${P.d(D.TODAY)}">`)}</div>`,foot:`<button class="btn btn-primary" onclick="P.toast('پیام منتشر شد')">${P.ic('send')}انتشار</button>`})}
- ${P.card({title:'پیام‌های اخیر',flush:1,body:P.table(['تاریخ','پیام','از',{t:'خوانده',n:1}],MSGS.map(m=>[P.dd(m.date),`<span class="wrap">${m.text}</span>`,m.by,`${P.fa(m.reads)}/${P.fa(m.total)}`]))})}</div>`}
 const at=ppl.tabs.findIndex(t=>t.id==='attendance')+1;
 ppl.tabs.splice(at,0,{id:'planning',label:'برنامه‌ریزی نیرو',icon:'calendar-range',title:'برنامه‌ریزی نیرو — آذر ۱۴۰۵',desc:'نیاز هر بخش و شیفت، برنامهٔ ماهانه، کمبودها و تقویم سالانه',render:schedule,
  badge:()=>{let n=0;for(let d=1;d<=DAYS;d++)for(const sec of SECT)for(const [sh] of SHIFTS)if(need(sec,sh,d)>cover(sec,sh,d))n++;return n}});
 const pi=ppl.tabs.findIndex(t=>t.id==='payroll')+1;
 ppl.tabs.splice(pi,0,{id:'salarytools',label:'ابزار حقوق',icon:'calculator',title:'محاسبه‌گر و تحلیل معکوس حقوق',desc:'محاسبهٔ خالص، حقوق پایهٔ لازم برای خالص توافقی و جدول نرخ‌ها',render:salaryTools,mount:mountSalary});
-const ri=ppl.tabs.findIndex(t=>t.id==='requests')+1;
-ppl.tabs.splice(ri,0,{id:'messages',label:'پیام روز',icon:'megaphone',desc:'اطلاعیهٔ روزانه برای پرسنل با ثبت خوانده‌شدن',render:messages});
 })();

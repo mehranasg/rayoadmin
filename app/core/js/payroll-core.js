@@ -6,8 +6,10 @@
    - net = contract (fixed monthly, prorated by the days employed in the month, or hours × hourly rate)
            + overtime (hours × hourly × overtime factor) − undertime (fixed contracts: hours × hourly)
            + additions (پاداش …) + other payment − deductions (جریمه، کسر تأخیر …) − other deduction
-           − menu use × (1 − discount %)  (one discount for everyone, another for the «مدیریت» section)
-     no transport, meal, credit, insurance or return-aid lines in this phase
+           − (menu use − monthly menu credit, not below zero) × (1 − discount %)
+             credit: the person's monthlyCredit of that month's terms, else settings.defaultMonthlyCredit (0 = none);
+             discount: one for everyone, another for the «مدیریت» section (decided 2026-11-13)
+     no transport, meal, insurance or return-aid lines in this phase
    - payment reasons and methods and penalty/reward types are lists in the settings; each reason has a kind
      (advance = مساعدهٔ ماه جاری, salary = حقوق یک ماه, tip = انعام, other = خارج از حقوق); each item type a kind
      (addition / deduction). Kinds of a reason or type already used in records cannot change.
@@ -43,11 +45,15 @@ function config(hr){const s=hr?.settings||{},y=N(s.payrollStartYear),m=N(s.payro
  const reasons=cleanList(s.paymentReasons,KINDS),items=cleanList(s.payrollItemTypes,ITEM_KINDS),methods=A(hr?.lists?.paymentMethods).map(S).filter(Boolean);
  return{start:y>1300&&m>=1&&m<=12?{year:y,month:m}:null,overtimeFactor:N(s.overtimeFactor)>0?N(s.overtimeFactor):1.4,
   menuStaff:Math.min(100,Math.max(0,N(s.menuCreditDiscountPercent))),menuManagers:Math.min(100,Math.max(0,set(s.menuDiscountPercentManagers)?N(s.menuDiscountPercentManagers):N(s.menuCreditDiscountPercent))),
-  tipStep:set(s.tipShareRoundingStep)?Math.max(0,N(s.tipShareRoundingStep)):5000,advanceWarnPercent:set(s.advanceWarnPercent)?Math.max(0,N(s.advanceWarnPercent)):50,
+  menuCredit:Math.max(0,N(s.defaultMonthlyCredit)),tipStep:set(s.tipShareRoundingStep)?Math.max(0,N(s.tipShareRoundingStep)):5000,advanceWarnPercent:set(s.advanceWarnPercent)?Math.max(0,N(s.advanceWarnPercent)):50,
   reasons:reasons.length?reasons:DEF_REASONS.map(x=>({...x,active:true})),items:items.length?items:DEF_ITEMS.map(x=>({...x,active:true})),methods:methods.length?methods:DEF_METHODS.slice()}}
 function reasonKind(hr,pay,cfg=config(hr)){if(pay?.tipSettlement===true)return'tip';if(KINDS[pay?.reasonKind])return pay.reasonKind;const t=S(pay?.type),r=cfg.reasons.find(x=>x.title===t);if(r)return r.kind;if(LEGACY_REASON[t])return LEGACY_REASON[t];if(t==='مساعده')return'advance';if(/انعام/.test(t))return'tip';return'salary'}
 function itemKind(hr,item,cfg=config(hr)){const t=S(item?.type),r=cfg.items.find(x=>x.title===t);if(r)return r.kind;if(LEGACY_ITEM[t])return LEGACY_ITEM[t];return /جریمه|کسر/.test(t)?'deduction':'addition'}
 const isManager=p=>S(p?.section)==='مدیریت'||S(p?.personnelGroup)==='مدیریت';
+/* menu credit and discount of a person in a month: {credit, own (the person has a credit of his own), percent} */
+function menuTerms(hr,p,y,m,cfg=config(hr)){const own=Math.max(0,N(termsFor(p,y,m)?.monthlyCredit));return{credit:own||cfg.menuCredit,own:own>0,percent:isManager(p)?cfg.menuManagers:cfg.menuStaff}}
+/* what a menu use costs the person: use − credit (not below zero), then the discount */
+function menuShare(used,credit,percent){const u=Math.max(0,N(used)),c=Math.max(0,N(credit)),excess=Math.max(0,u-c);return{used:u,credit:c,percent:N(percent),excess,deduction:round(excess*(1-N(percent)/100))}}
 
 /* ---------- months ---------- */
 const startCode=hr=>{const s=config(hr).start;return s?code(s.year,s.month):0};
@@ -64,6 +70,10 @@ function contractOf(p,y,m){const t=termsFor(p,y,m),c=t?.salaryContract||{},fixed
  if(fixed){const ms=N(c.monthlySalary),shifts=N(c.monthlyShifts),hps=N(c.hoursPerShift),hours=N(c.monthlyHours)||(shifts&&hps?shifts*hps:0);
   return{type:'fixed',monthlySalary:ms,agreedShifts:shifts,hoursPerShift:hps,monthlyHours:hours,hourly:N(c.approximateHourly)>0?N(c.approximateHourly):hours?Math.round(ms/hours):0}}
  const rate=N(t?.hourlyRate);return{type:rate>0?'hourly':'none',hourly:rate,agreedShifts:N(c.monthlyShifts),hoursPerShift:N(c.hoursPerShift),monthlyHours:N(c.monthlyHours)}}
+/* agreed shifts per week (salaryContract.weeklyShifts, part of the terms of a month) and the estimate of a month:
+   weekly × days employed in the month ÷ 7, rounded (a 30-day month of 6 shifts a week ≈ 26). */
+const weeklyShifts=(p,y,m)=>Math.max(0,N(termsFor(p,y,m)?.salaryContract?.weeklyShifts));
+const shiftEstimate=(p,y,m)=>Math.round(weeklyShifts(p,y,m)*employedDays(p,y,m)/7);
 const contractText=c=>c.type==='fixed'?`ثابت ${Math.round(c.monthlySalary).toLocaleString('fa-IR')}`:c.type==='hourly'?`ساعتی ${Math.round(c.hourly).toLocaleString('fa-IR')}`:'بدون قرارداد';
 
 /* ---------- employment in a month ---------- */
@@ -83,7 +93,7 @@ function inPayroll(hr,p,y,m){if(hasData(hr,p.id,y,m))return true;if(!employedDay
 /* a month closed by the new panel (closure engine v2) keeps its salary lines; payments stay live */
 const snapOf=(hr,pid,y,m)=>{const c=closureOf(hr,y,m);return c?.engine==='v2'?A(c.rows).find(r=>r.personnelId===pid)||null:null};
 function fromSnapshot(hr,p,y,m,r,cfg){const pays=salaryPaymentsOf(hr,p.id,y,m,cfg),advance=pays.filter(x=>reasonKind(hr,x,cfg)==='advance').reduce((s,x)=>s+N(x.amount),0),paid=pays.filter(x=>reasonKind(hr,x,cfg)==='salary').reduce((s,x)=>s+N(x.amount),0),net=N(r.net),balance=net-advance-paid,flags=[];if(balance<-0.5&&advance+paid>0)flags.push({k:'over',t:'بیش از حقوق ماه پرداخت شده است'});
- return{personnelId:p.id,year:+y,month:+m,contract:r.contract||contractOf(p,y,m),days:N(r.days),monthDays:N(r.monthDays)||monthLength(y,m),hours:r.hours??null,overtimeHours:N(r.overtimeHours),undertimeHours:N(r.undertimeHours),menuUsed:N(r.menuUsed),menuPercent:N(r.menuPercent),lines:A(r.lines),flags,base:N(r.base),overtime:N(r.overtime),undertime:N(r.undertime),additions:N(r.additions),deductions:N(r.deductions),menu:N(r.menu),net,advance,paid,balance,payments:pays,adjustment:{},closed:true}}
+ return{personnelId:p.id,year:+y,month:+m,contract:r.contract||contractOf(p,y,m),days:N(r.days),monthDays:N(r.monthDays)||monthLength(y,m),hours:r.hours??null,overtimeHours:N(r.overtimeHours),undertimeHours:N(r.undertimeHours),menuUsed:N(r.menuUsed),menuPercent:N(r.menuPercent),menuCredit:N(r.menuCredit),menuExcess:set(r.menuExcess)?N(r.menuExcess):N(r.menuUsed),lines:A(r.lines),flags,base:N(r.base),overtime:N(r.overtime),undertime:N(r.undertime),additions:N(r.additions),deductions:N(r.deductions),menu:N(r.menu),net,advance,paid,balance,payments:pays,adjustment:{},closed:true}}
 function calc(hr,p,y,m,draft=null,cfg=config(hr)){if(!draft){const sn=snapOf(hr,p.id,y,m);if(sn)return fromSnapshot(hr,p,y,m,sn,cfg)}const c=contractOf(p,y,m),a=draft||adjOf(hr,p.id,y,m)||{},len=monthLength(y,m),days=employedDays(p,y,m)||(hasData(hr,p.id,y,m)?len:0),lines=[],flags=[];
  const add=(k,l,v,sub='')=>{v=round(v);if(v)lines.push({k,l,v,sub})};
  const ot=Math.max(0,N(a.overtimeHours)),ut=Math.max(0,N(a.undertimeHours));let hours=null;
@@ -97,12 +107,12 @@ function calc(hr,p,y,m,draft=null,cfg=config(hr)){if(!draft){const sn=snapOf(hr,
  for(const x of ok){const k=itemKind(hr,x,cfg);add(k==='addition'?'add':'ded',S(x.type),k==='addition'?N(x.amount):-N(x.amount),S(x.reason))}
  if(drafts.length)flags.push({k:'draft',t:`${drafts.length} جریمه/پاداش پیش‌نویس (حساب نشده)`});
  add('otherPay','سایر پرداخت',N(a.otherPayment),S(a.otherPaymentNote));add('otherDed','سایر کسر',-N(a.otherDeduction),S(a.otherDeductionNote));
- const used=Math.max(0,N(a.menuUsed)),pct=isManager(p)?cfg.menuManagers:cfg.menuStaff;add('menu','استفاده از منو',-used*(1-pct/100),used?`${Math.round(used)} با ${pct}٪ تخفیف`:'');
+ const mt=menuTerms(hr,p,y,m,cfg),ms=menuShare(a.menuUsed,mt.credit,mt.percent),used=ms.used,pct=ms.percent;add('menu','استفاده از منو',-ms.deduction,used?(ms.credit?`${Math.round(used)} − اعتبار ${Math.round(ms.credit)} = ${Math.round(ms.excess)}، با ${pct}٪ تخفیف`:`${Math.round(used)} با ${pct}٪ تخفیف`):'');
  if(ended(p)&&!D(p.employmentEndDate))flags.push({k:'end',t:'تاریخ پایان همکاری ثبت نشده است'});
  const net=lines.reduce((s,l)=>s+l.v,0),pays=salaryPaymentsOf(hr,p.id,y,m,cfg),advance=pays.filter(x=>reasonKind(hr,x,cfg)==='advance').reduce((s,x)=>s+N(x.amount),0),paid=pays.filter(x=>reasonKind(hr,x,cfg)==='salary').reduce((s,x)=>s+N(x.amount),0),balance=net-advance-paid;
  if(balance<-0.5&&advance+paid>0)flags.push({k:'over',t:'بیش از حقوق ماه پرداخت شده است'});else if(net<-0.5&&!flags.some(f=>f.k==='hours'||f.k==='contract'))flags.push({k:'neg',t:'کسورات بیشتر از حقوق ماه است'});
  const sum=k=>lines.filter(l=>k.includes(l.k)).reduce((s,l)=>s+l.v,0);
- return{personnelId:p.id,year:+y,month:+m,contract:c,days,monthDays:len,hours,overtimeHours:ot,undertimeHours:ut,menuUsed:used,menuPercent:pct,lines,flags,
+ return{personnelId:p.id,year:+y,month:+m,contract:c,days,monthDays:len,hours,overtimeHours:ot,undertimeHours:ut,menuUsed:used,menuPercent:pct,menuCredit:ms.credit,menuExcess:ms.excess,lines,flags,
   base:sum(['base']),overtime:sum(['ot']),undertime:-sum(['ut']),additions:sum(['add','otherPay']),deductions:-sum(['ded','otherDed']),menu:-sum(['menu']),net,advance,paid,balance,payments:pays,adjustment:a}}
 function monthRows(hr,y,m,cfg=config(hr)){if(!startCode(hr)||code(y,m)<startCode(hr))return[];const cl=closureOf(hr,y,m);if(cl?.engine==='v2'){const ids=new Set(A(cl.rows).map(r=>r.personnelId));return A(hr?.personnel).filter(p=>ids.has(p.id)).map(p=>calc(hr,p,y,m,null,cfg))}return A(hr?.personnel).filter(p=>inPayroll(hr,p,y,m)).map(p=>calc(hr,p,y,m,null,cfg))}
 function monthSummary(hr,y,m){const rows=monthRows(hr,y,m),s=k=>rows.reduce((a,r)=>a+r[k],0);return{rows,people:rows.length,net:s('net'),advance:s('advance'),paid:s('paid'),balance:s('balance'),flagged:rows.filter(r=>r.flags.length).length}}
@@ -142,7 +152,7 @@ function saveWork(hr,ctx,{year,month,rows,baseSig,today}){const st=monthState(hr
   if(a.hoursFromAttendance&&(('hoursOverride' in vals&&String(vals.hoursOverride)!==String(a.hoursOverride??''))||('overtimeHours' in vals&&String(vals.overtimeHours)!==String(a.overtimeHours??''))||('undertimeHours' in vals&&String(vals.undertimeHours)!==String(a.undertimeHours??''))))Object.assign(a,{hoursFromAttendance:false,manualOverAttendance:true});
   Object.assign(a,vals,{updatedAt:ctx.at,updatedBy:ctx.actor});changed.push(pid)}
  if(!changed.length)throw Error('تغییری برای ذخیره نیست');ctx.auditExtra={year:+year,month:+month,people:changed};return changed.length}
-/* x: {startYear, startMonth, overtimeFactor, menuStaff, menuManagers, tipStep, advanceWarnPercent, reasons:[{title,kind,active}], items:[...], methods:[...]} */
+/* x: {startYear, startMonth, overtimeFactor, menuStaff, menuManagers, menuCredit, tipStep, advanceWarnPercent, reasons:[{title,kind,active}], items:[...], methods:[...]} */
 function saveSettings(hr,ctx,x){hr.settings=hr.settings||{};hr.lists=hr.lists||{};const s=hr.settings,before=config(hr);
  const y=N(x.startYear),m=N(x.startMonth);if(!(y>1390&&y<1500&&m>=1&&m<=12))throw Error('ماه شروع حقوق را درست وارد کنید');
  const f=N(x.overtimeFactor);if(!(f>=1&&f<=3))throw Error('ضریب اضافه‌کار باید بین ۱ و ۳ باشد');
@@ -155,10 +165,11 @@ function saveSettings(hr,ctx,x){hr.settings=hr.settings||{};hr.lists=hr.lists||{
  /* a reason or type already used keeps its kind (history would be read differently otherwise) */
  for(const r of reasons){const used=A(hr.payments).some(p=>S(p.type)===r.title&&!p.tipSettlement),old=reasonKind(hr,{type:r.title},before);if(used&&old!==r.kind)throw Error(`علت «${r.title}» در پرداخت‌ها استفاده شده؛ نوع آن (${KINDS[old]}) عوض نمی‌شود`)}
  for(const r of items){const used=A(hr.penaltiesRewards).some(p=>S(p.type)===r.title),old=itemKind(hr,{type:r.title},before);if(used&&old!==r.kind)throw Error(`نوع «${r.title}» در ثبت‌ها استفاده شده؛ اضافه/کسر بودنش عوض نمی‌شود`)}
- const prev=JSON.stringify([s.payrollStartYear,s.payrollStartMonth,s.overtimeFactor,s.menuCreditDiscountPercent,s.menuDiscountPercentManagers,s.tipShareRoundingStep,s.advanceWarnPercent,s.paymentReasons,s.payrollItemTypes,hr.lists.paymentMethods]);
- Object.assign(s,{payrollStartYear:y,payrollStartMonth:m,overtimeFactor:f,menuCreditDiscountPercent:pc(x.menuStaff),menuDiscountPercentManagers:pc(x.menuManagers),tipShareRoundingStep:Math.max(0,Math.round(N(x.tipStep))),advanceWarnPercent:pc(x.advanceWarnPercent),paymentReasons:reasons,payrollItemTypes:items});
+ const mc=x.menuCredit===undefined?N(s.defaultMonthlyCredit):Math.round(N(x.menuCredit));if(!(mc>=0))throw Error('اعتبار استفاده از منو باید صفر یا مثبت باشد');
+ const prev=JSON.stringify([s.payrollStartYear,s.payrollStartMonth,s.overtimeFactor,s.menuCreditDiscountPercent,s.menuDiscountPercentManagers,s.defaultMonthlyCredit,s.tipShareRoundingStep,s.advanceWarnPercent,s.paymentReasons,s.payrollItemTypes,hr.lists.paymentMethods]);
+ Object.assign(s,{payrollStartYear:y,payrollStartMonth:m,overtimeFactor:f,menuCreditDiscountPercent:pc(x.menuStaff),menuDiscountPercentManagers:pc(x.menuManagers),defaultMonthlyCredit:mc,tipShareRoundingStep:Math.max(0,Math.round(N(x.tipStep))),advanceWarnPercent:pc(x.advanceWarnPercent),paymentReasons:reasons,payrollItemTypes:items});
  hr.lists.paymentMethods=methods;hr.lists.paymentTypes=reasons.filter(r=>r.active).map(r=>r.title);hr.lists.penaltyRewardTypes=items.filter(r=>r.active).map(r=>r.title);
- if(JSON.stringify([s.payrollStartYear,s.payrollStartMonth,s.overtimeFactor,s.menuCreditDiscountPercent,s.menuDiscountPercentManagers,s.tipShareRoundingStep,s.advanceWarnPercent,s.paymentReasons,s.payrollItemTypes,hr.lists.paymentMethods])===prev)throw Error('تغییری برای ذخیره نیست');
+ if(JSON.stringify([s.payrollStartYear,s.payrollStartMonth,s.overtimeFactor,s.menuCreditDiscountPercent,s.menuDiscountPercentManagers,s.defaultMonthlyCredit,s.tipShareRoundingStep,s.advanceWarnPercent,s.paymentReasons,s.payrollItemTypes,hr.lists.paymentMethods])===prev)throw Error('تغییری برای ذخیره نیست');
  ctx.auditExtra={before:{start:before.start},after:{start:{year:y,month:m}}};return{start:{year:y,month:m}}}
 /* salary month of a new penalty/reward: the month of its date, or the first month after it that is not final */
 function itemSalaryMonth(hr,date,today){let [y,m]=ymOf(date);if(!y)return null;let guard=0;while(isClosed(hr,y,m)&&guard++<24){m++;if(m>12){m=1;y++}}return{year:y,month:m,late:guard>0}}
@@ -185,7 +196,7 @@ function closeCheck(hr,y,m,today){const st=monthState(hr,y,m,today),nm=id=>A(hr.
  return{state:st,rows,blockers,warnings,people:rows.length,net:rows.reduce((s,r)=>s+r.net,0),paid:rows.reduce((s,r)=>s+r.advance+r.paid,0),balance:rows.reduce((s,r)=>s+r.balance,0)}}
 function closeMonth(hr,ctx,{year,month,today,note}){const c=closeCheck(hr,year,month,today);if(c.blockers.length)throw Error('قبل از قطعی کردن: '+c.blockers.slice(0,3).join('؛ ')+(c.blockers.length>3?` و ${c.blockers.length-3} مورد دیگر`:''));if(!c.rows.length)throw Error('کسی در حقوق این ماه نیست');
  hr.payrollClosures=A(hr.payrollClosures);const version=hr.payrollClosures.filter(x=>+x.year===+year&&+x.month===+month).length+1,nm=id=>A(hr.personnel).find(p=>p.id===id)?.name||'';
- const rows=c.rows.map(r=>({personnelId:r.personnelId,personnelName:nm(r.personnelId),contract:r.contract,days:r.days,monthDays:r.monthDays,hours:r.hours,overtimeHours:r.overtimeHours,undertimeHours:r.undertimeHours,menuUsed:r.menuUsed,menuPercent:r.menuPercent,lines:r.lines,base:r.base,overtime:r.overtime,undertime:r.undertime,additions:r.additions,deductions:r.deductions,menu:r.menu,net:r.net,
+ const rows=c.rows.map(r=>({personnelId:r.personnelId,personnelName:nm(r.personnelId),contract:r.contract,days:r.days,monthDays:r.monthDays,hours:r.hours,overtimeHours:r.overtimeHours,undertimeHours:r.undertimeHours,menuUsed:r.menuUsed,menuPercent:r.menuPercent,menuCredit:r.menuCredit,menuExcess:r.menuExcess,lines:r.lines,base:r.base,overtime:r.overtime,undertime:r.undertime,additions:r.additions,deductions:r.deductions,menu:r.menu,net:r.net,
   /* fields the current panel reads from a closure row (no carry-forward, no tips in the new payroll) */netToman:r.net,advance:r.advance,paid:r.paid,unpaid:r.balance,previousBalance:0,tips:0,tipsSettled:0,monthSettled:0,status:r.balance<=0.5?'تسویه‌شده':(r.advance+r.paid>0?'پرداخت ناقص':'پرداخت‌نشده')}));
  const cl={id:uid('PCL',hr.payrollClosures),year:+year,month:+month,engine:'v2',version,active:true,finalizedAt:ctx.at,finalizedBy:ctx.actor,note:S(note),rows,totals:{people:rows.length,net:c.net,paidAtClose:c.paid,balanceAtClose:c.balance},warnings:c.warnings};
  const pre=`${year}/${pad(month)}/`;for(const g of A(hr.tipGroups))if(D(g.receiveDate).startsWith(pre)&&!(N(g.shareRoundingStep)>0))g.shareRoundingStep=TIP_STEP;
@@ -235,7 +246,7 @@ function voidPayment(hr,ctx,{id,reason}){const p=A(hr.payments).find(x=>x.id===i
  if(p.bonusItemId){const b=A(hr.penaltiesRewards).find(x=>x.id===p.bonusItemId);if(b&&b.status!=='لغوشده')Object.assign(b,{status:'لغوشده',cancelReason:'ابطال پرداخت '+p.id,cancelledAt:ctx.at,cancelledBy:ctx.actor})}
  ctx.auditExtra={entityId:id,reason:S(reason),amount:N(p.amount)};return p}
 
-window.PayrollCore={MONTHS,KINDS,ITEM_KINDS,DEF_REASONS,DEF_ITEMS,DEF_METHODS,N,D,label,code,monthLength,config,reasonKind,itemKind,isManager,monthState,months,closureOf,isClosed,
- termsFor,contractOf,contractText,employedDays,adjOf,itemsOf,salaryPaymentsOf,inPayroll,calc,monthRows,monthSummary,earlierBalances,personMonths,
+window.PayrollCore={MONTHS,KINDS,ITEM_KINDS,DEF_REASONS,DEF_ITEMS,DEF_METHODS,N,D,label,code,monthLength,config,reasonKind,itemKind,isManager,menuTerms,menuShare,monthState,months,closureOf,isClosed,
+ termsFor,contractOf,contractText,weeklyShifts,shiftEstimate,employedDays,adjOf,itemsOf,salaryPaymentsOf,inPayroll,calc,monthRows,monthSummary,earlierBalances,personMonths,
  TIP_STEP,tipStep,tipRoundDiff,tipShares,tipLedger,tipGroupsFrom,tipPaymentsFrom,sig,saveWork,saveSettings,itemSalaryMonth,archive,isVoid,forecast,checkPayment,addPayments,voidPayment,closeCheck,closeMonth,reopenMonth};
 })();

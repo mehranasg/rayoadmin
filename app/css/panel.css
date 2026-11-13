@@ -264,3 +264,46 @@ tfoot tr.grid-total td{background:var(--surface-2);border-top:2px solid var(--bo
 .sel-box{display:inline-flex;cursor:pointer;color:var(--text-3);padding:2px}.sel-box.on{color:var(--primary)}.sel-box svg{width:18px;height:18px}
 tr.sel>td{background:color-mix(in srgb,var(--primary) 8%,transparent)}
 .bulk-bar{border-bottom:1px solid var(--border)}
+/* centred columns (people → کارکرد ماه، پرداخت‌ها، گزارش پرسنل): the heading and the cells of a column share one axis */
+.table.cols-center th,.table.cols-center td,.table.cols-center th.num,.table.cols-center td.num{text-align:center}
+.table.cols-center .cell-main{text-align:start}
+.table.cols-center .input{text-align:center}
+.wk-table.cols-center th:first-child,.wk-table.cols-center td:first-child{text-align:start}
+/* payroll settings: the hint under «روش تازه» */
+.ps-add{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:var(--s3)}
+.ps-add .hint{font-size:12px;color:var(--text-3);line-height:1.6}
+/* period reports (reports-real.js): period bar, horizontal bars, summary lines, donut legend */
+.rp-ctl{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;padding:var(--s3) var(--s4);background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:var(--s4)}
+.rp-end{display:inline-flex;align-items:center;gap:8px;font-size:12px}
+.rp-end .select{width:auto}
+.rp-title{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s4)}
+.rp-title h2{margin:0;font-size:19px}
+.rp-title .muted{font-size:12px}
+.rp-hb{display:flex;flex-direction:column;gap:10px}
+.rp-hb-row{display:grid;grid-template-columns:minmax(90px,34%) minmax(0,1fr) minmax(96px,auto);align-items:center;gap:var(--s3);font-size:13px}
+.rp-hb-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+.rp-hb-t{height:10px;background:var(--surface-3);border-radius:var(--radius-full);overflow:hidden}
+.rp-hb-t i{display:block;margin-left:auto;margin-right:0;height:100%;min-width:2px;border-radius:var(--radius-full);background:var(--accent)}
+.rp-hb-v{display:flex;flex-direction:column;align-items:flex-end;line-height:1.35;font-variant-numeric:tabular-nums;color:var(--text)}
+.rp-hb-v small{font-size:11px;color:var(--text-3)}
+.rp-sub{font-size:12px;font-weight:700;color:var(--text-3);margin:var(--s4) 0 var(--s2)}
+.rp-sub:first-child{margin-top:0}
+.rp-lines{display:flex;flex-direction:column}
+.rp-line{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s3);padding:9px 0;border-bottom:1px dashed var(--border);font-size:13px}
+.rp-line:last-child{border-bottom:0}
+.rp-line span{color:var(--text-2)}
+.rp-line small{display:block;font-size:11px;color:var(--text-3)}
+.rp-line b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.rp-line.total{border-top:2px solid var(--border);border-bottom:0;margin-top:2px;font-size:15px}
+.rp-line.total span{color:var(--text);font-weight:700}
+.rp-donut{display:grid;grid-template-columns:minmax(180px,240px) minmax(0,1fr);gap:var(--s5);align-items:center}
+.rp-leg{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:8px 10px;align-items:center;font-size:13px}
+.rp-leg i{width:12px;height:12px;border-radius:4px;display:block}
+.rp-leg span{color:var(--text-2)}
+.rp-leg b{font-variant-numeric:tabular-nums}
+.rp-leg em{font-style:normal;color:var(--text-3);font-variant-numeric:tabular-nums}
+.rp-insight p{margin:0 0 var(--s3);line-height:1.9;font-size:13px}
+.rp-insight p.muted{font-size:12px}
+.table tr.rp-sum td{background:var(--surface-2)}
+@media (max-width:720px){.rp-donut{grid-template-columns:minmax(0,1fr)}.rp-hb-row{grid-template-columns:minmax(70px,30%) minmax(0,1fr) auto}}
+@media print{.rp-title h2{font-size:16px}.chart{break-inside:avoid}}

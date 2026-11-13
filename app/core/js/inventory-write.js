@@ -40,8 +40,12 @@ function ingredients(pricing){return new Map(A(pricing?.ingredients).map(i=>[i.i
 const stockItem=i=>!!i&&i.status!=='غیرفعال'&&i.itemType!=='NON_STOCK'&&i.inventoryTracked!==false;
 function trackedItems(pricing){return A(pricing?.ingredients).filter(stockItem)}
 const unitName=i=>S(i?.recipeUnit||i?.unit||i?.stockUnit||'واحد');
-// entry units: the stock (recipe) unit, plus the purchase unit when it is a different unit with a package size
-function unitsOf(i){const out=[{name:unitName(i),factor:1}],pk=Number(i?.packageQuantity);if(S(i?.purchaseUnit)&&pk>1&&E().UK(i.purchaseUnit)!==E().UK(unitName(i)))out.push({name:S(i.purchaseUnit),factor:pk});return out}
+// entry units: the stock (recipe) unit, the purchase unit when it is a different unit with a package size, and the item's
+// other active units (pricing.ingredients[].countingUnits {name, factor in the stock unit}, e.g. پاکتی = ۵۰ گرم)
+function unitsOf(i){const out=[{name:unitName(i),factor:1}],pk=Number(i?.packageQuantity),has=n=>out.some(u=>E().UK(u.name)===E().UK(n));if(S(i?.purchaseUnit)&&pk>1&&!has(i.purchaseUnit))out.push({name:S(i.purchaseUnit),factor:pk});
+ for(const u of A(i?.countingUnits)){const n=S(u?.name),f=Number(u?.factor);if(u&&u.active!==false&&n&&f>0&&!has(n))out.push({name:n,factor:f})}return out}
+// purchase units of an item for invoice / order rows: the default purchase unit first (its package size), then the other units
+function purchaseUnitsOf(i){if(!i)return[];const pk=Number(i.packageQuantity)>0?Number(i.packageQuantity):1,out=[];if(S(i.purchaseUnit))out.push({name:S(i.purchaseUnit),factor:pk});for(const u of unitsOf(i))if(!out.some(o=>E().UK(o.name)===E().UK(u.name)))out.push(u);return out}
 function mainLocation(doc){const id=S(doc.settings?.mainLocationId);return A(doc.locations).find(l=>l.id===id)||A(doc.locations)[0]||(id?{id,name:''}:null)}
 function audit(doc,action,details,ctx){doc.changeLog=A(doc.changeLog);const row={id:`${ctx.module==='pricing'?'PLOG':ctx.module==='personnel'?'LOG':ctx.module==='suppliers'?'SLOG':ctx.module==='assets'?'ALOG':ctx.module==='finance'?'FLOG':ctx.module==='cashreport'?'CLOG':ctx.module==='attendance'?'ATL':'ICT'}-${ctx.reqId}`,action,at:ctx.at,actor:ctx.actor,via:'ui-template',...details};
  // pricing.changeLog is newest-first and the current panel keeps its first 500 rows, so pricing rows go to the front
@@ -288,6 +292,6 @@ async function edit(io,{action,details={},mutate}){
   catch(e){if(sent){try{const c=await io.load();if(S(c?.meta?.serverSaveToken)===after.meta.serverSaveToken&&content(c)===content(after))return{out,doc:c}}catch(_){}state.uncertain=true}throw e}
  }finally{state.busy=false}}
 
-window.InvWrite={removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+window.InvWrite={removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();

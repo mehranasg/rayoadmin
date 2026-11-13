@@ -277,5 +277,5 @@ fin.tabs.splice(at,0,{id:'ledger',label:'هزینه و درآمد',icon:'receipt
  {id:'plan',label:'پیش‌بینی و محاسبه‌گر',icon:'trending-up',liveOnly:true,desc:'پیش‌بینی ماه آینده از ماه‌های اخیر و قرارداد پرسنل؛ محاسبه‌گر سود و نقطهٔ سر به سر',render:gate(planView),mount:root=>{if(FD())planMount(root)}});
 const si=fin.tabs.findIndex(t=>t.id==='settings');
 fin.tabs.splice(si<0?fin.tabs.length:si,0,{id:'finset',label:'تنظیمات مالی',icon:'settings-2',liveOnly:true,desc:'دسته‌های هزینه، درآمد و بدهی؛ ارزش افزوده و ذخیرهٔ مالیات عملکرد',render:gate(setView),mount:root=>{if(FD())setMount(root)}});
-window.LedgerReal={accounts,accName,st};
+window.LedgerReal={accounts,accName,st,monthPnl,planData,ledgerSrc};
 })();

@@ -194,5 +194,11 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  try{await W.edit(lossy,{action:'RECEIPT_ADDED',mutate:(d,cx)=>W.addReceipts(d,cx,{date:D3,lines:[{itemId:'i1',quantity:4}]})});ok(false,'lossy save should throw')}catch(e){ok(/تأیید نشد/.test(e.message)&&W.state.uncertain,'unconfirmed save is reported and marks the state uncertain')}
  try{await W.edit(io,{action:'X',mutate:()=>1});ok(false,'uncertain should block')}catch(e){ok(/نامشخص/.test(e.message),'further saves blocked after an uncertain result')}
  ok(W.canonical({b:1,a:[1,undefined],c:undefined})==='{"a":[1,null],"b":1}','canonical follows JSON rules');
+ // other units of an item (countingUnits): entry units for receipt / waste / count and purchase units for invoice rows
+ {const tob={id:'t1',recipeUnit:'گرم',purchaseUnit:'بسته',packageQuantity:250,countingUnits:[{id:'CU-0001',name:'پاکتی',factor:50,active:true},{id:'CU-0002',name:'باکس پاکتی',factor:500,active:true},{id:'CU-0003',name:'قدیمی',factor:9,active:false},{id:'CU-0004',name:'بسته',factor:7,active:true}]};
+  const us=W.unitsOf(tob);ok(us.map(u=>u.name+':'+u.factor).join(',')==='گرم:1,بسته:250,پاکتی:50,باکس پاکتی:500','entry units: base, purchase unit, active other units (inactive and duplicate names skipped)');
+  const pu=W.purchaseUnitsOf(tob);ok(pu[0].name==='بسته'&&pu[0].factor===250&&pu.some(u=>u.name==='گرم'&&u.factor===1)&&pu.some(u=>u.name==='پاکتی'&&u.factor===50),'purchase units: default purchase unit first with its package size');
+  const coal={id:'c1',recipeUnit:'کیلوگرم',purchaseUnit:'کیلوگرم',packageQuantity:1,countingUnits:[{name:'عدد',factor:0.014}]};ok(W.unitsOf(coal).map(u=>u.name).join()==='کیلوگرم,عدد'&&W.purchaseUnitsOf(coal).length===2,'a smaller unit (عدد of a kg item) is offered too');
+  ok(W.unitsOf({recipeUnit:'عدد',purchaseUnit:'کارتن',packageQuantity:12}).length===2&&W.purchaseUnitsOf(null).length===0,'items without other units keep the old behaviour');}
  console.log(`qa_template_inventory_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);
 })();

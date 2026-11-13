@@ -13,6 +13,8 @@ const hr={settings:{restaurantName:'رایو',other:1},lists:{positions:['گار
 let c=ctx();PW.saveBaseSettings(hr,c,{restaurantName:' کافه رایو ',lists:{positions:['گارسون','باریستا','گارسون',''],sections:['سالن','آشپزخانه']},leaveStart:'۱۴۰۵/۰۷/۰۱',leaveMonthly:'۲٫۵',showPenalties:true});
 ok(hr.settings.restaurantName==='کافه رایو'&&hr.lists.positions.join()==='گارسون,باریستا'&&hr.lists.violationTypes[0]==='x'&&hr.settings.other===1,'name and lists saved, other lists kept');
 ok(hr.settings.leaveBalanceStartDate==='1405/07/01'&&hr.settings.monthlyLeaveEntitlementDays===2.5&&hr.settings.showPenaltiesToStaff===true&&c.auditExtra.before.restaurantName==='رایو','leave rule, staff visibility and audit');
+ok(PW.accItems(hr).includes('تیشرت')&&PW.baseList(hr,'equipmentTypes').length===PW.ACC_ITEMS.length,'handed-over items: default list until one is saved');
+PW.saveBaseSettings(hr,ctx(),{lists:{equipmentTypes:['تیشرت','کفش کار','کفش کار']}});ok(hr.lists.equipmentTypes.join()==='تیشرت,کفش کار'&&PW.accItems(hr).join()==='تیشرت,کفش کار','handed-over items: owner list saved and used');
 throws(()=>PW.saveBaseSettings(hr,ctx(),{lists:{positions:[]}}),/حداقل یک/,'empty list refused');
 throws(()=>PW.saveBaseSettings(hr,ctx(),{leaveMonthly:'20'}),/بین/,'leave entitlement range');
 throws(()=>PW.saveBaseSettings(hr,ctx(),{restaurantName:' '}),/خالی/,'empty name refused');
