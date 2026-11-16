@@ -307,16 +307,18 @@ P.pay=({party,dir='out',docs,title,date,amount,ref,method}={})=>{
    current panel gives them (personnel settings.adminUsers). Each new-panel module/tab maps to those section keys.
    Writes are checked again inside every save (InvEntry.allowed); this is a browser-side guard, not server security. */
 const AAx=()=>window.AdminAccess;
-const MOD_KEYS={home:['dashboard','monitor'],finance:['financeLedger','purchase','cash','assets'],inventory:['inventory','inventoryEdit'],people:['personnel','payroll','shift','training'],menu:['menu','pricing'],customers:['reports','personnel'],reports:['reports','sales'],settings:['settings']};
-const TAB_KEYS={finance:{overview:['financeLedger'],ledger:['financeLedger'],debts:['financeLedger'],pnl:['financeLedger'],meals:['financeLedger'],cashbox:['financeLedger','cash'],accounts:['financeLedger'],plan:['financeLedger'],finset:['financeLedger'],docs:['purchase','financeLedger'],payments:['purchase','financeLedger'],parties:['purchase','financeLedger'],cash:['cash','financeLedger'],petty:['financeLedger'],assets:['assets'],reports:['financeLedger']},
- people:{shifts:['shift'],presence:['personnel','payroll','shift'],violations:['personnel'],leaves:['personnel'],payroll:['payroll'],work:['payroll'],payments:['payroll'],payset:['payroll'],tips:['payroll','personnel'],staffreport:['personnel','payroll'],training:['training','personnel'],users:['settings'],attendance:['personnel','payroll','shift']},menu:{pricing:['pricing','menu']},reports:{sales:['sales','reports'],salesvol:['sales','reports'],products:['sales','reports'],owner:['reports','financeLedger'],pnlp:['reports','financeLedger'],staffcost:['payroll']},inventory:{requests:['inventory','purchase']}};
+/* the home page is open to every user; its sales summary needs «dashboard» (dashboard-real.js). A tab without an entry here is
+   open to anyone who can open its section. people/users is shown only to users who can manage users (owner or full access). */
+const MOD_KEYS={finance:['financeLedger','purchase','cash','petty','assets'],inventory:['inventory','inventoryEdit'],people:['personnel','payroll','shift','training'],menu:['menu','pricing'],customers:['customers'],reports:['reports','sales'],settings:['settings']};
+const TAB_KEYS={finance:{overview:['financeLedger'],ledger:['financeLedger'],debts:['financeLedger'],pnl:['financeLedger'],meals:['financeLedger'],cashbox:['cash','financeLedger'],accounts:['financeLedger'],plan:['financeLedger'],finset:['financeLedger'],docs:['purchase','financeLedger'],payments:['purchase','financeLedger'],parties:['purchase','financeLedger'],cash:['cash','financeLedger'],petty:['petty','financeLedger'],assets:['assets'],reports:['financeLedger']},
+ people:{staff:['personnel','payroll'],shifts:['shift'],presence:['shift','personnel','payroll'],violations:['personnel'],leaves:['personnel'],payroll:['payroll'],work:['payroll'],payments:['payroll'],payset:['payroll'],tips:['payroll','personnel'],staffreport:['personnel','payroll'],training:['training','personnel'],attendance:['shift','personnel','payroll']},menu:{items:['menu','pricing'],recipes:['menu','pricing'],engineering:['menu'],pricing:['pricing','menu']},reports:{owner:['reports'],pnlp:['reports'],overview:['reports'],monthly:['reports'],sales:['sales','reports'],salesvol:['sales','reports'],products:['sales','reports'],staffcost:['payroll']},inventory:{requests:['inventory','purchase']}};
 P.session=()=>AAx()?.session?.()||null;
 P.owner=()=>P.session()?.role==='owner';
 /* the signed-in owner, also while viewing the panel as another role */
 P.realOwner=()=>AAx()?.realSession?.()?.role==='owner';
 P.role=()=>{const s=P.session();if(s&&s.preview)return{id:'preview',name:s.user,desc:'از دید: '+s.preview.label,icon:s.preview.icon||'eye'};return s?{id:s.role==='owner'?'owner':'user',name:s.user,desc:s.role==='owner'?'مالک — دسترسی کامل':'کاربر پنل — بخش‌های مجاز',icon:s.role==='owner'?'crown':'user'}:{id:'none',name:'',desc:'',icon:'user'}};
 P.can=(mod,need='view')=>{const s=P.session();if(!s)return false;if(s.role==='owner')return true;if(mod==='plan')return false;if(mod==='home')return true;const ks=MOD_KEYS[mod];return !!ks&&ks.some(k=>AAx().has(k))};
-P.tabOk=(mod,tab)=>{const s=P.session();if(!s||s.role==='owner')return true;const ks=TAB_KEYS[mod]?.[tab];return !ks||ks.some(k=>AAx().has(k))};
+P.tabOk=(mod,tab)=>{const s=P.session();if(!s||s.role==='owner')return true;if(mod==='people'&&tab==='users')return !!AAx().canManage();const ks=TAB_KEYS[mod]?.[tab];return !ks||ks.some(k=>AAx().has(k))};
 P.live=()=>!!window.InvControl?.ready?.();
 P.CUR=()=>window.RAYO_CURRENT_PANEL||'/panel/';
 /* tabs that are still sample designs in the new panel: hidden once real data is connected */
@@ -390,7 +392,7 @@ const DEMOS=[['pos.html','صندوق','monitor-smartphone'],['waiter.html','سف
 /* owner: view the panel as a preset role or as one of the admin users (AdminAccess.setPreview) */
 function rolePicker(){
   const pv=AAx().preview(),users=(window.PeopleReal?.doc?.()?.settings?.adminUsers||[]).filter(u=>u.status!=='غیرفعال');
-  const sec=k=>(AAx().SECTIONS.find(x=>x[0]===k)||[k,k])[1];
+  const sec=k=>AAx().sectionName(k);
   const row=(id,label,icon,desc,on)=>`<button type="button" class="role-chip pick-role" data-role="${P.esc(id)}" style="margin-bottom:6px;color:var(--text);background:var(--surface-2);border-color:${on?'var(--accent)':'var(--border)'}"><div class="avatar">${P.ic(icon)}</div><div class="grow" style="text-align:start"><b dir="auto">${P.esc(label)}</b><small style="color:var(--text-3)">${P.esc(desc)}</small></div>${on?P.ic('check'):''}</button>`;
   const list=[{id:'',label:'مالک (خودم)',icon:'crown',desc:'دسترسی کامل',sections:null},...AAx().PRESETS,
     ...users.map(u=>({id:'user:'+u.id,label:(u.displayName||u.username)+' — کاربر واقعی',icon:'user',desc:u.fullAccess?'دسترسی کامل':(u.sections||[]).map(sec).join('، '),sections:u.fullAccess?AAx().SECTIONS.map(x=>x[0]):(u.sections||[])}))];
@@ -445,14 +447,18 @@ const QUICK_LIVE=[
   {mod:'inventory',key:'inventory',icon:'clipboard-check',t:'شمارش انبار',s:'شمارش کور پایان روز',go:'#/inventory/count',open:()=>InvEntry.count()},
   {mod:'inventory',key:'inventory',icon:'cup-soda',t:'کنترل روزانهٔ نوشیدنی',s:'شمارش و مغایرت نوشیدنی‌ها',go:'#/inventory/beverage'},
   {mod:'finance',key:'cash',icon:'banknote',t:'گزارش صندوق روزانه',s:'فروش، دریافتی‌ها و مغایرت',go:'#/finance/cash',ready:()=>!!window.CashReal,open:()=>CashReal.form()},
+  {mod:'finance',key:'financeLedger',icon:'coins',t:'صندوق نقدی',s:'پرداخت هزینه از صندوق؛ شارژ و شمارش در همان صفحه',go:'#/finance/cashbox',ready:()=>!!window.LedgerReal?.ready?.(),open:()=>LedgerReal.cashOut()},
   {mod:'finance',key:'purchase',icon:'file-plus-2',t:'فاکتور خرید',s:'با جزئیات اقلام',go:'#/finance/docs',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.detailed()},
   {mod:'finance',key:'purchase',icon:'send',t:'پرداخت به تأمین‌کننده',s:'روی فاکتور باز یا علی‌الحساب',go:'#/finance/payments',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.payment({})},
-  {mod:'finance',key:'financeLedger',icon:'wallet',t:'هزینهٔ تنخواه',s:'خرید ریز با کارت تنخواه',go:'#/finance/petty',ready:()=>!!window.ExtrasReal?.mods?.finance?.doc,open:()=>PettyEntry.expense()},
+  {mod:'finance',key:['petty','financeLedger'],icon:'wallet',t:'هزینهٔ تنخواه',s:'خرید ریز با کارت تنخواه',go:'#/finance/petty',ready:()=>!!window.ExtrasReal?.mods?.finance?.doc,open:()=>PettyEntry.expense()},
   {mod:'inventory',key:'pricing',icon:'book-plus',t:'قلم یا کالای جدید',s:'تعریف در کاتالوگ اصلی',go:'#/inventory/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.ingredientForm()},
   {mod:'people',key:'payroll',icon:'hand-coins',t:'ثبت انعام',s:'نوع، مبلغ و افراد',go:'#/people/tips',ready:()=>!!window.PeopleReal?.doc?.(),open:()=>PeopleEntry.tip()},
   {mod:'people',key:'payroll',icon:'gavel',t:'جریمه / کسر تأخیر / پاداش',s:'برای حقوق همان ماه',go:'#/people/payroll',ready:()=>!!window.PeopleReal?.doc?.(),open:()=>PeopleEntry.penalty()},
   {mod:'people',key:'payroll',icon:'banknote',t:'پرداخت به پرسنل',s:'مساعده، حقوق، انعام — با مانده و هشدار',go:'#/people/payments',ready:()=>!!window.PeopleReal?.doc?.()&&!!window.PayrollReal,open:()=>PayrollReal.pay()}
 ];
+/* show a printable piece of html in a modal (its own frame, so its css stays apart); «چاپ» prints that frame */
+P.previewDoc=(title,css,body)=>{P.modal({title:P.esc(title),size:'wide',body:'<iframe id="pvFrame" title="پیش‌نمایش" style="width:100%;height:68vh;border:1px solid var(--border);border-radius:8px;background:#fff"></iframe>',foot:`<button class="btn btn-ghost" data-close>بستن</button><button class="btn btn-primary" id="pvPrint">${P.ic('printer')}چاپ / ذخیرهٔ PDF</button>`,
+  onMount:md=>{const fr=P.$('#pvFrame',md),d=fr.contentDocument;d.open();d.write(`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>${P.esc(title)}</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap"><style>${css}</style></head><body>${body}</body></html>`);d.close();P.$('#pvPrint',md).onclick=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){P.toast('چاپ باز نشد: '+e.message,'alert-triangle')}}}})};
 P.openLive=q=>openLive(q);
 function openLive(q){if(location.hash!==q.go)P.go(q.go);if(!q.open)return;let n=0;const tick=()=>{const ok=P.live()&&(!q.ready||q.ready());if(ok){try{q.open()}catch(e){P.toast(e.message||String(e),'alert-triangle')}return}if(++n>60)return P.toast('داده هنوز خوانده نشده؛ چند لحظه بعد دوباره بزنید','alert-triangle');setTimeout(tick,250)};setTimeout(tick,150)}
 function buildTopbar(){
@@ -472,7 +478,7 @@ function buildTopbar(){
   tm.onclick=e=>{const b=e.target.closest('[data-look]');if(!b)return;tm.classList.remove('open');setLook(b.dataset.look);P.toast('ظاهر: '+LOOKS.find(x=>x[0]===b.dataset.look)[1],'palette')};
   document.addEventListener('click',e=>{if(!e.target.closest('#pnTheme'))tm.classList.remove('open')});
   const qm=$('#quickMenu');
-  const liveList=()=>QUICK_LIVE.filter(q=>P.can(q.mod)&&(P.owner()||AAx().has(q.key)));
+  const liveList=()=>QUICK_LIVE.filter(q=>P.can(q.mod)&&(P.owner()||[].concat(q.key).some(k=>AAx().has(k))));
   $('#quickBtn').onclick=e=>{e.stopPropagation();
     const live=P.live(),list=live?liveList():QUICK.filter(q=>P.can(q.mod,q.need));
     qm.innerHTML=list.length?list.map((q,i)=>`<button data-q="${live?i:q.k}"><span class="thumb kpi-icon">${P.ic(q.icon)}</span><span><b>${q.t}</b><small>${q.s}</small></span></button>`).join(''):'<p class="muted" style="padding:8px">ثبتی برای دسترسی شما تعریف نشده</p>';
@@ -568,7 +574,7 @@ P.start=()=>{
   const sk=store('pn_skin');if(SKIN_BASE[sk])applySkin(sk);
   /* short tab labels (the page title keeps the full name) so all tabs of a section fit on one line */
   const SHORT={finance:{docs:'فاکتورها',payments:'پرداخت‌ها',cash:'صندوق',ledger:'هزینه‌ها',debts:'بدهی و چک',accounts:'حساب‌ها',plan:'محاسبه‌گر',finset:'تنظیمات'},
-   inventory:{receipt:'ورود کالا',count:'شمارش',beverage:'شمارش نوشیدنی',consumption:'مصرف',reorder:'سفارش',requests:'درخواست خرید'}};
+   inventory:{receipt:'ورود کالا',count:'انبارگردانی',beverage:'شمارش نوشیدنی',consumption:'مصرف',reorder:'سفارش',requests:'درخواست خرید'}};
   for(const [mid,map] of Object.entries(SHORT))for(const t of P.mods[mid]?.tabs||[])if(map[t.id]&&t.label!==map[t.id]){t.title=t.title||t.label;t.label=map[t.id]}
   buildTopbar();
   window.addEventListener('hashchange',()=>{P.render();window.scrollTo(0,0)});

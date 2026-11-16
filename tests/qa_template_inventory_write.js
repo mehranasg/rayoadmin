@@ -41,13 +41,15 @@ throws(()=>W.addReceipts(baseDoc(),ctx(),{date:D3,lines:[{itemId:'i1',quantity:0
 ok(W.receiptWarnings(baseDoc(),pricing,D3,W.receiptLines(pricing,[{itemId:'i1',quantity:150}])).length===1,'kg ≥ 100 warns (grams typed as kg)');
 
 // 2. waste and authorized consumption
-const w1=W.addEvent(doc,ctx(),{date:D3,eventType:'WASTE',type:'ingredient',itemId:'i1',quantity:1,shift:'صبح',reason:'سوختگی'});
+const w1=W.addEvent(doc,ctx(),{date:D3,eventType:'WASTE',type:'ingredient',itemId:'i1',quantity:1,shift:'صبح',reason:'سوختگی',section:'آشپزخانه',responsiblePersonnelId:'P1',responsibleName:'علی'});
 ok(w1.id==='WST-000001'&&w1.recordKind==='waste'&&w1.known===true&&w1.status==='posted'&&w1.reviewStatus==='تأییدشده','waste record');
+ok(w1.section==='آشپزخانه'&&w1.responsiblePersonnelId==='P1'&&w1.responsibleNameSnapshot==='علی','waste keeps section and responsible person');
+throws(()=>W.addEvent(baseDoc(),ctx(),{date:D3,eventType:'WASTE',type:'ingredient',itemId:'i1',quantity:1,reason:'x'}),/بخش/,'waste needs a section');
 const wm=doc.inventoryMovements.find(m=>m.id===w1.movementId);
 ok(wm&&wm.sourceKey==='waste:WST-000001'&&wm.referenceType==='wasteRecord'&&wm.quantity===1&&wm.fromLocationId==='L1','waste movement linked');
 const a1=W.addEvent(doc,ctx(),{date:D3,eventType:'STAFF_CONSUMPTION',type:'ingredient',itemId:'i1',quantity:0.5,reason:'غذای پرسنل'});
 ok(a1.id==='CON-000001'&&a1.recordKind==='consumption'&&doc.consumptionRecords.length===1,'authorized consumption goes to consumptionRecords');
-const w2=W.addEvent(doc,ctx(),{date:D3,eventType:'WASTE',type:'menu',itemId:'m1',quantity:2,reason:'برگشتی'});
+const w2=W.addEvent(doc,ctx(),{date:D3,eventType:'WASTE',type:'menu',itemId:'m1',quantity:2,reason:'برگشتی',section:'سالن'});
 const w2m=doc.inventoryMovements.filter(m=>m.referenceId===w2.id);
 ok(w2m.length===1&&w2m[0].sourceKey===`waste:${w2.id}:i1`&&near(w2m[0].quantity,0.4),'menu waste expands by recipe');
 throws(()=>W.addEvent(baseDoc(),ctx(),{date:D3,eventType:'WASTE',type:'menu',itemId:'m2',quantity:1,reason:'x'}),/رسپی/,'menu without recipe blocked');
@@ -70,6 +72,25 @@ const c2=W.addCount(doc,ctx(),{date:D5,entries:[{itemId:'i1',quantity:2.6,unit:'
 ok(!c2.created&&c2.replaced===1&&st.lines.length===1&&near(st.lines[0].actual,26)&&st.revisionHistory.length===1&&st.revisionHistory[0].replaced[0].actual===25,'same-date count merges and keeps the replaced line');
 throws(()=>W.addCount(doc,ctx(),{date:D3,entries:[{itemId:'i1',quantity:1}]}),/تأیید لازم/,'count before a later whole count needs confirmation');
 throws(()=>W.addCount(doc,ctx(),{date:D5,entries:[{itemId:'i1',quantity:-1}]}),/نامنفی/,'negative count blocked');
+// stocktake review, close and reopen (انبارگردانی)
+{const sd=JSON.parse(JSON.stringify(doc)),lines=W.countLinesOf(sd,D5),mt=W.countMetrics(lines);
+ ok(lines.length===1&&mt.items===1&&mt.withVariance===1&&mt.varianceValue===Math.round(lines[0].varianceValueToman)&&mt.shortageValue<0&&mt.countedValue===Math.round(lines[0].actual*lines[0].unitCost),'count lines and value metrics of one stocktake');
+ throws(()=>W.reviewCountLine(sd,ctx(),{date:D5,itemId:'i1',status:'explained',note:''}),/توضیح/,'a review other than «accepted» needs a note');
+ throws(()=>W.reviewCountLine(sd,ctx(),{date:D5,itemId:'i9',status:'accepted'}),/در شمارش/,'review only a counted item');
+ const r1=W.reviewCountLine(sd,ctx(),{date:D5,itemId:'i1',status:'followup',note:'بررسی فاکتور'});ok(/^CRV-/.test(r1.id)&&W.reviewOf(sd,D5,'i1').status==='followup','review saved');
+ throws(()=>W.closeCount(sd,ctx(),{date:D5}),/پیگیری/,'cannot close while a variance needs follow-up');
+ W.reviewCountLine(sd,ctx(),{date:D5,itemId:'i1',status:'explained',note:'فاکتور ثبت نشده بود'});ok(W.reviewOf(sd,D5,'i1').history.length===1&&W.reviewOf(sd,D5,'i1').history[0].status==='followup','a review change keeps the previous state');
+ throws(()=>W.closeCount(sd,ctx(),{date:D3}),/شمارش کل/,'close needs a whole count on that date');
+ const cl=W.closeCount(sd,ctx(),{date:D5,note:'پایان دوره'});
+ ok(cl.status==='closed'&&cl.kind==='stocktake'&&cl.to===D5&&cl.stocktakeLines.length===1&&cl.stocktakeLines[0].review==='explained'&&cl.stocktakeMetrics.reviewed===1&&!cl.lines&&!cl.metrics&&cl.from===E.CAL.k(E.CAL.i(day(30))+1),'closure continues after the previous one, with a frozen snapshot (own field names, not the cost-control snapshot of the current panel)');
+ throws(()=>W.closeCount(sd,ctx(),{date:D5}),/قبلاً بسته/,'closed twice refused');
+ throws(()=>W.addReceipts(sd,ctx(),{date:D3,lines:[{itemId:'i1',quantity:1}]}),/بسته/,'entries on or before a closed stocktake are refused');
+ throws(()=>W.reviewCountLine(sd,ctx(),{date:D5,itemId:'i1',status:'accepted'}),/بسته/,'review locked after close');
+ throws(()=>W.removeCountLine(sd,ctx(),{date:D5,itemId:'i1',reason:'x'}),/بسته/,'count line locked after close');
+ throws(()=>W.reopenCount(sd,ctx(),{id:cl.id,reason:''}),/علت/,'reopen needs a reason');
+ const ro=W.reopenCount(sd,ctx(),{id:cl.id,reason:'فاکتور جاافتاده'});ok(ro.status==='reopened'&&ro.reopenReason&&!W.closedPeriod(sd,D5)&&sd.periodClosures.length===2,'reopen keeps the closure row');
+ const cl2=W.closeCount(sd,ctx(),{date:D5});ok(cl2.id!==cl.id&&cl2.from===cl.from,'closed again as a new row');}
+
 {const d3=JSON.parse(JSON.stringify(doc)),s3=d3.stocktakes.find(s=>s.id===c1.id);
  throws(()=>W.removeCountLine(d3,ctx(),{date:D5,itemId:'i1',reason:''}),/علت/,'removing a counted item needs a reason');
  throws(()=>W.removeCountLine(d3,ctx(),{date:D3,itemId:'i1',reason:'x'}),/نیست/,'item not in that count');
@@ -128,8 +149,8 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
 {const ed=JSON.parse(JSON.stringify(doc));const rid=W.addReceipts(ed,ctx(),{date:D3,lines:[{itemId:'i1',quantity:5}]}).ids[0];
  const nu=W.editReceipt(ed,ctx(),{id:rid,date:D3,quantity:'۲',unit:'کارتن',reason:'اشتباه'}),old=ed.stockReceipts.find(x=>x.id===rid);
  ok(old.status==='void'&&old.voidKind==='edit'&&old.replacedById===nu.id&&nu.replacesId===rid&&near(nu.quantity,20)&&ed.inventoryMovements.filter(m=>m.referenceId===rid).every(m=>m.status==='void')&&ed.inventoryMovements.some(m=>m.referenceId===nu.id&&m.status==='posted'),'receipt edit');
- const ev=W.addEvent(ed,ctx(),{date:D3,eventType:'WASTE',type:'ingredient',itemId:'i1',quantity:1,reason:'سوختگی'});const ne=W.editEvent(ed,ctx(),{id:ev.id,quantity:'0.5',eventType:'EXPIRY'});
- ok(ev.status==='void'&&ev.voidKind==='edit'&&ne.replacesId===ev.id&&near(ne.quantity,0.5)&&ne.eventType==='EXPIRY'&&ne.reason==='سوختگی','waste edit keeps item and reason');
+ const ev=W.addEvent(ed,ctx(),{date:D3,eventType:'WASTE',type:'ingredient',itemId:'i1',quantity:1,reason:'سوختگی',section:'بار',responsiblePersonnelId:'P2',responsibleName:'رضا'});const ne=W.editEvent(ed,ctx(),{id:ev.id,quantity:'0.5',eventType:'EXPIRY'});
+ ok(ev.status==='void'&&ev.voidKind==='edit'&&ne.replacesId===ev.id&&near(ne.quantity,0.5)&&ne.eventType==='EXPIRY'&&ne.reason==='سوختگی'&&ne.section==='بار'&&ne.responsiblePersonnelId==='P2'&&ne.responsibleNameSnapshot==='رضا','waste edit keeps item, reason, section and person');
  const cd=JSON.parse(JSON.stringify(doc)),cv=W.voidCountDate(cd,ctx(),{date:D5,reason:'شمارش اشتباه'});ok(cv.count===1&&cd.stocktakes.filter(s=>s.date===D5).every(s=>s.status==='void'),'count of a date voided');
  throws(()=>W.voidCountDate(cd,ctx(),{date:D1,reason:'x'}),/پایان روز/,'no count on that date refused')}
 
@@ -147,7 +168,7 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  ok(st.preparedLines.length===1&&st.preparedLines[0].quantity===20&&near(l.actual,3+1.5)&&st.revisionHistory.at(-1).preparedRemoved.length===1,'re-count of the prepared item replaces it; direct kept');
  W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:0}]});st=pd.stocktakes.find(s=>s.date===dd);ok(near(st.lines.find(x=>x.ingredientId==='i1').actual,3)&&!st.lines.some(x=>x.ingredientId==='i2'),'zero prepared: ingredient back to its direct count; prepared-only line taken out (js/32)');
  throws(()=>W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:1.5}]}),/صحیح/,'whole number for «عدد»');
- const wd=JSON.parse(JSON.stringify(doc)),wr=W.addEvent(wd,pc(),{date:D3,eventType:'WASTE',type:'prepared',itemId:it.id,quantity:5,reason:'سس مانده'});const grp=wd.wasteRecords.filter(r=>r.preparedGroupId===wr.preparedGroupId);
+ const wd=JSON.parse(JSON.stringify(doc)),wr=W.addEvent(wd,pc(),{date:D3,eventType:'WASTE',type:'prepared',itemId:it.id,quantity:5,reason:'سس مانده',section:'آشپزخانه'});const grp=wd.wasteRecords.filter(r=>r.preparedGroupId===wr.preparedGroupId);
  ok(wr.count===2&&grp.length===2&&grp.every(r=>r.type==='ingredient'&&r.preparedItemId===it.id&&r.status==='posted')&&near(grp.find(r=>r.itemId==='i1').quantity,5/10*0.6/0.8),'prepared-item waste: one ingredient record per formula ingredient')}
 
 // 6c. zero for uncounted items; rollback; beverage items
@@ -196,9 +217,24 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  ok(W.canonical({b:1,a:[1,undefined],c:undefined})==='{"a":[1,null],"b":1}','canonical follows JSON rules');
  // other units of an item (countingUnits): entry units for receipt / waste / count and purchase units for invoice rows
  {const tob={id:'t1',recipeUnit:'گرم',purchaseUnit:'بسته',packageQuantity:250,countingUnits:[{id:'CU-0001',name:'پاکتی',factor:50,active:true},{id:'CU-0002',name:'باکس پاکتی',factor:500,active:true},{id:'CU-0003',name:'قدیمی',factor:9,active:false},{id:'CU-0004',name:'بسته',factor:7,active:true}]};
-  const us=W.unitsOf(tob);ok(us.map(u=>u.name+':'+u.factor).join(',')==='گرم:1,بسته:250,پاکتی:50,باکس پاکتی:500','entry units: base, purchase unit, active other units (inactive and duplicate names skipped)');
+  const us=W.unitsOf(tob);ok(us.map(u=>u.name+':'+u.factor).join(',')==='گرم:1,بسته:250,پاکتی:50,باکس پاکتی:500,کیلوگرم:1000','entry units: base, purchase unit, active other units (inactive and duplicate names skipped), then the automatic کیلوگرم');
   const pu=W.purchaseUnitsOf(tob);ok(pu[0].name==='بسته'&&pu[0].factor===250&&pu.some(u=>u.name==='گرم'&&u.factor===1)&&pu.some(u=>u.name==='پاکتی'&&u.factor===50),'purchase units: default purchase unit first with its package size');
-  const coal={id:'c1',recipeUnit:'کیلوگرم',purchaseUnit:'کیلوگرم',packageQuantity:1,countingUnits:[{name:'عدد',factor:0.014}]};ok(W.unitsOf(coal).map(u=>u.name).join()==='کیلوگرم,عدد'&&W.purchaseUnitsOf(coal).length===2,'a smaller unit (عدد of a kg item) is offered too');
+  const coal={id:'c1',recipeUnit:'کیلوگرم',purchaseUnit:'کیلوگرم',packageQuantity:1,countingUnits:[{name:'عدد',factor:0.014}]};ok(W.unitsOf(coal).map(u=>u.name).join()==='کیلوگرم,عدد,گرم'&&W.purchaseUnitsOf(coal).length===3,'a smaller unit (عدد of a kg item) is offered too');
   ok(W.unitsOf({recipeUnit:'عدد',purchaseUnit:'کارتن',packageQuantity:12}).length===2&&W.purchaseUnitsOf(null).length===0,'items without other units keep the old behaviour');}
+ // units: nobody converts by hand — گرم of a کیلوگرم item, use unit (recipe / waste), count unit, smallest unit for the open remainder
+ {const fil={id:'f1',name:'فیله',recipeUnit:'کیلوگرم',purchaseUnit:'کیلوگرم',packageQuantity:1};
+  ok(W.unitsOf(fil).map(u=>u.name+':'+u.factor).join()==='کیلوگرم:1,گرم:0.001'&&W.useUnitOf(fil).name==='گرم'&&W.countUnitOf(fil).name==='کیلوگرم','a kg item offers grams automatically; recipe / waste start in grams, counts in kg');
+  const pea={id:'p1',name:'بادام زمینی',recipeUnit:'کیلوگرم',purchaseUnit:'بسته',packageQuantity:0.35,countUnit:'بسته',useUnit:'گرم',countingUnits:[{id:'CU-1',name:'بسته ۱۰۰ گرمی',factor:0.1}]};
+  ok(W.unitsOf(pea).map(u=>u.name).join()==='کیلوگرم,بسته,بسته ۱۰۰ گرمی,گرم'&&W.countUnitOf(pea).name==='بسته'&&W.smallestUnit(pea).name==='گرم','a package of 350 g (packageQuantity 0.35) is a unit; count starts in packs; the remainder goes in grams');
+  ok(Math.abs(W.toBase(pea,150,'گرم').value-0.15)<1e-12&&W.toBase(pea,1,'نامعلوم')===null,'toBase converts and refuses an unknown unit');
+  ok(W.unitsOf({recipeUnit:'لیتر',purchaseUnit:'لیتر',packageQuantity:1}).some(u=>u.name==='میلی‌لیتر'&&u.factor===0.001)&&W.unitsOf({recipeUnit:'عدد',purchaseUnit:'بسته',packageQuantity:24}).map(u=>u.name).join()==='عدد,بسته','litre ↔ millilitre; a can sold by piece and bought by 24-pack');
+  const d=baseDoc(),cx=c=>({...ctx(),pricing:{ingredients:[{...pea,status:'فعال'}]},...c});
+  const r=W.addCount(d,cx(),{date:day(1),entries:[{itemId:'p1',quantity:'5',unit:'بسته',rest:'100'}]}),l=d.stocktakes.at(-1).lines[0];
+  ok(Math.abs(l.actual-1.85)<1e-9&&l.entryQuantity===5&&l.entryUnit==='بسته'&&l.entryRestQuantity===100&&l.entryRestUnit==='گرم','count «۵ بسته + ۱۰۰ گرم» = 1.85 kg, both parts kept on the line');
+  throws(()=>W.addCount(baseDoc(),cx(),{date:day(1),entries:[{itemId:'p1',quantity:'1',unit:'بسته',rest:'-5'}]}),/باقی‌مانده/,'negative remainder refused');}
+ // a bottle: base عدد (1 L), counted in لیتر, used in سی‌سی; سی‌سی is a millilitre; a purchase unit of the same size is still offered
+ {const juice={id:'j1',recipeUnit:'عدد',purchaseUnit:'لیتر',packageQuantity:1,useUnit:'سی‌سی',countUnit:'لیتر',countingUnits:[{name:'سی‌سی',factor:0.001}]};
+  ok(W.unitsOf(juice).map(u=>u.name).join()==='عدد,لیتر,سی‌سی'&&W.useUnitOf(juice).name==='سی‌سی'&&W.countUnitOf(juice).name==='لیتر'&&W.smallestUnit(juice).name==='سی‌سی','bottle item: لیتر offered though it equals one عدد; use سی‌سی, count لیتر');
+  ok(E.UK('سی‌سی')==='ml'&&W.unitsOf({recipeUnit:'لیتر',countingUnits:[{name:'سی سی',factor:0.001}]}).length===2,'سی‌سی is a millilitre (no duplicate automatic میلی‌لیتر)');}
  console.log(`qa_template_inventory_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);
 })();

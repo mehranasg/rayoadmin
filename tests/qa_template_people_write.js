@@ -27,6 +27,8 @@ throws(()=>PW.settleTip(d,ctx(),{id:t.id,status:'تسویه‌شده',settlement
 const p=PW.addPenalty(d,ctx(),{date:day(3),personnelId:'EMP-2',type:'جریمه',amount:'50000',status:'پیش‌نویس',reason:'تأخیر'});
 ok(p.id==='PR-00031'&&p.year===+day(3).slice(0,4)&&p.month===+day(3).slice(5,7)&&p.status==='پیش‌نویس','penalty like js/00 savePenalty');
 throws(()=>PW.addPenalty(d,ctx(),{date:T,personnelId:'EMP-2',type:'جریمه',amount:1}),/علت/,'reason required');
+const wf=PW.addPenalty(d,ctx(),{date:day(3),personnelId:'EMP-2',type:'جریمه',amount:'20000',status:'تاییدشده',reason:'پرتی/خسارت: شیر',source:'waste',sourceKind:'waste',sourceId:'WST-000007'});ok(wf.source==='waste'&&wf.sourceKind==='waste'&&wf.sourceId==='WST-000007','fine linked to its waste record');
+throws(()=>PW.addPenalty(d,ctx(),{date:day(3),personnelId:'EMP-2',type:'جریمه',amount:'1000',reason:'x',source:'waste',sourceId:'WST-000007'}),/قبلاً/,'one active fine per waste record');
 PW.setPenaltyStatus(d,ctx(),{id:p.id,status:'تاییدشده'});ok(p.status==='تاییدشده'&&p.approvedBy==='qa-admin','approve');
 throws(()=>PW.setPenaltyStatus(d,ctx(),{id:p.id,status:'لغوشده'}),/علت لغو/,'cancel needs a reason');
 PW.setPenaltyStatus(d,ctx(),{id:p.id,status:'لغوشده',reason:'اشتباه'});throws(()=>PW.setPenaltyStatus(d,ctx(),{id:p.id,status:'تاییدشده'}),/لغوشده/,'cancelled stays cancelled');

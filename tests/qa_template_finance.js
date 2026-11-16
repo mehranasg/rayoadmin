@@ -143,4 +143,22 @@ ok(fin.entries.length===5&&fin.obligations.length===4,'nothing removed (voided r
 // pages
 const lr=fs.readFileSync(path.join(__dirname,'../app/js/pages/ledger-real.js'),'utf8'),ix=fs.readFileSync(path.join(__dirname,'../app/index.html'),'utf8');
 ok(/id:'ledger'/.test(lr)&&/id:'cashbox'/.test(lr)&&/id:'debts'/.test(lr)&&/id:'finset'/.test(lr)&&ix.includes('core/js/finance-write.js')&&ix.includes('js/pages/ledger-real.js'),'finance tabs wired');
+// recurring monthly expenses: templates, amount changes from a month, registered expense replaces the estimate, forecast
+{const f={settings:{expenseCategories:['اجاره','برق','سایر']}};
+ throws(()=>FW.saveRecurring(f,ctx(),{title:'اجاره',category:'اجاره',kind:'fixed',amount:0,from:'1405/08'}),/صفر/,'fixed needs an amount');
+ throws(()=>FW.saveRecurring(f,ctx(),{title:'برق',category:'برق',kind:'range',min:500,max:100,from:'1405/08'}),/بازه/,'range min ≤ max');
+ throws(()=>FW.saveRecurring(f,ctx(),{title:'اجاره',category:'اجاره',kind:'fixed',amount:1,from:'1405/13'}),/ماه شروع/,'valid start month');
+ const rent=FW.saveRecurring(f,ctx(),{title:'اجارهٔ مغازه',category:'اجاره',kind:'fixed',amount:'۱۰۰٬۰۰۰٬۰۰۰',from:'1405/08'});
+ const el=FW.saveRecurring(f,ctx(),{title:'برق',category:'برق',kind:'range',min:8000000,max:12000000,from:'1405/08'});
+ const net=FW.saveRecurring(f,ctx(),{title:'اینترنت',category:'اینترنت',kind:'fixed',amount:2000000,from:'1405/08'});
+ ok(/^REC-/.test(rent.id)&&f.settings.expenseCategories.includes('اینترنت'),'templates saved; a new category is added to the expense list');
+ throws(()=>FW.saveRecurring(f,ctx(),{title:'اجاره ۲',category:'اجاره',kind:'fixed',amount:5,from:'1405/09'}),/هر دسته/,'one template per category');
+ FW.saveRecurring(f,ctx(),{id:rent.id,title:'اجارهٔ مغازه',category:'اجاره',kind:'fixed',amount:120000000,from:'1405/10'});
+ ok(FW.recurringAt(rent,'1405/09').estimate===100000000&&FW.recurringAt(rent,'1405/10').estimate===120000000&&FW.recurringAt(rent,'1405/07')===null,'a new amount applies from its month; earlier months keep the old one');
+ throws(()=>FW.saveRecurring(f,ctx(),{id:rent.id,title:'اجارهٔ مغازه',category:'اجاره',kind:'fixed',amount:120000000,from:'1405/10'}),/تغییری/,'no change refused');
+ const m=FW.recurringMonth(f,'1405/09',new Map([['برق',13000000]])),e=m.find(x=>x.category==='برق'),r=m.find(x=>x.category==='اجاره');
+ ok(e.registered&&e.used===13000000&&e.outOfRange&&e.estimate===10000000&&!r.registered&&r.used===100000000,'registered bill replaces the estimate (and is flagged out of range); unregistered rent counts its amount');
+ FW.endRecurring(f,ctx(),{id:net.id,toMonth:'1405/09'});ok(FW.recurringMonth(f,'1405/10',new Map()).every(x=>x.category!=='اینترنت')&&FW.recurringMonth(f,'1405/09',new Map()).some(x=>x.category==='اینترنت'),'an ended template stops after its last month');
+ const fc=FW.forecast({past:[{sales:1000,materials:300,staffMeal:0,expenseTotal:500,expenses:[{category:'اجاره',amount:400},{category:'سایر',amount:100}]}],payroll:0,knownExpenses:0,recurring:450,recurringCats:['اجاره']});
+ ok(fc.otherExpenses===550&&fc.recurring===450&&fc.otherAverage===100,'forecast = recurring templates + average of the other categories')}
 console.log(`qa_template_finance: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

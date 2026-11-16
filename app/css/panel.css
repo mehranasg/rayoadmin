@@ -96,6 +96,13 @@
 .mini{border:1px solid var(--border);border-radius:12px;padding:var(--s3)}
 .mini small{display:block;color:var(--text-3);font-size:11.5px}
 .mini b{font-size:16px;font-variant-numeric:tabular-nums}
+/* tinted minis: one colour per meaning (cost, price, ratio, margin) so the numbers are told apart at a glance */
+.mini.t-warning{background:var(--warning-soft);border-color:transparent}.mini.t-warning b{color:var(--warning)}
+.mini.t-info{background:var(--info-soft);border-color:transparent}.mini.t-info b{color:var(--info)}
+.mini.t-success{background:var(--success-soft);border-color:transparent}.mini.t-success b{color:var(--success)}
+.mini.t-danger{background:var(--danger-soft);border-color:transparent}.mini.t-danger b{color:var(--danger)}
+.mini.t-violet{background:var(--violet-soft);border-color:transparent}.mini.t-violet b{color:var(--violet)}
+.mini .mini-foot{display:block;color:var(--text-3);font-size:11px;margin-top:2px}
 
 /* shift grid */
 .shift-grid td{text-align:center;padding:8px}
@@ -247,6 +254,14 @@ tfoot tr.grid-total td{background:var(--surface-2);border-top:2px solid var(--bo
 .table.compact td:first-child{white-space:normal;min-width:150px}
 /* catalog item form: wide modal, three columns on desktop (less vertical scroll) */
 @media (min-width:900px){.ing-form .form-grid:not(.cu-row){grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* sections of a form never touch each other (item form: هویت، واحدها، قیمت و افت، انبار…) */
+.ing-form{display:flex;flex-direction:column;gap:var(--s3)}
+.fsec+.fsec{margin-top:var(--s3)}.ing-form .fsec+.fsec{margin-top:0}
+/* «۱ [واحد] = [مقدار] [گرم]» rows of other units */
+.cu-row{display:grid;grid-template-columns:auto minmax(0,2fr) auto minmax(70px,1fr) auto auto auto;gap:6px;align-items:center}
+.cu-row .select{width:auto}
+.cu-row .cu-say{grid-column:2/-1;margin-top:-2px}.cu-row .cu-say:empty{display:none}
+@media (max-width:560px){.cu-row{grid-template-columns:auto minmax(0,1fr) auto minmax(60px,1fr);}.cu-row .select,.cu-row label,.cu-row [data-cudel]{grid-row:2}}
 .table.compact td:last-child{white-space:normal;min-width:170px}
 /* modal sizes: lg (most edit forms) was not defined in the app (fell back to 520px); on desktop the form grids of lg and
    wide modals use three columns so edit forms need less vertical scroll */

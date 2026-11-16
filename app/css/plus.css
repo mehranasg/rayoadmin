@@ -35,6 +35,10 @@
 /* inventory entry rows (inventory-real.js, stage 2) */
 .iw-row{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,2fr) auto;gap:8px;align-items:center}
 @media (max-width:640px){.iw-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.iw-row [data-f=item],.iw-row [data-f=note]{grid-column:1/-1}}
+/* recipe row: item · quantity · unit · cost · note · remove (6 cells; the cost never runs into the unit) */
+.iw-row.mr-row{grid-template-columns:minmax(0,3fr) minmax(64px,.8fr) minmax(104px,auto) minmax(84px,1fr) minmax(0,1.6fr) auto}
+.mr-row [data-f=unit]{width:100%!important;min-width:0!important}.mr-row [data-f=cost]{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:640px){.iw-row.mr-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}.mr-row [data-f=note]{grid-column:1/-2}}
 .mr-row{grid-template-columns:minmax(0,3fr) minmax(0,1fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1.6fr) auto}
 /* purchase invoice rows (purchase-real.js, stage 6) */
 .pi-row{display:grid;grid-template-columns:minmax(0,2.6fr) minmax(0,.8fr) minmax(0,.9fr) minmax(0,.8fr) minmax(0,1.1fr) minmax(0,.9fr) minmax(0,1fr) auto;gap:6px;align-items:center}

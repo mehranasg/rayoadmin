@@ -19,6 +19,17 @@ function doc(){return{meta:{},settings:{priceIncrementToman:5000,categoryTargets
  recipeVersions:[{id:'RV-000001',menuItemId:'MENU-1',effectiveFrom:'0000/00/00',createdAt:'2026-01-01T00:00:00Z',lines:[{ingredientId:'ING-1',quantity:0.2},{ingredientId:'ING-2',quantity:1}]}],
  priceHistory:[],changeLog:[{at:'x',action:'old'}]}}
 const ctx=()=>({actor:'qa-admin',at:new Date().toISOString(),reqId:'R'+Math.random().toString(36).slice(2,7),module:'pricing'});
+// sale prices from the online menu: exact name match (normalised), suggestions never auto-picked, batch apply
+{const d={settings:{},menuItems:[{id:'M1',code:'1',name:'کافه لاته',category:'قهوه',currentPriceToman:300000,status:'فعال'},{id:'M2',code:'2',name:'لاته Iced',currentPriceToman:320000,status:'فعال'},{id:'M3',code:'3',name:'سالاد سبز',currentPriceToman:700000,status:'فعال'},{id:'M4',code:'4',name:'آیتم قدیمی',currentPriceToman:1000,status:'غیرفعال'},{id:'M5',code:'5',name:'چای',currentPriceToman:150000,status:'فعال'}],recipes:[],ingredients:[],priceHistory:[]};
+ const online=[{title:'كافه  لاته',priceToman:380000},{title:'لاته سرد',priceToman:410000},{title:'چای',priceToman:150000},{title:'پیتزا',priceToman:900000}];
+ const pl=MW.onlinePricePlan(d,online),r=id=>pl.rows.find(x=>x.menuId===id);
+ ok(pl.rows.length===4&&r('M1').kind==='exact'&&r('M1').online===380000&&r('M1').diff===80000,'exact match ignores ك/ی and spacing; inactive items left out');
+ ok(r('M2').kind==='suggest'&&r('M2').title==='لاته سرد'&&r('M3').kind==='none','Iced ↔ سرد is only a suggestion; no match stays empty');
+ ok(pl.summary.exactChanged===1&&pl.unused.some(o=>o.title==='پیتزا'),'summary and online items with no panel item');
+ throws(()=>MW.applyOnlinePrices(d,ctx(),{picks:[{menuId:'M5',price:150000}]}),/قیمتی برای تغییر/,'nothing to change refused');
+ throws(()=>MW.applyOnlinePrices(JSON.parse(JSON.stringify(d)),ctx(),{picks:[{menuId:'M1',price:380000},{menuId:'M1',price:380000}]}),/دو بار/,'same item twice refused');
+ const c=ctx(),res=MW.applyOnlinePrices(d,c,{picks:[{menuId:'M1',price:380000,title:'كافه  لاته'},{menuId:'M2',price:410000,title:'لاته سرد'},{menuId:'M5',price:150000,title:'چای'}]});
+ ok(res.changed.length===2&&res.same.length===1&&d.menuItems[1].currentPriceToman===410000&&d.priceHistory.length===2&&/منوی آنلاین/.test(d.priceHistory[0].notes)&&c.auditExtra.changed===2,'picked prices applied, each with a price-history row')}
 
 // 1. cost model = current panel menuMetrics
 let d=doc(),x=MW.metrics(d,d.menuItems[0]);
@@ -86,4 +97,7 @@ throws(()=>MW.saveSettings(d,ctx(),{targets:{'ناموجود':30}}),/در منو
  ok(server.saves===1&&s.menuItems[0].currentPriceToman===600000&&/^PRICING-/.test(s.meta.serverSaveToken),'pricing saved and verified');
  ok(s.changeLog[0].action==='MENU_PRICE_CHANGED'&&s.changeLog[0].via==='ui-template'&&/^PLOG-/.test(s.changeLog[0].id)&&s.changeLog[0].before.currentPriceToman===500000&&s.changeLog.at(-1).action==='old','audit row first in the pricing log, older rows kept');
  try{await W.edit({...io,load:async()=>({menuItems:[]})},{action:'X',mutate:()=>1});ok(false,'invalid pricing load should throw')}catch(e){ok(/منو و قیمت/.test(e.message)&&server.saves===1,'incomplete pricing Load refuses to save')}
+ {const d=doc();d.ingredients[0].recipeUnit='کیلوگرم';const c=ctx();MW.saveRecipe(d,c,{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:0.15,entryUnit:'گرم',entryQuantity:150},{ingredientId:'ING-2',quantity:1}]});
+  const l=d.recipes.find(r=>r.menuItemId==='MENU-1'&&r.ingredientId==='ING-1');ok(l.quantity===0.15&&l.entryUnit==='گرم'&&l.entryQuantity===150,'recipe line typed as 150 g keeps 0.15 kg and how it was typed');
+  MW.saveRecipe(d,ctx(),{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:0.2},{ingredientId:'ING-2',quantity:1}]});const l2=d.recipes.find(r=>r.menuItemId==='MENU-1'&&r.ingredientId==='ING-1');ok(l2.quantity===0.2&&l2.entryUnit===undefined,'typed in the base unit again: the entry unit is dropped');}
  console.log(`qa_template_menu_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0)})();

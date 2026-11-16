@@ -27,7 +27,7 @@ app/
 - هر بخش با `P.mod({id,label,icon,tabs:[{id,label,render,mount,actions,liveOnly}]})` ثبت می‌شود. مسیرها `#/<بخش>/<تب>/<پارامتر>` هستند.
 - فایل `*-real.js` تب طرح را پیدا و render و mount آن را جایگزین می‌کند. اگر دادهٔ واقعی وصل نباشد، طرح نمونه با یادداشت «دادهٔ نمونه» دیده می‌شود.
 - `SAMPLE_TABS` در `shell.js` تب‌هایی است که با دادهٔ زنده پنهان می‌شوند. `P.LEGACY` تب «در پنل فعلی» است با لینک امکاناتی که فقط در `legacy/` مانده‌اند.
-- **دسترسی** با `P.can(بخش)` و `P.tabOk(بخش، تب)` بررسی می‌شود. نگاشت بخش و تب به کلیدها در `MOD_KEYS` و `TAB_KEYS` است. ثبت‌ها دوباره با `InvEntry.allowed(کلید)` چک می‌شوند. ورود و نمای نقش در `core/js/admin-access.js` است.
+- **دسترسی** با `P.can(بخش)` و `P.tabOk(بخش، تب)` بررسی می‌شود. نگاشت بخش و تب به کلیدها در `MOD_KEYS` و `TAB_KEYS` است. ثبت‌ها دوباره با `InvEntry.allowed(کلید)` چک می‌شوند. پیش‌نمایش چاپی (فیش، گزارش نهایی انبارگردانی) با `P.previewDoc(عنوان، css، html)` در `js/shell.js` است. ورود و نمای نقش در `core/js/admin-access.js` است؛ فهرست کلیدها با نام، گروه (بخش پنل) و شرح در `AdminAccess.SECTIONS` است و هر کلید تازه باید هم آنجا و هم در `MOD_KEYS`/`TAB_KEYS` بیاید.
 - **ابزار رابط:**
   - `P.card`، `P.table`، `P.kpi`، `P.field`، `P.note`، `P.b` (نشان)، `P.modal`، `P.toast`؛
   - فرم ثبت: `InvEntry.formModal` (که `IE.formModal` هم صدا زده می‌شود)؛
@@ -47,6 +47,7 @@ app/
 - موجودی هر قلم از آخرین شمارش خودش ساخته می‌شود، به‌علاوهٔ ورود، منهای مصرف رسپیِ فروش، منهای پرتی و مصرف مجاز.
 - `recipeAt` رسپی مؤثر هر تاریخ را می‌دهد و سطر قلم آماده را به مواد فرمولش باز می‌کند.
 - تبدیل واحد و فرمول در `InvEngine.prepConvert` است.
+- واحدهای قلم: همهٔ مقدارهای ذخیره‌شده به واحد پایه (`recipeUnit`) است. `InvWrite.unitsOf` واحدهای ورود هر قلم را با ضریبشان می‌دهد (پایه، خرید، `countingUnits`، گرم/میلی‌لیتر خودکار) و `useUnitOf` / `countUnitOf` / `smallestUnit` واحد شروع رسپی، ضایعات و شمارش را. نام قبلی واحد پایه (`baseUnitRenames`) با `InvEngine.sameUnit` همان واحد است. فهرست نام واحدها: `MenuWrite.unitList` (`lists.units` + واحدهای در حال استفاده).
 
 ## پروتکل ذخیره (همهٔ ماژول‌ها)
 `InvWrite.edit(io,{action,details,mutate})` (و `InvEntry.run`، `PeopleReal.saveHr` و `IE.run` که از آن استفاده می‌کنند):

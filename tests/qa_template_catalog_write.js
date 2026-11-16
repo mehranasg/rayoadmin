@@ -124,4 +124,27 @@ ok(AW.deleteAsset(a,ctx('assets'),{id:'AST-0003'})&&!a.assets.some(x=>x.id==='AS
  ok(MW.nextIngredientCode(d)==='1010','removed codes are not reused')
  const d2={settings:{},ingredients:[{id:'Z1',code:'2001'},{id:'Z2',code:'2002'}],menuItems:[],recipes:[]},inv2={stocktakes:[{id:'S1',lines:[{ingredientId:'Z1',actual:0},{ingredientId:'Z2',actual:3}]},{id:'S2',lines:[{ingredientId:'Z1',actual:0}]}]};
  ok(MW.cleanupPlan(d2,inv2,'Z1').action==='delete'&&MW.ingredientRefs(d2,inv2,'Z1').zeroCounts===2&&MW.cleanupPlan(d2,inv2,'Z2').action==='archive','an item only ever counted as zero is deletable; a counted quantity is history')}
+{global.window.InvWrite||eval(fs.readFileSync(path.join(__dirname,'../app/core/js/inventory-write.js'),'utf8'));const d={settings:{},lists:{},ingredients:[]};
+ const pe=MW.saveIngredient(d,ctx(),{name:'بادام زمینی',category:'خشکبار',recipeUnit:'کیلوگرم',purchaseUnit:'بسته',packageQuantity:0.35,useUnit:'گرم',countUnit:'بسته',countingUnits:[{name:'بسته ۱۰۰ گرمی',factor:0.1}]}),it=d.ingredients[0];
+ ok(it.useUnit==='گرم'&&it.countUnit==='بسته'&&it.packageQuantity===0.35,'use unit (automatic گرم) and count unit (purchase pack) saved');
+ throws(()=>MW.saveIngredient(d,ctx(),{id:it.id,name:'بادام زمینی',purchaseUnit:'بسته',packageQuantity:0.35,countUnit:'جعبه',countingUnits:it.countingUnits}),/واحد شمارش/,'count unit outside the item units refused');
+ MW.saveIngredient(d,ctx(),{id:it.id,name:'بادام زمینی',purchaseUnit:'بسته',packageQuantity:0.35,countingUnits:it.countingUnits,notes:'x'});ok(it.useUnit==='گرم'&&it.countUnit==='بسته','a save without these fields keeps them');}
+// base unit label fix: only to a factor-1 name; numbers unchanged; old label still the same unit for counts, prices, formulas
+{const E=window.InvEngine,d={settings:{},lists:{},ingredients:[{id:'J',code:'4099',name:'آب آلبالو',recipeUnit:'عدد',purchaseUnit:'لیتر',packageQuantity:1,lastPurchasePriceToman:200000,lastPurchaseSource:'supplierInvoice',lastPurchaseInvoiceId:'INV1',status:'فعال',countUnit:'عدد',countingUnits:[]},{id:'S',code:'2',name:'شکر',recipeUnit:'عدد',purchaseUnit:'کیلوگرم',packageQuantity:2,status:'فعال'}],
+  recipes:[{id:'R1',menuItemId:'M',ingredientId:'J',quantity:0.15}],ingredientPriceHistory:[{id:'H',ingredientId:'J',invoiceId:'INV1',date:'1405/08/01',priceToman:200000,packageQuantity:1,purchaseUnit:'لیتر',recipeUnit:'عدد'}],menuItems:[]};
+ ok(MW.renameTargets(d.ingredients[0]).join()==='لیتر'&&MW.renameTargets(d.ingredients[1]).length===0,'targets: the purchase unit of size 1 only (sugar «هر کیلوگرم = ۲ عدد» has none)');
+ const inv={stocktakes:[{lines:[{ingredientId:'J',actual:27.5,unitSnapshot:'عدد'}]}],stockReceipts:[{ingredientId:'J',quantity:3}]};
+ const pl=MW.renameBaseUnitPlan(d,inv,'J','لیتر');ok(pl.ok&&pl.recipeLines===1&&pl.counts===1&&pl.receipts===1&&pl.prices===1,'preview counts what keeps its numbers');
+ throws(()=>MW.renameBaseUnit(d,ctx(),{id:'J',to:'لیتر',reason:''}),/دلیل/,'reason required');throws(()=>MW.renameBaseUnit(d,ctx(),{id:'S',to:'کیلوگرم',reason:'x'}),/ضریب ۱/,'a non factor-1 name refused');
+ const c=ctx();MW.renameBaseUnit(d,c,{id:'J',to:'لیتر',reason:'از اول لیتر بوده'});const j=d.ingredients[0];
+ ok(j.recipeUnit==='لیتر'&&j.baseUnitRenames[0].from==='عدد'&&j.countUnit===''&&d.recipes[0].quantity===0.15&&c.auditExtra.from==='عدد','label changed, history kept, numbers untouched, count unit that was the old name reset');
+ ok(E.sameUnit(j,'عدد')&&E.sameUnit(j,'لیتر')&&!E.sameUnit(j,'کیلوگرم')&&E.convertQty(j,2,'عدد','میلی‌لیتر').value===2000,'old label is the same unit (counts, formulas convert)');
+ ok(Math.abs(MW.unitCost(j,d).v-200000)<1e-6,'invoice price saved under the old label still prices the item');}
+// shared unit list: names in use always listed and never removed; other units keep how they were typed («۱ بسته = ۱۰۰ عدد»)
+{const d={settings:{},lists:{units:['بسته','عدد']},ingredients:[{id:'N',code:'6002',name:'نی',recipeUnit:'بسته',purchaseUnit:'بسته',packageQuantity:1,status:'فعال',countingUnits:[{id:'CU-0001',name:'عدد',factor:0.05,active:true}]},{id:'P',code:'1',name:'بادام',recipeUnit:'کیلوگرم',purchaseUnit:'بسته',packageQuantity:0.35,status:'فعال'}]};
+ ok(MW.unitList(d).join()==='بسته,عدد,کیلوگرم'&&MW.unitUsage(d).get('بسته')===2,'list = saved names + units in use; usage counted');
+ const r=MW.saveUnitList(d,ctx(),{units:['بسته','عدد','کیلوگرم','شیرینگ',' شیرینگ ','بسته ۱۰۰ گرمی']});ok(d.lists.units.join()==='بسته,عدد,کیلوگرم,شیرینگ,بسته ۱۰۰ گرمی'&&r.added.includes('شیرینگ'),'units added once');
+ throws(()=>MW.saveUnitList(d,ctx(),{units:['بسته','کیلوگرم']}),/عدد/,'a unit in use cannot be removed');
+ MW.saveIngredient(d,ctx(),{id:'N',name:'نی',purchaseUnit:'بسته',packageQuantity:1,countingUnits:[{id:'CU-0001',name:'عدد',factor:0.01,def:{a:'بسته',q:100,b:'عدد'},active:true}]});const cu=d.ingredients[0].countingUnits[0];
+ ok(cu.factor===0.01&&cu.def.a==='بسته'&&cu.def.q===100&&cu.def.b==='عدد'&&cu.id==='CU-0001','other unit saved with its factor and as typed («۱ بسته = ۱۰۰ عدد»)');}
 console.log(`qa_template_catalog_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

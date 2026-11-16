@@ -35,4 +35,14 @@ AA.setPreview(cashier);const ps=AA.session();ok(ps.role==='user'&&ps.preview.lab
 ok(store.rayo_admin_role==='owner'&&AA.realSession().role==='owner','current-panel keys stay owner');ok(AA.stillValid(doc),'preview is not signed out by the users check');
 AA.setPreview({id:'x',label:'x',sections:['menu','bogus']});ok(JSON.stringify(AA.session().sections)==='["menu"]','unknown sections dropped');
 AA.setPreview(null);ok(AA.session().role==='owner'&&AA.has('payroll'),'back to owner');AA.setPreview(cashier);AA.signOut();ok(!AA.preview()&&!('rayo_np_preview' in store),'sign out clears the preview');
+// access list of the new panel: every stored key of the current panel is kept (only «monitor» is hidden), new keys exist,
+// presets use known keys, and editing a user keeps a hidden legacy key on the record
+const keys=AA.SECTIONS.map(x=>x[0]),legacy=['dashboard','monitor','cash','sales','personnel','shift','payroll','menu','pricing','inventory','purchase','training','financeLedger','reports','assets','settings','inventoryEdit'];
+ok(legacy.every(k=>keys.includes(k)||AA.LEGACY_SECTIONS.some(x=>x[0]===k)),'every key of the current panel is kept');
+ok(['customers','petty'].every(k=>keys.includes(k))&&new Set(keys).size===keys.length,'new keys, no duplicates');
+ok(AA.SECTIONS.every(x=>x[1]&&x[2]&&x[3])&&AA.SECTION_GROUPS.length>=7,'each key has a label, a group and a description');
+ok(AA.PRESETS.every(p=>p.sections.every(k=>keys.includes(k))),'presets use known keys');
+const d2={settings:{adminUsers:[{id:'ADM-1',username:'old1',salt:'s',passwordHash:'h',status:'فعال',sections:['dashboard','monitor','cash']}]}};
+AA.saveUser(d2,c,{id:'ADM-1',username:'old1',status:'فعال',sections:['cash','petty','cash']});ok(JSON.stringify(d2.settings.adminUsers[0].sections)==='["cash","petty","monitor"]','edit keeps a hidden legacy key, drops duplicates');
+ok(AA.sectionName('monitor').includes('مانیتورینگ')&&AA.sectionName('zzz')==='zzz','section names');
 console.log(`qa_template_admin_access: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

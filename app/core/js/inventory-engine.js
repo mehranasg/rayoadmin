@@ -12,7 +12,7 @@ const A=x=>Array.isArray(x)?x:[];
 const S=x=>String(x??'').trim();
 const N=v=>{const n=Number(String(v??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٬,]/g,''));return Number.isFinite(n)?n:0};
 const D=v=>{const z=S(v).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/\D/g,'');return z.length===8?`${z.slice(0,4)}/${z.slice(4,6)}/${z.slice(6,8)}`:''};
-const UK=v=>({kg:'kg','کیلو':'kg','کیلوگرم':'kg',g:'g','گرم':'g',l:'l','لیتر':'l',ml:'ml','میلیلیتر':'ml','عدد':'each','بسته':'pack'})[S(v).toLowerCase().replace(/[\s‌]/g,'')]||S(v);
+const UK=v=>({kg:'kg','کیلو':'kg','کیلوگرم':'kg',g:'g','گرم':'g',l:'l','لیتر':'l',ml:'ml','میلیلیتر':'ml','سیسی':'ml',cc:'ml','عدد':'each','بسته':'pack'})[S(v).toLowerCase().replace(/[\s‌]/g,'')]||S(v);
 const MONTHS=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
 
 /* ---------- Jalali day index (exact, via Intl) ---------- */
@@ -33,7 +33,11 @@ async function loadFiles(files){const out={source:'file'};for(const f of files){
 /* ---------- prepared (composite) items: unit conversion and formula → ingredients (gross, recipe unit) ----------
    shared by counts (inventory-write), recipe costing (menu-write) and sales/waste deduction (recipeAt below) */
 const NN=v=>{const n=Number(String(v??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/٫/g,'.').replace(/[٬,\s]/g,''));return Number.isFinite(n)?n:NaN};
-function convertQty(i,qty,from,to){const U=UK,f=U(from),t=U(to);if(!(qty>=0))return{value:null,reason:'مقدار نامعتبر است'};if(f===t)return{value:qty,reason:''};
+/* base-unit renames (MenuWrite.renameBaseUnit, pricing.ingredients[].baseUnitRenames [{from,to}]): a label fixed with factor 1
+   (e.g. «عدد» that always meant a litre → «لیتر»); records saved under the old label are the same unit, nothing is converted */
+const oldBase=(i,u)=>!!i&&A(i.baseUnitRenames).some(r=>UK(r.from)===UK(u));
+const sameUnit=(i,u)=>!u||!i||UK(u)===UK(i.recipeUnit)||oldBase(i,u);
+function convertQty(i,qty,from,to){const U=UK;if(oldBase(i,from))from=i.recipeUnit;if(oldBase(i,to))to=i.recipeUnit;const f=U(from),t=U(to);if(!(qty>=0))return{value:null,reason:'مقدار نامعتبر است'};if(f===t)return{value:qty,reason:''};
  const fam=u=>u==='kg'||u==='g'?'mass':u==='l'||u==='ml'?'volume':null,ff=fam(f),ft=fam(t);if(!ff||!ft)return{value:null,reason:'تبدیل بین این دو واحد پشتیبانی نمی‌شود'};
  const toB=(q,u)=>u==='g'||u==='ml'?q/1000:q,fromB=(q,u)=>u==='g'||u==='ml'?q*1000:q;if(ff===ft)return{value:fromB(toB(qty,f),t),reason:''};
  const d=Number(i?.densityKgPerLiter);if(!(d>0))return{value:null,reason:'چگالی این ماده تعریف نشده است؛ تبدیل حجم و وزن ممکن نیست'};
@@ -64,7 +68,7 @@ function build(raw){
   expanded.set(lines,out);return out};
  const recipeAt=(mid,date)=>{const v=A(versionsBy.get(mid)).find(v=>(D(v.effectiveFrom)||'0000/00/00')<=date);return expand(v?A(v.lines):A(recipesBy.get(mid)))};
  // price per recipe unit at a date: purchase history (same recipe unit) → latest catalog price
- const priceBy=new Map;for(const h of A(pr.ingredientPriceHistory)){if(h.isVoided)continue;const i=ing.get(h.ingredientId);if(!i)continue;if(h.recipeUnit&&UK(h.recipeUnit)!==UK(i.recipeUnit))continue;const d=D(h.date);if(!d)continue;const per=N(h.priceToman)/(N(h.packageQuantity)||N(i.packageQuantity)||1);if(!(per>0))continue;if(!priceBy.has(i.id))priceBy.set(i.id,[]);priceBy.get(i.id).push({d,per,at:S(h.createdAt)})}
+ const priceBy=new Map;for(const h of A(pr.ingredientPriceHistory)){if(h.isVoided)continue;const i=ing.get(h.ingredientId);if(!i)continue;if(h.recipeUnit&&!sameUnit(i,h.recipeUnit))continue;const d=D(h.date);if(!d)continue;const per=N(h.priceToman)/(N(h.packageQuantity)||N(i.packageQuantity)||1);if(!(per>0))continue;if(!priceBy.has(i.id))priceBy.set(i.id,[]);priceBy.get(i.id).push({d,per,at:S(h.createdAt)})}
  // same-day corrections: the last created entry wins
  for(const l of priceBy.values())l.sort((a,b)=>a.d.localeCompare(b.d)||a.at.localeCompare(b.at));
  const catalog=id=>{const i=ing.get(id),p=N(i?.lastPurchasePriceToman||i?.latestPriceToman),pk=N(i?.packageQuantity)||1;return p>0?p/pk:null};
@@ -73,7 +77,7 @@ function build(raw){
  // count points: a count dated D with boundary START is the morning of D (index D); END is the night of D (index D+1)
  const points=new Map;
  for(const st of A(inv.stocktakes)){if(st.status==='void'||st.status==='rejected'||st.isArchived)continue;const di=CAL.i(st.date);if(di===null)continue;const boundary=st.baselineBoundary||(st.isOpeningBaseline?'START':'END'),at=di+(boundary==='END'?1:0);
-  for(const l of A(st.lines)){if(l.actual===null||l.actual===undefined||l.actual==='')continue;const i=ing.get(l.ingredientId);const key=l.ingredientId;if(!points.has(key))points.set(key,new Map);const m=points.get(key),p=m.get(at)||{at,date:D(st.date),boundary,qty:0,statuses:new Set,ids:[],unitIssue:false,opening:false,lines:0};p.qty+=N(l.actual);p.statuses.add(st.status);p.ids.push(st.id);p.lines++;p.opening=p.opening||!!st.isOpeningBaseline;if(l.unitSnapshot&&i&&UK(l.unitSnapshot)!==UK(i.recipeUnit))p.unitIssue=l.unitSnapshot;m.set(at,p)}}
+  for(const l of A(st.lines)){if(l.actual===null||l.actual===undefined||l.actual==='')continue;const i=ing.get(l.ingredientId);const key=l.ingredientId;if(!points.has(key))points.set(key,new Map);const m=points.get(key),p=m.get(at)||{at,date:D(st.date),boundary,qty:0,statuses:new Set,ids:[],unitIssue:false,opening:false,lines:0};p.qty+=N(l.actual);p.statuses.add(st.status);p.ids.push(st.id);p.lines++;p.opening=p.opening||!!st.isOpeningBaseline;if(l.unitSnapshot&&i&&!sameUnit(i,l.unitSnapshot))p.unitIssue=l.unitSnapshot;m.set(at,p)}}
  for(const [k,m] of points)points.set(k,[...m.values()].sort((a,b)=>a.at-b.at));
  // day events
  const receipts=A(inv.stockReceipts).filter(r=>r.status!=='void'&&!r.isArchived).map(r=>({kind:'receipt',id:r.id,item:r.ingredientId,day:CAL.i(r.date),date:D(r.date),qty:N(r.quantity),unit:r.unitSnapshot,note:S(r.notes||r.sourceName),by:S(r.createdBy),raw:r})).filter(x=>x.day!==null);
@@ -208,5 +212,5 @@ function calibrateOil(items,oilKg){const sum=items.reduce((a,x)=>a+x.qty*x.weigh
 /* ---------- Months ---------- */
 function monthKeys(M){const out=[];let d=M.firstDay;const last=CAL.i(CAL.today);while(d<=last){const k=CAL.k(d).slice(0,7);if(!out.includes(k))out.push(k);d+=1}return out}
 
-window.InvEngine={convertQty,prepConvert,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
+window.InvEngine={sameUnit,convertQty,prepConvert,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
 })();

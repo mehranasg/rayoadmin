@@ -10,8 +10,8 @@ const fin=P.mods.finance,tab=fin?.tabs?.find(t=>t.id==='petty');if(!tab||!PW||!I
 const esc=P.esc,fa=P.fa,A=x=>Array.isArray(x)?x:[],TM=v=>`${P.t(Math.round(Number(v)||0))} تومان`;
 const st={view:'dash',month:''};
 const FD=()=>X.mods.finance?.doc;
-const canW=()=>IE.live()&&IE.allowed('financeLedger');
-const why=()=>!IE.live()?'ثبت فقط روی دادهٔ زنده ممکن است (پنل باز‌شده از rayocafe.ir)':!IE.ses('rayo_admin_user')?'برای ثبت ابتدا وارد شوید':'کاربر شما دسترسی «مالی» ندارد';
+const canW=()=>IE.live()&&(IE.allowed('petty')||IE.allowed('financeLedger'));
+const why=()=>!IE.live()?'ثبت فقط روی دادهٔ زنده ممکن است (پنل باز‌شده از rayocafe.ir)':!IE.ses('rayo_admin_user')?'برای ثبت ابتدا وارد شوید':'کاربر شما دسترسی «تنخواه» یا «امور مالی» ندارد';
 const io={module:'finance',validate:d=>PW.validFinance(d),actor:()=>IE.ses('rayo_admin_user'),pricing:()=>IC.state.raw?.pricing,
  load:async()=>{const r=await fetch(E.API_ROOT+'Load?module=finance&_='+Date.now(),{cache:'no-store',credentials:'omit',headers:{Accept:'application/json'}});if(!r.ok)throw Error('دریافت مالی از سرور: HTTP '+r.status);return E.unwrap(await r.json())},
  save:async doc=>{const r=await fetch(E.API_ROOT+'Save?module=finance',{method:'POST',credentials:'omit',headers:{'Content-Type':'application/json; charset=utf-8',Accept:'application/json, text/plain, */*'},body:JSON.stringify(doc)});if(!r.ok)throw Error(`ذخیره روی سرور: HTTP ${r.status} ${(await r.text()).slice(0,200)}`)}};

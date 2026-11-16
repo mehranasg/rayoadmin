@@ -180,8 +180,38 @@ function setOpening(fin,ctx,{accountKey,date,amountToman,notes}){ensure(fin);con
 function voidTransfer(fin,ctx,{id,reason}){const e=A(fin.entries).find(x=>x.id===id&&['transfer','openingBalance'].includes(x.type));if(!e||!active(e))throw Error('ثبت پیدا نشد یا قبلاً ابطال شده');if(!S(reason))throw Error('علت ابطال لازم است');Object.assign(e,{status:'void',voidReason:S(reason),voidedAt:ctx.at,voidedBy:ctx.actor});ctx.auditExtra={entityId:id};return e}
 function setPosAccount(fin,ctx,{accountKey}){ensure(fin);const k=S(accountKey);if(!k.startsWith('account:'))throw Error('یک کارت / حساب بانکی را انتخاب کنید');if(fin.settings.posAccountKey===k)throw Error('تغییری نیست');fin.settings.posAccountKey=k;ctx.auditExtra={posAccountKey:k};return k}
 /* ---------- forecast of a month (stage 7c): average of the last complete months + what is already known ---------- */
-function forecast({past,payroll,knownExpenses}){const ps=A(past).filter(Boolean),avg=f=>ps.length?ps.reduce((s,p)=>s+N(f(p)),0)/ps.length:0,sales=avg(p=>p.sales),matPct=ps.filter(p=>p.sales&&p.materials).length?ps.filter(p=>p.sales&&p.materials).reduce((s,p)=>s+p.materials/p.sales,0)/ps.filter(p=>p.sales&&p.materials).length:0;
- const other=Math.max(avg(p=>p.expenseTotal),N(knownExpenses));return{months:ps.length,sales,materialPercent:matPct*100,materials:sales*matPct,staffMeal:avg(p=>p.staffMeal),payroll:N(payroll),otherExpenses:other,knownExpenses:N(knownExpenses)}}
+/* ---------- recurring monthly expenses (هزینه‌های ثابت و تکراری ماهانه) ----------
+   finance.settings.recurringExpenses [{id REC-###, title, category, fromMonth YYYY/MM, toMonth YYYY/MM|'', notes,
+     amounts[{from YYYY/MM, kind fixed|range, amount, min, max, at, by}], createdAt/By, updatedAt/By}]
+   A template is not a ledger document and nothing is saved month by month. In a month it stands for its category only
+   while no ledger expense of that category is registered in that month (the real rent / bill document replaces it):
+   fixed = its amount, range = the middle of min..max (shown as «برآورد»). One template per category. A new amount is a new
+   row from a month on; earlier months keep the amount they had. Ending = toMonth (the last month it applies). */
+const recurringList=fin=>A(fin?.settings?.recurringExpenses);
+function recurringAt(r,ym){if(!r||S(r.fromMonth)>ym||(S(r.toMonth)&&S(r.toMonth)<ym))return null;const a=A(r.amounts).filter(x=>S(x.from)<=ym).sort((p,q)=>S(p.from).localeCompare(S(q.from))).at(-1);if(!a)return null;
+ const fixed=a.kind!=='range',min=Math.round(fixed?N(a.amount):N(a.min)),max=Math.round(fixed?N(a.amount):N(a.max));return{id:r.id,title:S(r.title),category:S(r.category),kind:fixed?'fixed':'range',min,max,estimate:Math.round((min+max)/2)}}
+/* the templates of a month against the registered expenses of that month (Map category → amount) */
+function recurringMonth(fin,ym,actualByCat){const by=actualByCat instanceof Map?actualByCat:new Map(Object.entries(actualByCat||{})),out=[];
+ for(const r of recurringList(fin)){const x=recurringAt(r,ym);if(!x)continue;const actual=Math.round(N(by.get(x.category)));out.push({...x,actual,registered:actual>0,used:actual>0?actual:x.estimate,outOfRange:actual>0&&(actual<x.min*0.999||actual>x.max*1.001)})}
+ return out.sort((a,b)=>b.used-a.used)}
+function saveRecurring(fin,ctx,x){ensure(fin);const cfg=config(fin),title=norm(x.title),category=norm(x.category),kind=x.kind==='range'?'range':'fixed',from=YM(x.from)||YM(x.fromMonth);
+ if(!title)throw Error('عنوان لازم است');if(!category)throw Error('دسته را انتخاب کنید');if(category===STAFF_MEAL)throw Error('غذای پرسنل از بخش خودش حساب می‌شود');if(!from)throw Error('ماه شروع معتبر نیست (مثال ۱۴۰۵/۰۹)');
+ const amount=Math.round(N(x.amount)),min=Math.round(N(x.min)),max=Math.round(N(x.max));if(kind==='fixed'&&!(amount>0))throw Error('مبلغ باید بیشتر از صفر باشد');if(kind==='range'&&!(min>0&&max>=min))throw Error('بازه معتبر نیست: حداقل بیشتر از صفر و حداکثر نه کمتر از حداقل');
+ const list=fin.settings.recurringExpenses=recurringList(fin),id=S(x.id),open=r=>!S(r.toMonth)||S(r.toMonth)>=from;
+ if(list.some(r=>r.id!==id&&r.category===category&&open(r)))throw Error(`برای دستهٔ «${category}» هزینهٔ ثابت دیگری هست؛ برای هر دسته یکی`);
+ if(!cfg.expenseCategories.includes(category)){const base=A(fin.settings.expenseCategories).map(S).filter(Boolean);fin.settings.expenseCategories=[...(base.length?base:DEF.expenseCategories.slice()),category]}
+ const row={from,kind,...(kind==='fixed'?{amount}:{min,max}),at:ctx.at,by:ctx.actor};let r;
+ if(id){r=list.find(q=>q.id===id);if(!r)throw Error('هزینهٔ ثابت پیدا نشد');if(from<S(r.fromMonth))r.fromMonth=from;const before=recurringAt(r,from),same=before&&before.kind===kind&&before.min===(kind==='fixed'?amount:min)&&before.max===(kind==='fixed'?amount:max);
+  if(same&&r.title===title&&r.category===category&&S(r.notes)===S(x.notes))throw Error('تغییری برای ذخیره نیست');
+  if(!same){r.amounts=A(r.amounts).filter(a=>S(a.from)!==from);r.amounts.push(row);r.amounts.sort((p,q)=>S(p.from).localeCompare(S(q.from)))}
+  Object.assign(r,{title,category,notes:S(x.notes),updatedAt:ctx.at,updatedBy:ctx.actor})}
+ else{r={id:uid('REC',list,3),title,category,fromMonth:from,toMonth:'',notes:S(x.notes),amounts:[row],createdAt:ctx.at,createdBy:ctx.actor};list.push(r)}
+ ctx.auditExtra={entityId:r.id,from,kind};return r}
+function endRecurring(fin,ctx,{id,toMonth}){const r=recurringList(fin).find(q=>q.id===S(id));if(!r)throw Error('هزینهٔ ثابت پیدا نشد');const to=YM(toMonth);if(!to)throw Error('آخرین ماه معتبر نیست (مثال ۱۴۰۵/۱۲)');
+ if(to<S(r.fromMonth))throw Error('آخرین ماه نمی‌تواند قبل از ماه شروع باشد');const before=S(r.toMonth);Object.assign(r,{toMonth:to,updatedAt:ctx.at,updatedBy:ctx.actor});ctx.auditExtra={entityId:r.id,before,toMonth:to};return r}
+/* forecast: with recurring templates, «other expenses» = the templates of that month + the average of the other categories */
+function forecast({past,payroll,knownExpenses,recurring,recurringCats}){const ps=A(past).filter(Boolean),avg=f=>ps.length?ps.reduce((s,p)=>s+N(f(p)),0)/ps.length:0,sales=avg(p=>p.sales),matPct=ps.filter(p=>p.sales&&p.materials).length?ps.filter(p=>p.sales&&p.materials).reduce((s,p)=>s+p.materials/p.sales,0)/ps.filter(p=>p.sales&&p.materials).length:0;
+ const rc=new Set(A(recurringCats)),otherAvg=avg(p=>A(p.expenses).filter(e=>!rc.has(e.category)).reduce((t,e)=>t+N(e.amount),0)),other=rc.size?N(recurring)+Math.max(otherAvg,N(knownExpenses)):Math.max(avg(p=>p.expenseTotal),N(knownExpenses));return{months:ps.length,sales,materialPercent:matPct*100,materials:sales*matPct,staffMeal:avg(p=>p.staffMeal),payroll:N(payroll),otherExpenses:other,knownExpenses:N(knownExpenses),recurring:N(recurring),otherAverage:rc.size?otherAvg:null}}
 function calc({sales,materialPercent,staffMeal,payroll,otherExpenses,reservePercent}){const s=N(sales),m=s*N(materialPercent)/100,r=s*N(reservePercent)/100,profit=s-m-N(staffMeal)-N(payroll)-N(otherExpenses)-r;return{sales:s,materials:m,reserve:r,profit,margin:s?profit/s*100:null,breakEven:(1-N(materialPercent)/100-N(reservePercent)/100)>0?(N(staffMeal)+N(payroll)+N(otherExpenses))/(1-N(materialPercent)/100-N(reservePercent)/100):null}}
-window.FinanceWrite={cashBoxKey,cashBoxDays,addCashCount,voidCashCount,setCashBoxKey,DEF,STAFF_MEAL,accountRows,accountMoves,accountLedger,openingOf,addTransfer,setOpening,voidTransfer,setPosAccount,forecast,calc,saveMeals,mealsOfMonth,mealCost,custodyExpenses,pettyExpenses,pnl,N,D,YM,active,ensure,config,calcObligation,addObligation,voidObligation,addSettlement,voidSettlement,addCheck,clearCheck,returnCheck,voidCheck,entryShare,isDoc,addEntry,voidEntry,payState,monthEntries,dueList,saveSettings};
+window.FinanceWrite={recurringList,recurringAt,recurringMonth,saveRecurring,endRecurring,cashBoxKey,cashBoxDays,addCashCount,voidCashCount,setCashBoxKey,DEF,STAFF_MEAL,accountRows,accountMoves,accountLedger,openingOf,addTransfer,setOpening,voidTransfer,setPosAccount,forecast,calc,saveMeals,mealsOfMonth,mealCost,custodyExpenses,pettyExpenses,pnl,N,D,YM,active,ensure,config,calcObligation,addObligation,voidObligation,addSettlement,voidSettlement,addCheck,clearCheck,returnCheck,voidCheck,entryShare,isDoc,addEntry,voidEntry,payState,monthEntries,dueList,saveSettings};
 })();

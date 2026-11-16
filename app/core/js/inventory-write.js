@@ -40,10 +40,21 @@ function ingredients(pricing){return new Map(A(pricing?.ingredients).map(i=>[i.i
 const stockItem=i=>!!i&&i.status!=='غیرفعال'&&i.itemType!=='NON_STOCK'&&i.inventoryTracked!==false;
 function trackedItems(pricing){return A(pricing?.ingredients).filter(stockItem)}
 const unitName=i=>S(i?.recipeUnit||i?.unit||i?.stockUnit||'واحد');
-// entry units: the stock (recipe) unit, the purchase unit when it is a different unit with a package size, and the item's
-// other active units (pricing.ingredients[].countingUnits {name, factor in the stock unit}, e.g. پاکتی = ۵۰ گرم)
-function unitsOf(i){const out=[{name:unitName(i),factor:1}],pk=Number(i?.packageQuantity),has=n=>out.some(u=>E().UK(u.name)===E().UK(n));if(S(i?.purchaseUnit)&&pk>1&&!has(i.purchaseUnit))out.push({name:S(i.purchaseUnit),factor:pk});
- for(const u of A(i?.countingUnits)){const n=S(u?.name),f=Number(u?.factor);if(u&&u.active!==false&&n&&f>0&&!has(n))out.push({name:n,factor:f})}return out}
+// entry units of an item, all as a factor of the base (stock) unit: the base unit, the purchase unit when it is a different
+// unit with a package size, the item's other active units (pricing.ingredients[].countingUnits {name, factor}, e.g. بسته ۳۵۰
+// گرمی = ۳۵۰ گرم) and, automatically, the standard unit of the same kind (کیلوگرم ↔ گرم, لیتر ↔ میلی‌لیتر) so nobody
+// converts by hand. Stock, cost and every saved quantity stay in the base unit; the entered unit is kept beside it.
+const AUTO_UNITS={kg:[['گرم',0.001]],g:[['کیلوگرم',1000]],l:[['میلی‌لیتر',0.001]],ml:[['لیتر',1000]]};
+function unitsOf(i){const out=[{name:unitName(i),factor:1}],pk=Number(i?.packageQuantity),has=n=>out.some(u=>E().UK(u.name)===E().UK(n));if(S(i?.purchaseUnit)&&pk>0&&!has(i.purchaseUnit))out.push({name:S(i.purchaseUnit),factor:pk,purchase:true});
+ for(const u of A(i?.countingUnits)){const n=S(u?.name),f=Number(u?.factor);if(u&&u.active!==false&&n&&f>0&&!has(n))out.push({name:n,factor:f})}
+ for(const [n,f] of AUTO_UNITS[E().UK(unitName(i))]||[])if(!has(n))out.push({name:n,factor:f,auto:true});return out}
+// the unit a recipe line / waste starts in (pricing.ingredients[].useUnit; otherwise گرم for a کیلوگرم item, میلی‌لیتر for لیتر)
+function useUnitOf(i){const us=unitsOf(i),pick=n=>us.find(u=>E().UK(u.name)===E().UK(n));return pick(S(i?.useUnit))||pick(({kg:'گرم',l:'میلی‌لیتر'})[E().UK(unitName(i))])||us[0]}
+// the unit a count starts in (pricing.ingredients[].countUnit, else the base unit); the open remainder goes in the smallest unit
+function countUnitOf(i){const us=unitsOf(i);return us.find(u=>E().UK(u.name)===E().UK(S(i?.countUnit)))||us[0]}
+const smallestUnit=i=>unitsOf(i).reduce((m,u)=>u.factor<m.factor?u:m);
+// quantity in a unit of the item → base unit (null when the unit is not one of the item's units)
+function toBase(i,qty,unit){const u=unitsOf(i).find(x=>x.name===S(unit))||(S(unit)?null:unitsOf(i)[0]);return u?{value:Number(qty)*u.factor,unit:u}:null}
 // purchase units of an item for invoice / order rows: the default purchase unit first (its package size), then the other units
 function purchaseUnitsOf(i){if(!i)return[];const pk=Number(i.packageQuantity)>0?Number(i.packageQuantity):1,out=[];if(S(i.purchaseUnit))out.push({name:S(i.purchaseUnit),factor:pk});for(const u of unitsOf(i))if(!out.some(o=>E().UK(o.name)===E().UK(u.name)))out.push(u);return out}
 function mainLocation(doc){const id=S(doc.settings?.mainLocationId);return A(doc.locations).find(l=>l.id===id)||A(doc.locations)[0]||(id?{id,name:''}:null)}
@@ -89,7 +100,9 @@ function addEvent(doc,ctx,input){if(input.type==='prepared')return addPreparedEv
  if(type==='ingredient'){const i=M.ing.get(itemId);if(!stockItem(i))throw Error('کالای انبار را انتخاب کنید');const u=unitsOf(i).find(u=>u.name===S(input.unit))||unitsOf(i)[0];if(!(quantity>0))throw Error('مقدار مثبت لازم است');if(u.factor!==1)entry={entryQuantity:quantity,entryUnit:u.name,entryUnitFactor:u.factor};quantity=r3(quantity*u.factor)}
  else{const m=M.menu.get(itemId);if(!m)throw Error('آیتم منو را انتخاب کنید');if(!(quantity>0))throw Error('تعداد مثبت لازم است');const rec=M.recipeAt(itemId,date);if(!rec.length||rec.some(r=>!Number.isFinite(M.gross(M.ing.get(r.ingredientId),r,quantity))))throw Error('رسپی، واحد یا افت این آیتم ناقص است؛ ابتدا رسپی را کامل کنید')}
  if(!reason&&!notes)throw Error('علت یا توضیح رویداد را وارد کنید');
- const common={date,eventType,type,itemId,locationId:l.id,shift,quantity,invoiceNumber:'',responsiblePersonnelId:'',reason,notes,...(entry||{}),reviewStatus:'تأییدشده',reportedByName:ctx.actor,reviewedBy:ctx.actor,reviewedAt:ctx.at,createdBy:ctx.actor,createdAt:ctx.at,status:'posted'};
+ /* section (بخش) and responsible person: waste must name its section; the person is optional (legacy field responsiblePersonnelId) */
+ const section=S(input.section),responsiblePersonnelId=S(input.responsiblePersonnelId);if(!AUTH_TYPES.has(eventType)&&!section)throw Error('بخش پرتی را انتخاب کنید');
+ const common={date,eventType,type,itemId,locationId:l.id,shift,quantity,invoiceNumber:'',responsiblePersonnelId,...(responsiblePersonnelId?{responsibleNameSnapshot:S(input.responsibleName)}:{}),...(section?{section}:{}),reason,notes,...(entry||{}),reviewStatus:'تأییدشده',reportedByName:ctx.actor,reviewedBy:ctx.actor,reviewedAt:ctx.at,createdBy:ctx.actor,createdAt:ctx.at,status:'posted'};
  let rec;if(AUTH_TYPES.has(eventType)){doc.consumptionRecords=A(doc.consumptionRecords);rec={id:uid('CON',doc.consumptionRecords),recordKind:'consumption',...common};doc.consumptionRecords.push(rec)}
  else{doc.wasteRecords=A(doc.wasteRecords);rec={id:uid('WST',doc.wasteRecords),recordKind:'waste',known:true,causeKnown:true,...common};doc.wasteRecords.push(rec)}
  addMovementsFor(doc,rec,ctx,M);return rec}
@@ -108,7 +121,7 @@ function editReceipt(doc,ctx,{id,date,quantity,unit,note,reason}){const old=A(do
  old.voidKind='edit';old.replacedById=nu.id;nu.replacesId=old.id;ctx.auditExtra={entityId:nu.id,replaces:old.id,before,reason:S(reason)||'ویرایش'};return nu}
 function editEvent(doc,ctx,{id,reason,...input}){const old=findEvent(doc,id);if(!old)throw Error('ثبت پیدا نشد');if(old.eventType==='FRYER_OIL_CHANGE')throw Error('تعویض روغن را باطل و دوباره ثبت کنید');
  voidEvent(doc,ctx,{id,reason:S(reason)||'ویرایش'});const before=ctx.auditExtra?.before;
- const nu=addEvent(doc,ctx,{date:input.date??old.date,eventType:input.eventType??old.eventType,type:old.type,itemId:old.itemId,quantity:input.quantity??(old.entryQuantity??old.quantity),unit:input.unit??(old.entryUnit||''),shift:input.shift??old.shift,reason:input.reason??old.reason,notes:input.notes??old.notes});
+ const nu=addEvent(doc,ctx,{date:input.date??old.date,eventType:input.eventType??old.eventType,type:old.type,itemId:old.itemId,quantity:input.quantity??(old.entryQuantity??old.quantity),unit:input.unit??(old.entryUnit||''),shift:input.shift??old.shift,reason:input.reason??old.reason,notes:input.notes??old.notes,section:input.section??old.section,responsiblePersonnelId:input.responsiblePersonnelId??old.responsiblePersonnelId,responsibleName:input.responsibleName??old.responsibleNameSnapshot});
  old.voidKind='edit';old.replacedById=nu.id;nu.replacesId=old.id;ctx.auditExtra={entityId:nu.id,replaces:old.id,before,reason:S(reason)||'ویرایش'};return nu}
 /* void every approved whole count (end of day) of one date; later counts are recalculated by edit() */
 function voidCountDate(doc,ctx,{date,reason}){date=D(date);reason=S(reason);if(!reason)throw Error('علت ابطال لازم است');const c=closedPeriod(doc,date);if(c)throw Error(`دورهٔ ${c.from||''} تا ${c.to} بسته است`);
@@ -150,7 +163,10 @@ function addOilChange(doc,ctx,input){const s=oilSettings(doc,ctx.pricing),f=s.fr
 function countInfo(doc,date){date=D(date);const later=A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&rank(s)>`${date}|1`),same=A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&rank(s)===`${date}|1`);return{later,same,counted:new Map(same.flatMap(s=>A(s.lines).map(l=>[l.ingredientId,{st:s,line:l}])))}}
 function addCount(doc,ctx,{date,entries,prepared,note,allowEarlier}){date=D(date);checkDate(doc,date,'تاریخ شمارش');const ing=ingredients(ctx.pricing),info=countInfo(doc,date);
  if(info.later.length&&!allowEarlier)throw Error(`بعد از ${date} شمارش کل ثبت شده است (${[...new Set(info.later.map(s=>s.date))].sort().pop()}); برای ثبت با تاریخ قبلی تأیید لازم است.`);
- const rows=A(entries).map(x=>{const i=ing.get(S(x.itemId));if(!stockItem(i))throw Error('قلم شمارش معتبر نیست');const u=unitsOf(i).find(u=>u.name===S(x.unit))||unitsOf(i)[0],q=N(x.quantity);if(!(q>=0))throw Error(`مقدار شمارش «${i.name}» باید عدد نامنفی باشد`);return{i,actual:r3(q*u.factor),entry:u.factor!==1?{entryQuantity:q,entryUnit:u.name,entryUnitFactor:u.factor}:null}});
+ const rows=A(entries).map(x=>{const i=ing.get(S(x.itemId));if(!stockItem(i))throw Error('قلم شمارش معتبر نیست');const u=unitsOf(i).find(u=>u.name===S(x.unit))||unitsOf(i)[0],q=S(x.quantity)===''&&S(x.rest)!==''?0:N(x.quantity);if(!(q>=0))throw Error(`مقدار شمارش «${i.name}» باید عدد نامنفی باشد`);
+  /* «۵ بسته + ۱۰۰ گرم»: the open remainder is entered in the item's smallest unit and added */
+  const su=smallestUnit(i),rest=S(x.rest)===''?0:N(x.rest);if(!(rest>=0))throw Error(`باقی‌ماندهٔ «${i.name}» باید عدد نامنفی باشد`);const restOn=rest>0&&su.name!==u.name;
+  return{i,actual:r3(q*u.factor+(restOn?rest*su.factor:0)),entry:u.factor!==1||restOn?{entryQuantity:q,entryUnit:u.name,entryUnitFactor:u.factor,...(restOn?{entryRestQuantity:rest,entryRestUnit:su.name,entryRestFactor:su.factor}:{})}:null}});
  /* prepared items (js/32): counted as they are, converted to their ingredients with the current formula */
  const MW=window.MenuWrite,prepIn=A(prepared).map(x=>{const p=A(ctx.pricing?.preparedItems).find(v=>v.id===S(x.preparedItemId));if(!p)throw Error('قلم آماده‌سازی پیدا نشد');const q=N(x.quantity);if(!(q>=0))throw Error(`مقدار «${p.name}» باید عدد نامنفی باشد`);if(p.countUnit==='عدد'&&!Number.isInteger(q))throw Error(`مقدار «${p.name}» باید عدد صحیح باشد`);
   const cv=MW.preparedItemConversion(ctx.pricing,p,q,p.countUnit);if(!cv.complete)throw Error(`تبدیل «${p.name}» ناقص است: ${cv.reason}`);return{p,q,cv}});
@@ -292,6 +308,49 @@ async function edit(io,{action,details={},mutate}){
   catch(e){if(sent){try{const c=await io.load();if(S(c?.meta?.serverSaveToken)===after.meta.serverSaveToken&&content(c)===content(after))return{out,doc:c}}catch(_){}state.uncertain=true}throw e}
  }finally{state.busy=false}}
 
-window.InvWrite={removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+/* ---------- stocktakes (انبارگردانی): variance review, close and reopen ----------
+   One «انبارگردانی» = the approved whole end-of-day counts of one date. Its lines already carry start, receipts, sales,
+   waste, expected, counted and variance (kept current by the automatic recalculation).
+   Reviews: inventory.countReviews {id CRV-NNNNNN, date, itemId, status accepted|explained|corrected|followup, note, by, at,
+   history[]} — one per count line, a change keeps the previous state in history.
+   Close: inventory.periodClosures {id CLOSE-NNNNNN, kind 'stocktake', controlMode 'stocktake', scope 'RAYO', from, to,
+   status closed|reopened, closedAt/By, note, stocktakeMetrics, stocktakeLines (frozen snapshot with reviews)}. Every inventory
+   entry dated on or before «to» is then refused (checkDate / closedPeriod), the rule both panels already apply to closed
+   periods; «from» continues from the previous closure so closed ranges stay contiguous. Reopen: the last closure only,
+   status «reopened» with a reason; nothing is removed. */
+const REVIEW_LABELS={accepted:'پذیرفته',explained:'موجه',corrected:'اصلاح شد',followup:'نیاز به پیگیری'};
+const N0=x=>Number.isFinite(Number(x))?Number(x):0;
+const hasVariance=l=>Math.abs(N0(l?.variance))>1e-9;
+const countDocs=(doc,date)=>A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&boundary(s)==='END'&&!s.isOpeningBaseline&&D(s.date)===date);
+function countLinesOf(doc,date){date=D(date);const m=new Map;for(const s of countDocs(doc,date))for(const l of A(s.lines))if(!l.assumedZero)m.set(l.ingredientId,l);return [...m.values()]}
+function countMetrics(lines){const v=(l,x)=>N0(x)*N0(l.unitCost),o={items:lines.length,withVariance:0,baseValue:0,receiptValue:0,salesValue:0,wasteValue:0,expectedValue:0,countedValue:0,varianceValue:0,shortageValue:0,surplusValue:0};
+ for(const l of lines){o.baseValue+=v(l,l.baseQuantity);o.receiptValue+=v(l,l.purchaseQty);o.salesValue+=v(l,l.salesConsumption);o.wasteValue+=v(l,N0(l.wasteQty)+N0(l.otherOutQty));o.expectedValue+=v(l,l.expected);o.countedValue+=v(l,l.actual);
+  const vv=N0(l.varianceValueToman);o.varianceValue+=vv;if(vv<0)o.shortageValue+=vv;else o.surplusValue+=vv;if(hasVariance(l))o.withVariance++}
+ for(const k of Object.keys(o))if(!['items','withVariance'].includes(k))o[k]=Math.round(o[k])||0;return o}
+function reviewOf(doc,date,itemId){return A(doc.countReviews).find(r=>r.date===D(date)&&r.itemId===itemId)||null}
+function reviewCountLine(doc,ctx,{date,itemId,status,note}){date=D(date);itemId=S(itemId);status=S(status);note=S(note);
+ if(!REVIEW_LABELS[status])throw Error('نتیجهٔ بررسی را انتخاب کنید');
+ const c=closedPeriod(doc,date);if(c)throw Error(`انبارگردانی تا ${c.to} بسته است؛ بررسی تغییر نمی‌کند`);
+ if(!countLinesOf(doc,date).some(l=>l.ingredientId===itemId))throw Error('این قلم در شمارش این تاریخ نیست');
+ if(status!=='accepted'&&!note)throw Error('توضیح بررسی را بنویسید');
+ doc.countReviews=A(doc.countReviews);let r=reviewOf(doc,date,itemId);
+ if(r){if(r.status===status&&r.note===note)throw Error('بررسی تغییری نکرده است');r.history=A(r.history);r.history.push({status:r.status,note:r.note,by:r.by,at:r.at});Object.assign(r,{status,note,by:ctx.actor,at:ctx.at})}
+ else{r={id:uid('CRV',doc.countReviews),date,itemId,status,note,by:ctx.actor,at:ctx.at,history:[]};doc.countReviews.push(r)}
+ ctx.auditExtra={entityId:r.id,date,itemId,status};return r}
+function lastClosure(doc){return A(doc.periodClosures).filter(c=>c.status==='closed').sort((a,b)=>D(a.to).localeCompare(D(b.to))||S(a.closedAt).localeCompare(S(b.closedAt))).at(-1)||null}
+function closeCount(doc,ctx,{date,note}){date=D(date);const lines=countLinesOf(doc,date);if(!lines.length)throw Error('در این تاریخ شمارش کل پایان روز نیست');
+ const c=closedPeriod(doc,date);if(c)throw Error(`این انبارگردانی قبلاً بسته شده است (دورهٔ تا ${c.to})`);
+ const rv=l=>reviewOf(doc,date,l.ingredientId),open=lines.filter(l=>rv(l)?.status==='followup');if(open.length)throw Error(`${open.length} مغایرت «نیاز به پیگیری» دارد؛ اول تکلیفشان را روشن کنید`);
+ const last=lastClosure(doc),opening=A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&boundary(s)==='START').map(s=>D(s.date)).sort()[0]||'';
+ const from=last?E().CAL.k(E().CAL.i(D(last.to))+1):opening;
+ const lines2=lines.map(l=>{const r=rv(l);return{ingredientId:l.ingredientId,name:S(l.itemNameSnapshot),code:S(l.itemCodeSnapshot),unit:S(l.unitSnapshot),baseDate:S(l.baseDate),baseQuantity:l.baseQuantity??null,purchaseQty:N0(l.purchaseQty),salesConsumption:N0(l.salesConsumption),wasteQty:N0(l.wasteQty)+N0(l.otherOutQty),expected:l.expected??null,actual:l.actual??null,variance:l.variance??null,unitCost:l.unitCost??null,varianceValueToman:N0(l.varianceValueToman),...(r?{review:r.status,reviewNote:r.note,reviewedBy:r.by}:{})}});
+ doc.periodClosures=A(doc.periodClosures);
+ const rec={id:uid('CLOSE',doc.periodClosures),kind:'stocktake',controlMode:'stocktake',scope:'RAYO',from,to:date,status:'closed',closedAt:ctx.at,closedBy:ctx.actor,note:S(note),
+  stocktakeMetrics:{...countMetrics(lines),reviewed:lines.filter(l=>hasVariance(l)&&rv(l)).length},stocktakeLines:lines2};
+ doc.periodClosures.push(rec);ctx.auditExtra={entityId:rec.id,from,to:date};return rec}
+function reopenCount(doc,ctx,{id,reason}){reason=S(reason);if(!reason)throw Error('علت بازگشایی لازم است');const c=A(doc.periodClosures).find(x=>x.id===id);if(!c||c.status!=='closed')throw Error('دورهٔ بسته پیدا نشد');
+ const last=lastClosure(doc);if(last&&last.id!==c.id)throw Error(`فقط آخرین دورهٔ بسته (تا ${last.to}) باز می‌شود`);
+ Object.assign(c,{status:'reopened',reopenedAt:ctx.at,reopenedBy:ctx.actor,reopenReason:reason});ctx.auditExtra={entityId:c.id,reason};return c}
+window.InvWrite={useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();
