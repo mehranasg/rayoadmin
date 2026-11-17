@@ -197,6 +197,9 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  const saved=JSON.parse(server.text);
  ok(server.saves===1&&saved.stockReceipts.length===1&&r.doc.meta.serverSaveToken===saved.meta.serverSaveToken,'edit saves once and verifies by reload');
  ok(saved.changeLog.some(x=>x.action==='RECEIPT_ADDED'&&x.actor==='qa-admin'&&x.via==='ui-template'),'audit row in changeLog');
+ {/* the live server drops trailing zeros of the milliseconds (.210Z → .21Z, .000Z → Z): still verified (BL-045 bug) */
+  const srv={text:server.text},trim=t=>t.replace(/(\.\d*?)0+Z"/g,(m,f)=>(f==='.'?'':f)+'Z"'),io3={...io,load:async()=>JSON.parse(srv.text),save:async d=>{srv.text=trim(JSON.stringify(d))}},iso=Date.prototype.toISOString;
+  Date.prototype.toISOString=function(){return iso.call(this).replace(/\.\d{3}Z$/,'.210Z')};let r3;try{r3=await W.edit(io3,{action:'RECEIPT_ADDED',mutate:(d,cx)=>W.addReceipts(d,cx,{date:D3,lines:[{itemId:'i1',quantity:1}]})})}finally{Date.prototype.toISOString=iso}ok(!!r3.doc&&/\.21Z"/.test(srv.text),'save verified although the server shortened the milliseconds')}
  {const srv={text:server.text,saves:0},io2={...io,load:async()=>JSON.parse(srv.text),save:async d=>{srv.saves++;srv.text=JSON.stringify(d)}},sv=JSON.parse(srv.text);sv.stocktakes.push({id:'ST-L',date:D5,inventoryScope:'RAYO',baselineBoundary:'END',status:'approved',lines:[{ingredientId:'i1',actual:20,expected:0,variance:20}]});srv.text=JSON.stringify(sv);
   const r3=await W.edit(io2,{action:'RECEIPT_ADDED',mutate:(d,cx)=>W.addReceipts(d,cx,{date:D3,lines:[{itemId:'i1',quantity:1}]})}),s3=JSON.parse(srv.text),lg=s3.changeLog.at(-1);
   ok(r3.out.recalculated===1&&s3.stocktakes.find(s=>s.id==='ST-L').lines[0].expected!==0&&lg.recalculatedLaterLines===1&&lg.recalculatedCounts[0]==='ST-L','edit recalculates the later count and records it in the audit row');

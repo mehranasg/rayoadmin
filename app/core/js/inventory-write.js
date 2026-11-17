@@ -27,7 +27,9 @@ const OIL_FRYERS_DEFAULT=[{id:'F1',name:'سرخ‌کن ۱',liters:20},{id:'F2',n
 const SHIFTS=['صبح','عصر','دو شیفت'];
 
 /* ---------- helpers shared with the current panel (same rules) ---------- */
-function canonical(x){if(Array.isArray(x))return '['+x.map(v=>v===undefined||typeof v==='function'?'null':canonical(v)).join(',')+']';if(x&&typeof x==='object'){if(typeof x.toJSON==='function')return canonical(x.toJSON());return '{'+Object.keys(x).filter(k=>x[k]!==undefined&&typeof x[k]!=='function').sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')+'}'}if(typeof x==='number'&&!Number.isFinite(x))return 'null';return JSON.stringify(x)}
+// the server drops trailing zeros of the milliseconds (.210Z → .21Z): compare ISO times without them (BL-045 bug)
+const ISO_MS=/\.(\d{1,9})Z$/;
+function canonical(x){if(Array.isArray(x))return '['+x.map(v=>v===undefined||typeof v==='function'?'null':canonical(v)).join(',')+']';if(x&&typeof x==='object'){if(typeof x.toJSON==='function')return canonical(x.toJSON());return '{'+Object.keys(x).filter(k=>x[k]!==undefined&&typeof x[k]!=='function').sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')+'}'}if(typeof x==='number'&&!Number.isFinite(x))return 'null';if(typeof x==='string'&&ISO_MS.test(x))return JSON.stringify(x.replace(ISO_MS,(m,f)=>(f.replace(/0+$/,'')?'.'+f.replace(/0+$/,''):'')+'Z'));return JSON.stringify(x)}
 function content(doc){const x=clone(doc);if(x.meta){delete x.meta.serverSaveToken;delete x.meta.updatedAt}return canonical(x)}
 const uid=(prefix,rows=[])=>{let m=0;A(rows).forEach(x=>{const q=S(x.id).match(/(\d+)$/);if(q)m=Math.max(m,+q[1])});return `${prefix}-${String(m+1).padStart(6,'0')}`};
 const requestId=()=>`${Date.now().toString(36)}${Math.random().toString(36).slice(2,8)}`.toUpperCase();

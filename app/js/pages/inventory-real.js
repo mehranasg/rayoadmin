@@ -469,8 +469,9 @@ for(const [id,v] of Object.entries(REAL)){const t=inv.tabs.find(x=>x.id===id);if
  t.mount=(root,r)=>{if(IC.ready()){v.mount&&v.mount(root,r)}else m0&&m0(root,r)};
  // sales, beverage and settings have their entry controls inside the page
  if(a0||ACTIONS[id])t.actions=r=>IC.ready()?(ACTIONS[id]?ACTIONS[id]():['sales','beverage','settings'].includes(id)?'':''):(a0?a0(r):'');}
-/* stock tab badge = items needing order (real) */
-const ro=inv.tabs.find(x=>x.id==='reorder');if(ro){const b0=ro.badge;ro.badge=()=>IC.ready()?pos().filter(r=>r.needOrder).length:(b0?b0():0)}
-const st=inv.tabs.find(x=>x.id==='stock');if(st)st.badge=()=>IC.ready()?pos().filter(r=>r.needOrder).length:0;
-inv.badge=()=>IC.ready()?pos().filter(r=>r.flags.has('negative')).length:D.ITEMS.filter(i=>i.qty<i.min).length;
+/* badges only for what has to be done today (APP_REVIEW N-13): items below their reorder point, negative stock and data
+   issues are shown inside their pages and in the work lists, not as red counters on the menu */
+const ro=inv.tabs.find(x=>x.id==='reorder');if(ro){const b0=ro.badge;ro.badge=()=>IC.ready()?0:(b0?b0():0)}
+const st=inv.tabs.find(x=>x.id==='stock');if(st)st.badge=()=>0;
+inv.badge=()=>IC.ready()?0:D.ITEMS.filter(i=>i.qty<i.min).length;
 })();

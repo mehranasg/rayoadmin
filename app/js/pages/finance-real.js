@@ -59,11 +59,20 @@ function supplierModal(id){const s=A(sup.doc?.suppliers).find(x=>x.id===id);if(!
 function partiesMount(root){if(!P.$('#frParties',root))return;partiesTable(root);P.$('#frQ',root).oninput=e=>{pQ=e.target.value;partiesTable(root)};P.$('#frParties',root).onclick=e=>{const tr=e.target.closest('[data-sup]');if(tr)supplierModal(tr.dataset.sup)}}
 
 /* ---------- overview ---------- */
-function overviewReal(){const ms=monthsOf(),inv=IC.state.raw?.inventory||{},count=k=>A(inv[k]).length;
+/* «خلاصه» (APP_REVIEW N-15): this month to date, what is owed, and the money tasks of today; the old «what is recorded» table
+   and its note are gone (the data-quality view is the month report card on the home page). Figures come from the same
+   functions as the home page (dashboard-real.js) and the purchase account (purchase-write.js). */
+function overviewReal(){const ms=monthsOf(),DR=window.DashboardReal,curK=E.CAL.today.slice(0,7),cur=DR?.months?.().find(m=>m.k===curK),sd=DR?.supplierDebt?.()||{n:0,debt:0},ts=(DR?.tasks?.()||[]).filter(t=>String(t.href).startsWith("#/finance")),inv=IC.state.raw?.inventory||{},PW=window.PurchaseWrite;
+ const st=monthStats(curK),dueOpen=PW?A(inv.purchaseInvoices).filter(x=>PW.isFinal(x)&&PW.invoiceTotal(x)-PW.invoicePaid(inv,x)>0.5):[];
  const rows=ms.slice(-6).map(k=>{const s=monthStats(k);return[E.monthLabel(k),fa(s.days),T(s.sales),T(s.snapp),signed(s.short+s.over),fa(s.flagged.length)]});
- return srcLine()+P.card({title:'آنچه در دادهٔ رایو برای مالی ثبت شده است',flush:1,body:P.table(['داده',{t:'تعداد',n:1},'وضعیت'],[['گزارش صندوق روزانه',fa(reports().length),reports().length?P.b('دارد','success'):P.b('ندارد','danger')],['تأمین‌کننده',sup.doc?fa(A(sup.doc.suppliers).length):'…',P.b('دارد','success')],['فاکتور خرید',fa(count('purchaseInvoices')),count('purchaseInvoices')?P.b('دارد','success'):P.b('ثبت نشده','danger')],['پرداخت به تأمین‌کننده',fa(count('supplierPayments')),count('supplierPayments')?P.b('دارد','success'):P.b('ثبت نشده','danger')],['ورود انبار با قیمت',fa(A(inv.stockReceipts).filter(r=>N(r.totalPriceToman)>0||N(r.unitCostToman)>0).length)+' از '+fa(count('stockReceipts')),P.b('بیشتر بدون قیمت','warning')]])})
- +`<div class="mt">${P.card({title:'فروش و صندوق به تفکیک ماه',sub:'از گزارش‌های صندوق',flush:1,body:P.table(['ماه',{t:'روز با گزارش',n:1},{t:'فروش',n:1},{t:'اسنپ',n:1},{t:'مغایرت خالص',n:1},{t:'گزارش بیش از حد مجاز',n:1}],rows,{empty:'گزارشی نیست'})})}</div>
- ${P.note('<b>سود و زیان، بدهی و نقدینگی هنوز از داده قابل محاسبه نیستند</b>، چون خرید، هزینه و پرداخت ثبت نمی‌شوند. تب‌های «فاکتورها و بدهی‌ها»، «پرداخت و دریافت» و «گزارش مالی» تا ثبت این‌ها نمونه می‌مانند.','info')}`}
+ const go=(h,l)=>`<a class="btn btn-ghost btn-sm" href="${h}">${l}</a>`;
+ return srcLine()+`<div class="grid grid-4">${P.kpi({label:"فروش "+(cur?.label||"ماه جاری")+" تا امروز",icon:"trending-up",value:cur?.sales?RT.money(cur.sales):"—",unit:cur?.sales?"تومان":"",foot:`${fa(st.days)} روز با گزارش صندوق${st.missing?.length?` · ${fa(st.missing.length)} روز بی‌گزارش`:""}`})}
+ ${P.kpi({label:"خرید ثبت‌شدهٔ ماه",icon:"shopping-cart",value:cur?.purchases?RT.money(cur.purchases):"—",unit:cur?.purchases?"تومان":"",foot:"فاکتورهای خرید نهایی"})}
+ ${P.kpi({label:"بدهی به تأمین‌کنندگان",icon:"wallet",value:sd.n?RT.money(sd.debt):"—",unit:sd.n?"تومان":"",tone:sd.debt>0?"warning":"",foot:`${fa(dueOpen.length)} فاکتور پرداخت‌نشده یا ناقص`})}
+ ${P.kpi({label:"مغایرت صندوق ماه",icon:"scale",value:RT.money(Math.round(R2T(st.short+st.over))),unit:"تومان",tone:st.short+st.over<0?"danger":"",foot:`${fa(st.flagged.length)} روز بیش از حد مجاز · منفی = کسری`})}</div>
+ <div class="grid grid-2 mt">${P.card({title:"کارهای مالی امروز",flush:1,body:ts.length?`<div class="side-list">${ts.map(t=>`<a href="${t.href}" class="row" style="gap:8px;padding:10px 14px;text-decoration:none;color:inherit;border-bottom:1px solid var(--border)">${P.b(P.ic(t.icon),t.tone,1)}<span>${esc(t.text)}</span></a>`).join("")}</div>`:`<div style="padding:var(--s4)">${P.note("کار عقب‌افتادهٔ مالی پیدا نشد.","check")}</div>`})}
+ ${P.card({title:"رفتن به",body:`<div class="row" style="flex-wrap:wrap;gap:6px">${go("#/finance/docs","فاکتورهای خرید")}${go("#/finance/payments","پرداخت به تأمین‌کننده")}${go("#/finance/cash","گزارش صندوق")}${go("#/finance/cashbox","صندوق نقدی")}${go("#/finance/ledger","هزینه و درآمد")}${go("#/finance/pnl","سود و زیان")}</div>`})}</div>
+ <div class="mt">${P.card({title:"فروش و صندوق به تفکیک ماه",sub:"از گزارش‌های صندوق",flush:1,body:P.table(["ماه",{t:"روز با گزارش",n:1},{t:"فروش",n:1},{t:"اسنپ",n:1},{t:"مغایرت خالص",n:1},{t:"گزارش بیش از حد مجاز",n:1}],rows,{empty:"گزارشی نیست"})})}</div>`}
 function overviewMount(){if(!sup.doc&&!sup.err)loadSuppliers()}
 
 /* ---------- wiring ---------- */

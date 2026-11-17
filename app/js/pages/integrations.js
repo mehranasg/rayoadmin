@@ -34,7 +34,7 @@ function analysisTab(view){return{render:()=>IC.ready()?`<div id="ivaPeriod">${p
 /* «داشبورد کنترل» — first inventory tab */
 const dashTab=analysisTab(()=>'dash');
 inv.tabs.unshift({id:'control',label:'داشبورد کنترل',icon:'layout-dashboard',title:'کنترل انبار و مغایرت',desc:'مغایرت، پرتی و ایرادهای داده روی دادهٔ واقعی — فقط خواندنی',
- render:dashTab.render,mount:dashTab.mount,badge:()=>IC.ready()?IC.issues():0});
+ render:dashTab.render,mount:dashTab.mount,badge:()=>0}); // data issues are listed in the dashboard (APP_REVIEW N-13)
 
 /* «گزارش‌ها» — analysis sub-views + the earlier sample reports */
 const repTab=inv.tabs.find(t=>t.id==='reports'),sampleRender=repTab.render,sampleMount=repTab.mount;

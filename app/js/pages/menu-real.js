@@ -167,6 +167,6 @@ for(const [id,v] of Object.entries(REAL)){const t=mod.tabs.find(x=>x.id===id);if
  t.render=r=>IC.ready()?(v.render?v.render(r):P.note('قیمت و قاعدهٔ هر کانال فروش هنوز در دادهٔ رایو ثبت نمی‌شود؛ این صفحه نمونه است.','info')+r0(r)):hint()+r0(r);
  t.mount=(root,r)=>{if(IC.ready()&&v.render){v.mount&&v.mount(root,r)}else m0&&m0(root,r)};
  if(a0)t.actions=r=>IC.ready()&&v.render?(canWrite()?'':`<button class="btn btn-secondary" disabled title="${esc(whyLocked())}">${P.ic('lock')}فقط خواندنی</button>`):a0(r);}
-mod.badge=()=>IC.ready()?active().filter(m=>metrics(m).state==='none').length:0;
+mod.badge=()=>0; // items without a recipe: a one-time job in the recipe list, not a daily red counter (APP_REVIEW N-13)
 window.MenuReal={metrics,sales,engData};
 })();

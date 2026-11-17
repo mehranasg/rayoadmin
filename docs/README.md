@@ -12,6 +12,7 @@
 | [reference/DATA_MODEL_V10.md](reference/DATA_MODEL_V10.md) | مدل دادهٔ JSON فعلی (ماژول‌ها، مجموعه‌ها، فیلدها) و API ‏RayoData | با هر فیلد یا مجموعهٔ تازه |
 | [reference/EXCEL_IMPORT_FORMATS.md](reference/EXCEL_IMPORT_FORMATS.md) | قالب فایل‌های Excel ورودی (فروش سپیدز، کالاها، قیمت‌ها، تأمین‌کنندگان، تردد) | با هر ورود تازه |
 | [design/MASTER_PLAN.md](design/MASTER_PLAN.md) | **طرح جامع** (تشخیص، اصول، نقشه، جریان‌ها، استانداردها، نقش‌ها، فازبندی) | وقتی طرح عوض شود |
+| [design/APP_REVIEW.md](design/APP_REVIEW.md) | **بررسی کامل اپ از نگاه صاحب رستوران** و تصمیم مالک (دو فاز: اصلاح اپ فعلی، سپس بازطراحی)؛ پیشنهاد اصلاح زنجیرهٔ اطلاعات با ورود ماه‌های گذشته؛ تشخیص، اشکالات طراحی و روال‌ها، نواقص، پیشنهاد بهبود (`N-##`، `P-##`) و توسعه (`X-##`) با نقشهٔ راه | بعد از هر بازبینی کلی؛ بند پذیرفته‌شده به بک‌لاگ یا طرح توسعه می‌رود |
 | [design/DESIGN_SPEC.md](design/DESIGN_SPEC.md) | مستند طراحی کامل برای ساخت از صفر روی هر پلتفرم | همراه طرح جامع |
 | [design/REBUILD_PATHS.md](design/REBUILD_PATHS.md) | مسیرهای بازسازی، معماری هدف (سرور و پایگاه داده)، schema و endpointهای پیشنهادی | قبل از شروع بک‌اند |
 | [design/DB_SCHEMA.pdf](design/DB_SCHEMA.pdf) | شماتیک پایگاه دادهٔ هدف (منبع: `db-schema.html`) | همراه REBUILD_PATHS |

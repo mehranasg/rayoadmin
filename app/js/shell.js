@@ -317,14 +317,40 @@ P.owner=()=>P.session()?.role==='owner';
 /* the signed-in owner, also while viewing the panel as another role */
 P.realOwner=()=>AAx()?.realSession?.()?.role==='owner';
 P.role=()=>{const s=P.session();if(s&&s.preview)return{id:'preview',name:s.user,desc:'از دید: '+s.preview.label,icon:s.preview.icon||'eye'};return s?{id:s.role==='owner'?'owner':'user',name:s.user,desc:s.role==='owner'?'مالک — دسترسی کامل':'کاربر پنل — بخش‌های مجاز',icon:s.role==='owner'?'crown':'user'}:{id:'none',name:'',desc:'',icon:'user'}};
-P.can=(mod,need='view')=>{const s=P.session();if(!s)return false;if(s.role==='owner')return true;if(mod==='plan')return false;if(mod==='home')return true;const ks=MOD_KEYS[mod];return !!ks&&ks.some(k=>AAx().has(k))};
+P.can=(mod,need='view')=>{const s=P.session();if(!s)return false;if(mod==='customers'&&P.live())return false;if(s.role==='owner')return true;if(mod==='plan')return false;if(mod==='home')return true;if(mod==='customers'&&P.live())return false;const ks=MOD_KEYS[mod];return !!ks&&ks.some(k=>AAx().has(k))};
 P.tabOk=(mod,tab)=>{const s=P.session();if(!s||s.role==='owner')return true;if(mod==='people'&&tab==='users')return !!AAx().canManage();const ks=TAB_KEYS[mod]?.[tab];return !ks||ks.some(k=>AAx().has(k))};
 P.live=()=>!!window.InvControl?.ready?.();
 P.CUR=()=>window.RAYO_CURRENT_PANEL||'/panel/';
 /* tabs that are still sample designs in the new panel: hidden once real data is connected */
 const SAMPLE_TABS={finance:['ai','close','forecast','calculator','settings','reports'],people:['planning','salarytools','reports','settings','attendance','requests'],reports:['library','ai','audit'],menu:['channels'],settings:['index','integrations']};
-const sampleTab=(mod,id)=>P.live()&&(SAMPLE_TABS[mod]||[]).includes(id);
+/* on live data also hidden: set-aside pages and reports replaced by the period reports (APP_REVIEW N-17, N-18); their links still open */
+const LIVE_HIDE={people:['training'],reports:['overview','sales']};
+const sampleTab=(mod,id)=>P.live()&&((SAMPLE_TABS[mod]||[]).includes(id)||(LIVE_HIDE[mod]||[]).includes(id)&&P.route().tab!==id);
 function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+
+/* ---------- tab groups and one name for each thing (APP_REVIEW N-10, N-11) ----------
+   A section shows at most six groups; a group with more than one tab shows them as a second row. Every tab keeps its
+   own address (#/finance/petty), access rule and page; only the bar changes. A visible tab that is not in any group
+   gets its own group at the end, so nothing disappears. TAB_LABELS is the glossary: the same thing has the same name
+   everywhere (live data only; the sample pages keep theirs). The glossary is shown in «راهنما». */
+const TAB_GROUPS={
+ finance:[['خلاصه','layout-grid',['overview']],['خرید و تأمین‌کننده','shopping-cart',['docs','payments','debts','parties']],['صندوق و حساب‌ها','banknote',['cash','cashbox','petty','accounts']],['هزینه‌ها','receipt',['ledger','meals']],['سود و زیان','chart-line',['pnl','plan']],['دارایی و تنظیمات','settings-2',['assets','finset']]],
+ inventory:[['داشبورد','layout-dashboard',['control','reports']],['موجودی و سفارش','boxes',['stock','reorder','requests']],['ورود کالا','package-plus',['receipt']],['فروش و ضایعات','trash-2',['sales','waste','consumption']],['شمارش','clipboard-check',['count','beverage']],['تنظیمات','settings-2',['settings']]],
+ people:[['پرسنل','users',['staff']],['شیفت و حضور','calendar-range',['shifts','presence','leaves']],['حقوق و پرداخت','wallet',['payroll','work','violations','payments']],['انعام','hand-coins',['tips']],['گزارش','chart-column',['staffreport']],['تنظیمات','settings-2',['payset','users']]]
+};
+const TAB_LABELS={
+ finance:{overview:'خلاصه',docs:'فاکتورهای خرید',payments:'پرداخت به تأمین‌کننده',debts:'بدهی، طلب و چک',parties:'تأمین‌کنندگان',cash:'گزارش صندوق',cashbox:'صندوق نقدی',petty:'تنخواه',accounts:'حساب‌های بانکی',ledger:'هزینه و درآمد',meals:'غذای پرسنل',pnl:'سود و زیان',plan:'پیش‌بینی',assets:'دارایی‌ها',finset:'تنظیمات مالی'},
+ inventory:{control:'داشبورد کنترل',reports:'گزارش‌های انبار',stock:'موجودی',reorder:'نقطهٔ سفارش',requests:'درخواست خرید',receipt:'ورود کالا',sales:'فروش آیتم‌ها',waste:'ضایعات',consumption:'الگوی مصرف',count:'انبارگردانی',beverage:'شمارش نوشیدنی',settings:'تنظیمات انبار'},
+ people:{staff:'پرسنل',shifts:'شیفت‌پلن',presence:'حضور و غیاب',leaves:'مرخصی',payroll:'حقوق ماه',work:'کارکرد ماه',violations:'تخلفات',payments:'پرداخت به پرسنل',tips:'انعام',staffreport:'گزارش پرسنل',payset:'تنظیمات حقوق',users:'کاربران و دسترسی'}
+};
+P.TAB_GROUPS=TAB_GROUPS;P.TAB_LABELS=TAB_LABELS;
+function tabBar(m,tabs,t){if(tabs.length<2)return'';const vis=new Set(tabs.map(x=>x.id)),used=new Set,groups=[];
+ for(const [label,icon,ids] of TAB_GROUPS[m.id]||[]){const ts=ids.filter(id=>vis.has(id)).map(id=>tabs.find(x=>x.id===id));ts.forEach(x=>used.add(x.id));if(ts.length)groups.push({label:ts.length===1?ts[0].label:label,icon:ts.length===1?ts[0].icon:icon,tabs:ts})}
+ for(const x of tabs)if(!used.has(x.id))groups.push({label:x.label,icon:x.icon,tabs:[x]});
+ const bd=x=>{const n=x.badge&&x.badge();return n?n:0},cur=groups.find(g=>g.tabs.includes(t));
+ const top=`<div class="tabs page-tabs">${groups.map(g=>{const n=g.tabs.reduce((a,x)=>a+bd(x),0);return`<a class="tab ${g===cur?'active':''}" href="#/${m.id}/${g===cur?t.id:g.tabs[0].id}">${P.ic(g.icon)}${g.label}${n?` <span class="badge badge-danger">${P.fa(n)}</span>`:''}</a>`}).join('')}</div>`;
+ const sub=cur&&cur.tabs.length>1?`<div class="page-subtabs" role="tablist">${cur.tabs.map(x=>`<a class="subtab ${x===t?'active':''}" href="#/${m.id}/${x.id}">${x.label}${bd(x)?` <span class="badge badge-danger plain">${P.fa(bd(x))}</span>`:''}</a>`).join('')}</div>`:'';
+ return top+sub}
 
 /* ---------- registry & router ---------- */
 P.mod=m=>{P.mods[m.id]=m;P.order.push(m.id)};
@@ -342,6 +368,7 @@ P.render=()=>{
   if(!m||!P.can(r.mod)){m=P.mods.home;r.mod='home';r.tab=''}
   const view=$('#pnView');
   let html;
+  if(P.live())for(const x of m.tabs||[]){const l=TAB_LABELS[m.id]?.[x.id];if(l)x.label=l}
   const tabs=(m.tabs||[]).filter(t=>!t.hidden&&P.tabOk(m.id,t.id)&&!sampleTab(m.id,t.id)&&!(t.liveOnly&&!P.live()));
   if(m.render){html=m.render(r)}
   else{
@@ -353,7 +380,7 @@ P.render=()=>{
         <div class="actions">${ro?P.b('فقط مشاهده','neutral'):''}${t.actions&&!ro?t.actions(r):''}</div></div>
       <div id="pnTab">${t.render(r)}</div>`:`<div class="page-head"><div><div class="crumbs">${P.ic(m.icon)}${m.label}${t.id!==tabs[0].id?` <span>›</span> ${t.label}`:''}${r.param?` <span>›</span> جزئیات`:''}</div><h1>${t.title||t.label}</h1><p>${t.desc||m.desc}</p></div>
         <div class="actions">${ro?P.b('فقط مشاهده','neutral'):''}${t.actions&&!ro?t.actions(r):''}</div></div>
-      ${tabs.length>1?`<div class="tabs page-tabs">${tabs.map(x=>`<a class="tab ${x.id===t.id?'active':''}" href="#/${m.id}/${x.id}">${P.ic(x.icon)}${x.label}${x.badge&&x.badge()?` <span class="badge badge-danger">${P.fa(x.badge())}</span>`:''}</a>`).join('')}</div>`:''}
+      ${tabBar(m,tabs,t)}
       <div id="pnTab">${t.render(r)}</div>`;
     m._t=t;
   }
@@ -380,10 +407,11 @@ function buildSidebar(active){
     <div class="brand"><div class="brand-mark">ر</div><div><strong>رایو</strong><small>پنل مدیریت رستوران</small></div></div>
     <nav class="nav">
       ${item('home')}
-      ${group('کار روزانه و ماهانه',['finance','inventory','people','menu','customers'].map(item).join(''))}
-      ${group('تحلیل و پیکربندی',baseLinks()+['reports','settings'].map(item).join(''))}
-      ${P.owner()?`<div class="nav-label">طرح</div>${item('plan')}`:''}
-      ${P.realOwner()&&!AAx().preview()?`<div class="nav-label">نرم‌افزارهای داخل مجموعه (دمو)</div>${DEMOS.map(([h,l,i])=>`<a class="nav-link" href="${h}" target="_blank" rel="noopener">${P.ic(i)}<span>${l}</span><span class="nav-meta">نمونه</span></a>`).join('')}`:''}
+      ${group('کار روزانه',['finance','inventory','people','menu','customers'].map(item).join(''))}
+      ${group('گزارش و تحلیل',item('reports'))}
+      ${baseLinks()}
+      ${group('سیستم',item('settings'))}
+      ${/* design plan and sample apps: owner only, folded away from the daily menu (APP_REVIEW N-12) */P.realOwner()&&!AAx().preview()?`<details class="nav-more"><summary class="nav-label">طرح و نمونه‌ها</summary>${item('plan')}${DEMOS.map(([h,l,i])=>`<a class="nav-link" href="${h}" target="_blank" rel="noopener">${P.ic(i)}<span>${l}</span><span class="nav-meta">نمونه</span></a>`).join('')}</details>`:P.owner()?item('plan'):''}
     </nav>
     <div class="sidebar-foot"><div class="role-chip" style="cursor:default">
       <div class="avatar">${P.ic(role.icon)}</div><div class="grow"><b dir="auto">${P.esc(role.name)}</b><small>${role.desc}</small></div>
@@ -450,9 +478,9 @@ const QUICK=[
 const QUICK_LIVE=[
   {mod:'inventory',key:'pricing',icon:'tag',t:'آخرین قیمت خرید',s:'قیمت تازهٔ چند قلم، یا از فایل Excel',go:'#/base/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.pricesForm()},
   {mod:'inventory',key:'inventory',icon:'package-plus',t:'ورود کالا به انبار',s:'چند ردیف، واحد انبار یا خرید',go:'#/inventory/receipt',open:()=>InvEntry.receipt()},
-  {mod:'inventory',key:'inventory',icon:'trash-2',t:'پرتی / مصرف',s:'ماده یا آیتم منو طبق رسپی',go:'#/inventory/waste',open:()=>InvEntry.event()},
+  {mod:'inventory',key:'inventory',icon:'trash-2',t:'ضایعات / مصرف پرسنل',s:'پرتی، مصرف پرسنل یا تست؛ ماده یا آیتم منو طبق رسپی',go:'#/inventory/waste',open:()=>InvEntry.event()},
   {mod:'inventory',key:'inventory',icon:'clipboard-check',t:'شمارش انبار',s:'شمارش کور پایان روز',go:'#/inventory/count',open:()=>InvEntry.count()},
-  {mod:'inventory',key:'inventory',icon:'cup-soda',t:'کنترل روزانهٔ نوشیدنی',s:'شمارش و مغایرت نوشیدنی‌ها',go:'#/inventory/beverage'},
+  {mod:'inventory',key:'inventory',icon:'cup-soda',t:'شمارش نوشیدنی',s:'شمارش و مغایرت نوشیدنی‌ها',go:'#/inventory/beverage'},
   {mod:'finance',key:'cash',icon:'banknote',t:'گزارش صندوق روزانه',s:'فروش، دریافتی‌ها و مغایرت',go:'#/finance/cash',ready:()=>!!window.CashReal,open:()=>CashReal.form()},
   {mod:'finance',key:'financeLedger',icon:'coins',t:'صندوق نقدی',s:'پرداخت هزینه از صندوق؛ شارژ و شمارش در همان صفحه',go:'#/finance/cashbox',ready:()=>!!window.LedgerReal?.ready?.(),open:()=>LedgerReal.cashOut()},
   {mod:'finance',key:'purchase',icon:'file-plus-2',t:'فاکتور خرید',s:'با جزئیات اقلام',go:'#/finance/docs',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.detailed()},
