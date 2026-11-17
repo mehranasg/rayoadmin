@@ -303,9 +303,11 @@ function saveMenuItem(doc,ctx,x){
  doc.lists=doc.lists&&typeof doc.lists==='object'?doc.lists:{};doc.settings=doc.settings&&typeof doc.settings==='object'?doc.settings:{};
  if(!cats.includes(category)){doc.lists.menuCategories=[...cats,category];doc.settings.categoryTargets={...(doc.settings.categoryTargets||{}),[category]:35}}
  const before=old?clone(old):null;let id;
+ // an edited item's sale price goes through changePrice (price history row with cost and target), same as «تغییر قیمت»
+ let priceRow=null;if(old&&S(x.price)!==''&&N(x.price)!==Z(old.currentPriceToman))priceRow=changePrice(doc,ctx,{menuId:old.id,price:x.price,note:x.priceNote||'تغییر قیمت از فرم آیتم'});
  if(old){Object.assign(old,o);id=old.id}
  else{const p=S(x.price)===''?0:N(x.price);if(!(p>=0))throw Error('قیمت فروش معتبر نیست');if(p%1000)throw Error('قیمت باید مضرب ۱٬۰۰۰ تومان باشد');id=pcUid('MENU',items);doc.menuItems=[...items,{id,code:code||pcUid('ITEM',items),...o,currentPriceToman:p,lastPriceChangeAt:p>0?ctx.at:null}]}
- ctx.auditExtra={entityId:id,before};return{id,created:!before}}
+ ctx.auditExtra={entityId:id,before,...(priceRow?{price:{from:priceRow.oldPriceToman,to:priceRow.newPriceToman}}:{})};return{id,created:!before,priceRow}}
 // js/45 deleteMenu: an item with sales lines or recipe versions is deactivated (and hidden on the site), otherwise removed with its current recipe
 function removeMenuItem(doc,ctx,{id,salesCount}){const m=A(doc.menuItems).find(x=>x.id===id);if(!m)throw Error('آیتم منو پیدا نشد');const versions=A(doc.recipeVersions).filter(v=>v.menuItemId===id).length;ctx.auditExtra={entityId:id,before:clone(m)};
  if(salesCount||versions){Object.assign(m,{status:'غیرفعال',siteStatus:'غیرفعال',archivedAt:ctx.at,archivedBy:ctx.actor,archiveReason:salesCount?`دارای ${salesCount} ردیف فروش ثبت‌شده`:'دارای نسخه تاریخ‌دار رسپی'});return'deactivated'}

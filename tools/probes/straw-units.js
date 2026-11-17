@@ -7,7 +7,7 @@ const shot=async n=>{window.__shotReq=n;for(let i=0;i<60&&window.__shotDone!==n;
 try{for(let i=0;i<120&&!(window.InvControl&&InvControl.ready());i++)await wait(500);
  const pr=InvControl.state.raw.pricing,s=pr.ingredients.find(i=>i.code==='6002');
  location.hash='#/inventory/catalog';await wait(2500);CatalogReal.ingredientForm(s.id);await wait(900);
- const r=$('.cu-row');out.cuRow=r&&{name:r.querySelector('[data-f=name]').value,q:r.querySelector('[data-f=factor]').value,unit:r.querySelector('[data-f=fu] option:checked')?.text,say:r.querySelector('[data-f=say]')?.innerText};
+ const r=$('.cu-row');out.cuRow=r&&{a:r.querySelector('[data-f=a]').value,q:r.querySelector('[data-f=q]').value,b:r.querySelector('[data-f=b]').value,say:r.querySelector('[data-f=say]')?.innerText};
  out.use=$('#pnModal [name=useU]')?.value;out.cnt=$('#pnModal [name=cntU]')?.value;
  $$('#pnModal .fsec')[1]?.scrollIntoView();await shot('straw-item');await close();
  InvEntry.count();await wait(1200);const q=$('#iwQ');q.value='نی سایز 6';q.oninput({target:q});await wait(400);

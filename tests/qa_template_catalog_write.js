@@ -44,7 +44,12 @@ d.settings.requireMenuSalesCode=true;
 throws(()=>MW.saveMenuItem(d,ctx(),{name:'x',code:'۱۰۱',category:'پیتزا'}),/کد برای آیتم دیگری/,'duplicate Sepidz code (Persian digits)');
 throws(()=>MW.saveMenuItem(d,ctx(),{name:'x',code:'102',category:'پیتزا',price:450500}),/مضرب/,'price multiple of 1000');
 throws(()=>MW.saveMenuItem(d,ctx(),{name:'x',code:'102',category:'پیتزا',status:'غیرفعال',siteStatus:'فعال'}),/سایت/,'inactive item cannot be on the site');
-MW.saveMenuItem(d,ctx(),{id:'MENU-0001',name:'پیتزا مخصوص',category:'پیتزا',price:999000,status:'فعال',siteStatus:'فعال'});ok(d.menuItems[0].currentPriceToman===500000&&d.menuItems[0].code==='101','edit never changes price or code');
+MW.saveMenuItem(d,ctx(),{id:'MENU-0001',name:'پیتزا مخصوص',category:'پیتزا',price:'',status:'فعال',siteStatus:'فعال'});ok(d.menuItems[0].currentPriceToman===500000&&d.menuItems[0].code==='101','edit without a price keeps price and code');
+{const h0=(d.priceHistory||[]).length;throws(()=>MW.saveMenuItem(d,ctx(),{id:'MENU-0001',name:'پیتزا مخصوص',category:'پیتزا',price:999500}),/مضرب/,'edited price: multiple of 1000');
+ const r=MW.saveMenuItem(d,ctx(),{id:'MENU-0001',name:'پیتزا مخصوص',category:'پیتزا',price:999000,status:'فعال',siteStatus:'فعال'});
+ ok(d.menuItems[0].currentPriceToman===999000&&d.priceHistory.length===h0+1&&d.priceHistory[0].oldPriceToman===500000&&d.priceHistory[0].newPriceToman===999000&&r.priceRow&&d.menuItems[0].code==='101','edit with a new price: changed with a price history row, code kept');
+ MW.saveMenuItem(d,ctx(),{id:'MENU-0001',name:'پیتزا مخصوص',category:'پیتزا',price:999000,status:'فعال',siteStatus:'فعال'});ok(d.priceHistory.length===h0+1,'same price: no new history row');
+ d.menuItems[0].currentPriceToman=500000;d.priceHistory.shift()}
 const m2=MW.saveMenuItem(d,ctx(),{name:'سالاد',code:'301',category:'سالاد',price:200000});ok(d.lists.menuCategories.includes('سالاد')&&d.settings.categoryTargets['سالاد']===35&&d.menuItems.find(m=>m.id===m2.id).lastPriceChangeAt,'new category gets target 35 (js/08)');
 ok(MW.removeMenuItem(d,ctx(),{id:'MENU-0001',salesCount:3})==='deactivated'&&d.menuItems[0].status==='غیرفعال'&&d.menuItems[0].siteStatus==='غیرفعال','item with sales is deactivated (js/45)');
 ok(MW.removeMenuItem(d,ctx(),{id:m2.id,salesCount:0})==='removed'&&!d.menuItems.some(m=>m.id===m2.id),'item without history is removed');

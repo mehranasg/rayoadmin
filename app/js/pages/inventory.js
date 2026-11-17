@@ -202,7 +202,7 @@ P.mod({id:'inventory',label:'انبار',icon:'package',desc:'تک‌انبار:
   badge:()=>D.ITEMS.filter(i=>i.qty<i.min).length,
   tabs:[
     {id:'stock',label:'موجودی',icon:'boxes',title:'انبار',render:stock,mount:r=>P.bindChips(r,'lv',k=>{lvF=k;P.render()}),
-      actions:()=>`<a class="btn btn-secondary" href="#/inventory/catalog">${P.ic('book-open')}کالاها و مواد</a><button class="btn btn-primary" onclick="P.actions.receipt()">${P.ic('package-plus')}دریافت کالا</button>`},
+      actions:()=>`<a class="btn btn-secondary" href="#/base/catalog">${P.ic('book-open')}کالاها و مواد</a><button class="btn btn-primary" onclick="P.actions.receipt()">${P.ic('package-plus')}دریافت کالا</button>`},
     {id:'receipt',label:'دریافت کالا',icon:'package-plus',desc:'بار رسید: یک ثبت برای موجودی، بدهی و قیمت',render:receipt,actions:()=>`<button class="btn btn-primary" onclick="P.actions.receipt()">${P.ic('plus')}دریافت کالا</button>`},
     {id:'sales',label:'فروش',icon:'receipt',desc:'فروش و مصرف تئوریک مواد از رسپی',render:sales},
     {id:'waste',label:'ضایعات',icon:'trash-2',desc:'ضایعات مواد اولیه و آیتم‌های منو',render:waste,actions:()=>`<button class="btn btn-primary" onclick="P.actions.waste()">${P.ic('plus')}ثبت ضایعات</button>`},

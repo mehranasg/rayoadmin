@@ -335,7 +335,10 @@ P.render=()=>{
   if(!P.session())return showLogin();
   const hrDoc=window.PeopleReal?.doc?.();if(hrDoc&&AAx()&&!AAx().stillValid(hrDoc)){AAx().signOut();P.toast('کاربر شما غیرفعال یا حذف شده است','alert-triangle');return showLogin()}
   const PD=window.PanelData;if(PD&&PD.expected()&&!P.live()){const st=PD.state();buildSidebar(P.route().mod);$('#pnView').innerHTML=st.err?P.card({title:'دادهٔ زنده خوانده نشد',body:P.note(P.esc(st.err),'alert-triangle')+`<button class="btn btn-primary mt" id="pnRetry">${P.ic('refresh-cw')}تلاش دوباره</button>`}):P.card({title:'در حال خواندن دادهٔ زنده…',body:P.note('انبار، منو و قیمت و گزارش صندوق از سرور خوانده می‌شوند.','loader')});const rb=$('#pnRetry');if(rb)rb.onclick=()=>PD.connect('live');RT.icons();return}
-  const r=P.route();let m=P.mods[r.mod];
+  const r=P.route();
+  // «اطلاعات پایه» (#/base/<key>): the definition page of another section on its own, without that section's tabs
+  const base=r.mod==='base'?BASE_LINKS.find(x=>x[0]===r.tab):null;if(base){r.mod=base[1];r.tab=base[2]}
+  let m=P.mods[r.mod];
   if(!m||!P.can(r.mod)){m=P.mods.home;r.mod='home';r.tab=''}
   const view=$('#pnView');
   let html;
@@ -343,16 +346,19 @@ P.render=()=>{
   if(m.render){html=m.render(r)}
   else{
     let t=(m.tabs||[]).find(x=>x.id===r.tab&&P.tabOk(m.id,x.id)&&!sampleTab(m.id,x.id)&&!(x.liveOnly&&!P.live()))||tabs[0];
+    const asBase=base&&t.id===base[2]&&P.live();
     r.tab=t.id;
     const ro=!P.can(m.id,'edit');
-    html=`<div class="page-head"><div><div class="crumbs">${P.ic(m.icon)}${m.label}${t.id!==tabs[0].id?` <span>›</span> ${t.label}`:''}${r.param?` <span>›</span> جزئیات`:''}</div><h1>${t.title||t.label}</h1><p>${t.desc||m.desc}</p></div>
+    html=asBase?`<div class="page-head"><div><div class="crumbs">${P.ic('library')}اطلاعات پایه <span>›</span> ${base[4]}</div><h1>${base[4]}</h1><p>${t.desc||m.desc}</p></div>
+        <div class="actions">${ro?P.b('فقط مشاهده','neutral'):''}${t.actions&&!ro?t.actions(r):''}</div></div>
+      <div id="pnTab">${t.render(r)}</div>`:`<div class="page-head"><div><div class="crumbs">${P.ic(m.icon)}${m.label}${t.id!==tabs[0].id?` <span>›</span> ${t.label}`:''}${r.param?` <span>›</span> جزئیات`:''}</div><h1>${t.title||t.label}</h1><p>${t.desc||m.desc}</p></div>
         <div class="actions">${ro?P.b('فقط مشاهده','neutral'):''}${t.actions&&!ro?t.actions(r):''}</div></div>
       ${tabs.length>1?`<div class="tabs page-tabs">${tabs.map(x=>`<a class="tab ${x.id===t.id?'active':''}" href="#/${m.id}/${x.id}">${P.ic(x.icon)}${x.label}${x.badge&&x.badge()?` <span class="badge badge-danger">${P.fa(x.badge())}</span>`:''}</a>`).join('')}</div>`:''}
       <div id="pnTab">${t.render(r)}</div>`;
     m._t=t;
   }
   view.innerHTML=html;
-  buildSidebar(r.mod);previewBar();
+  buildSidebar(base?'':r.mod);previewBar();
   RT.icons();
   if(m.render&&m.mount)m.mount(view,r);
   else if(m._t&&m._t.mount)m._t.mount(view,r);
@@ -361,12 +367,13 @@ P.render=()=>{
 
 /* ---------- sidebar ---------- */
 /* «اطلاعات پایه»: one place for the definitions that live inside other sections (live data only) */
-const BASE_LINKS=[['#/inventory/catalog','book-open','کالاها و مواد','inventory',['pricing','inventory']],['#/menu/items','utensils','آیتم‌های منو','menu',['menu']],['#/finance/parties','truck','تأمین‌کنندگان','finance',['purchase','financeLedger']],['#/finance/assets','tag','دارایی‌ها','finance',['assets']]];
-function baseLinks(){if(!P.live())return'';const h=location.hash||'',L=BASE_LINKS.filter(([,, ,mod,keys])=>P.can(mod)&&(P.owner()||keys.some(k=>AAx().has(k))));if(!L.length)return'';
-  return '<div class="nav-label">اطلاعات پایه</div>'+L.map(([href,icon,label])=>`<a class="nav-link nav-base ${h.startsWith(href)?'active':''}" href="${href}">${P.ic(icon)}<span>${label}</span></a>`).join('')}
+/* [key, section, tab, icon, label, access keys]: opened at #/base/<key>; the page is the section's tab without the section's other tabs */
+const BASE_LINKS=[['catalog','inventory','catalog','book-open','کالاها و مواد',['pricing','inventory']],['menu','menu','items','utensils','آیتم‌های منو',['menu']],['suppliers','finance','parties','truck','تأمین‌کنندگان',['purchase','financeLedger']],['assets','finance','assets','tag','دارایی‌ها',['assets']]];
+function baseLinks(){if(!P.live())return'';const r=P.route(),L=BASE_LINKS.filter(([,mod,tab,,,keys])=>P.can(mod)&&P.tabOk(mod,tab)&&(P.owner()||keys.some(k=>AAx().has(k))));if(!L.length)return'';
+  return '<div class="nav-label">اطلاعات پایه</div>'+L.map(([key,,,icon,label])=>`<a class="nav-link nav-base ${r.mod==='base'&&r.tab===key?'active':''}" href="#/base/${key}">${P.ic(icon)}<span>${label}</span></a>`).join('')}
 function buildSidebar(active){
   const side=$('#pnSide'),role=P.role();
-  const item=id=>{const m=P.mods[id];if(!m||!P.can(id))return'';if(BASE_LINKS.some(([href])=>(location.hash||'').startsWith(href))&&P.live())active='';const bd=m.badge&&m.badge();
+  const item=id=>{const m=P.mods[id];if(!m||!P.can(id))return'';const bd=m.badge&&m.badge();
     return`<a class="nav-link ${id===active?'active':''}" href="#/${id}">${P.ic(m.icon)}<span>${m.label}</span>${bd?`<span class="badge badge-danger plain">${P.fa(bd)}</span>`:''}</a>`};
   const group=(label,html)=>html.trim()?`<div class="nav-label">${label}</div>${html}`:'';
   side.innerHTML=`
@@ -441,7 +448,7 @@ const QUICK=[
 ];
 /* live data: the real entry forms; each opens on its own page once that page's data is loaded */
 const QUICK_LIVE=[
-  {mod:'inventory',key:'pricing',icon:'tag',t:'آخرین قیمت خرید',s:'قیمت تازهٔ چند قلم، یا از فایل Excel',go:'#/inventory/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.pricesForm()},
+  {mod:'inventory',key:'pricing',icon:'tag',t:'آخرین قیمت خرید',s:'قیمت تازهٔ چند قلم، یا از فایل Excel',go:'#/base/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.pricesForm()},
   {mod:'inventory',key:'inventory',icon:'package-plus',t:'ورود کالا به انبار',s:'چند ردیف، واحد انبار یا خرید',go:'#/inventory/receipt',open:()=>InvEntry.receipt()},
   {mod:'inventory',key:'inventory',icon:'trash-2',t:'پرتی / مصرف',s:'ماده یا آیتم منو طبق رسپی',go:'#/inventory/waste',open:()=>InvEntry.event()},
   {mod:'inventory',key:'inventory',icon:'clipboard-check',t:'شمارش انبار',s:'شمارش کور پایان روز',go:'#/inventory/count',open:()=>InvEntry.count()},
@@ -451,7 +458,7 @@ const QUICK_LIVE=[
   {mod:'finance',key:'purchase',icon:'file-plus-2',t:'فاکتور خرید',s:'با جزئیات اقلام',go:'#/finance/docs',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.detailed()},
   {mod:'finance',key:'purchase',icon:'send',t:'پرداخت به تأمین‌کننده',s:'روی فاکتور باز یا علی‌الحساب',go:'#/finance/payments',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.payment({})},
   {mod:'finance',key:['petty','financeLedger'],icon:'wallet',t:'هزینهٔ تنخواه',s:'خرید ریز با کارت تنخواه',go:'#/finance/petty',ready:()=>!!window.ExtrasReal?.mods?.finance?.doc,open:()=>PettyEntry.expense()},
-  {mod:'inventory',key:'pricing',icon:'book-plus',t:'قلم یا کالای جدید',s:'تعریف در کاتالوگ اصلی',go:'#/inventory/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.ingredientForm()},
+  {mod:'inventory',key:'pricing',icon:'book-plus',t:'قلم یا کالای جدید',s:'تعریف در کاتالوگ اصلی',go:'#/base/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.ingredientForm()},
   {mod:'people',key:'payroll',icon:'hand-coins',t:'ثبت انعام',s:'نوع، مبلغ و افراد',go:'#/people/tips',ready:()=>!!window.PeopleReal?.doc?.(),open:()=>PeopleEntry.tip()},
   {mod:'people',key:'payroll',icon:'gavel',t:'جریمه / کسر تأخیر / پاداش',s:'برای حقوق همان ماه',go:'#/people/payroll',ready:()=>!!window.PeopleReal?.doc?.(),open:()=>PeopleEntry.penalty()},
   {mod:'people',key:'payroll',icon:'banknote',t:'پرداخت به پرسنل',s:'مساعده، حقوق، انعام — با مانده و هشدار',go:'#/people/payments',ready:()=>!!window.PeopleReal?.doc?.()&&!!window.PayrollReal,open:()=>PayrollReal.pay()}

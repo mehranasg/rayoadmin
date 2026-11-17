@@ -1,5 +1,5 @@
 // QA: staff files of the new panel (migration stage 3) — newpanel/core/js/people-write.js: person, salary terms (current
-// month only), staff-panel account, delete guard, violations (current month, void), leaves (days, overlap, cancel).
+// month only), staff-panel account, delete guard, violations (current month; void until the salary month is final), leaves (days, overlap, cancel).
 // Synthetic data only. Run: node qa_template_people_hr.js
 'use strict';
 const fs=require('fs'),path=require('path');
@@ -50,7 +50,11 @@ pr.status='تاییدشده';PW.saveViolation(d,ctx(),{id:v1.id,date:T,personnel
 ok(PW.violationRepeats(d,{personnelId:'EMP-0001',violationType:'تأخیر',date:T})===1,'repeat count in 90 days');
 throws(()=>PW.voidViolation(d,ctx(),{id:v1.id,reason:''}),/علت/,'void needs a reason');
 PW.voidViolation(d,ctx(),{id:v1.id,reason:'اشتباه'});ok(d.workViolations[0].status==='ابطال‌شده'&&pr.status==='لغوشده'&&d.workViolations.length===1,'void keeps the row and cancels the fine');
-d.workViolations.push({id:'VIO-0100',date:prevMonthDay,personnelId:'EMP-0001',violationType:'تأخیر'});throws(()=>PW.voidViolation(d,ctx(),{id:'VIO-0100',reason:'x'}),/ماه‌های قبل/,'older violations are not voided');
+d.workViolations.push({id:'VIO-0100',date:prevMonthDay,personnelId:'EMP-0001',violationType:'تأخیر'});throws(()=>PW.voidViolation(d,ctx(),{id:'VIO-0100',reason:'x'}),/ماه‌های قبل/,'older violations are not voided without a payroll start');
+{const st={v:'open'};window.PayrollCore={monthState:()=>st.v};d.penaltiesRewards.push({id:'PR-0100',personnelId:'EMP-0001',type:'جریمه',amount:9,status:'تاییدشده',year:Y,month:M-1||12});d.workViolations.push({id:'VIO-0101',date:prevMonthDay,personnelId:'EMP-0001',violationType:'تأخیر',hasFine:true,fineAmount:9,penaltyId:'PR-0100'});
+ st.v='closed';throws(()=>PW.voidViolation(d,ctx(),{id:'VIO-0101',reason:'x'}),/قطعی/,'a violation of a final payroll month is not voided');
+ st.v='open';ok(PW.violationVoidBlock(d,d.workViolations[2])==='','an earlier month that is not final can be voided');PW.voidViolation(d,ctx(),{id:'VIO-0101',reason:'بخشش'});const p2=d.penaltiesRewards.find(r=>r.id==='PR-0100');
+ ok(d.workViolations[2].status==='ابطال‌شده'&&p2.status==='لغوشده'&&/بخشش/.test(p2.cancelReason)&&p2.cancelledBy==='qa','void of an open month cancels its approved fine with the reason');delete window.PayrollCore}
 // ---- leaves
 d=doc();
 const l1=PW.addLeave(d,ctx(),{personnelId:'EMP-0001',type:'مرخصی استحقاقی',fromDate:day(2),toDate:T});ok(l1.count===3&&l1.source==='manager','days from the range');

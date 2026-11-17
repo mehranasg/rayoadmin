@@ -71,6 +71,9 @@
 /* key/value */
 .kv{display:grid;grid-template-columns:130px 1fr;gap:var(--s2) var(--s4);font-size:13px;margin:0}
 .kv dt{color:var(--text-3)}.kv dd{margin:0}
+/* two label/value pairs per row (supplier details); one pair on a phone */
+.kv.kv-2{grid-template-columns:120px 1fr 120px 1fr}
+@media (max-width:720px){.kv.kv-2{grid-template-columns:110px 1fr}}
 .spec-list{margin:0;padding-inline-start:18px;color:var(--text-2);line-height:2;font-size:13px}
 .spec-list b{color:var(--text)}
 
@@ -130,6 +133,8 @@
 .modal.wide .table td{white-space:normal}
 .modal.xwide{width:min(1080px,100%)}
 .modal-body{max-height:calc(100vh - 210px);overflow-y:auto}
+/* the body scrolls as one; its blocks (tables, notes) keep their full height instead of shrinking into inner scroll boxes */
+.modal-body>*{flex-shrink:0}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4)}
 .form-grid .full{grid-column:1/-1}
 .sum-box{display:flex;justify-content:space-between;align-items:center;padding:var(--s3) var(--s4);border-radius:var(--radius);background:var(--surface-2);border:1px solid var(--border)}
