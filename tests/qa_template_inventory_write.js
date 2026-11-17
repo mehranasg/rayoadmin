@@ -189,6 +189,13 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  ok(bd.settings.beverageControl.itemIds.join()==='i2,i1'&&bd.settings.beverageControl.note==='x','beverage items: saved order kept, unknown ids dropped');
  W.saveBeverageItems(bd,ctx(),{itemIds:['i1']});ok(bd.settings.beverageControl.itemIds.join()==='i1','beverage items: unchecked removed')}
 
+// 6b. day checks («روزهای ماه»): one row per date, a change keeps history, unknown keys dropped, future refused
+{const d={dayChecks:undefined},T=day(1);
+ const r=W.saveDayCheck(d,ctx(),{date:T,none:['waste','x','inv','waste'],note:'n'});ok(d.dayChecks.length===1&&r.none.join()==='inv,waste'&&r.closed===false&&r.history.length===0,'day check saved with known keys only');
+ throws(()=>W.saveDayCheck(d,ctx(),{date:T,none:['inv','waste'],note:'n'}),/تغییری/,'same state refused');
+ W.saveDayCheck(d,ctx(),{date:T,closed:true,none:[]});ok(d.dayChecks.length===1&&d.dayChecks[0].closed===true&&d.dayChecks[0].history.length===1&&d.dayChecks[0].history[0].none.join()==='inv,waste','change keeps the previous state in history');
+ throws(()=>W.saveDayCheck(d,ctx(),{date:'1499/01/01',closed:true}),/آینده|معتبر/,'future day refused')}
+
 // 7. protected save protocol
 (async()=>{
  const server={text:JSON.stringify(baseDoc()),saves:0};

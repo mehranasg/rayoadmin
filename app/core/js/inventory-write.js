@@ -284,6 +284,17 @@ function saveReorderPoints(pr,ctx,{rows}){const ing=new Map(A(pr.ingredients).ma
   if(rp!==(orp===null?null:Number(orp))||ts!==(ots===null?null:Number(ots))){changes.push({ingredientId:id,before:{reorderPoint:orp,targetStock:ots},after:{reorderPoint:rp,targetStock:ts}});i.reorderPoint=rp;i.targetStock=ts;i.updatedAt=ctx.at}}
  if(!changes.length)throw Error('تغییری داده نشده است');ctx.auditExtra={changes};return changes.length}
 
+/* ---------- day checks («روزهای ماه» on the home page, APP_REVIEW P-04) ----------
+   inventory.dayChecks {id DAY-<date>, date, closed (the café was closed), none [keys entered as «نداشتیم»: snapp, waste,
+   inv…], note, by, at, history[]}: one per date; a change keeps the previous state in history (nothing is removed). It only
+   marks a day complete; it changes no stock, sales or money. */
+const DAY_NONE_KEYS=['snapp','waste','inv','bev','sepidz'];
+function saveDayCheck(doc,ctx,{date,closed,none,note}){date=D(date);if(!validDate(date))throw Error('تاریخ معتبر نیست');if(date>E().CAL.today)throw Error('روز آینده را نمی‌توان علامت زد');
+ const keys=[...new Set(A(none).map(S))].filter(k=>DAY_NONE_KEYS.includes(k)).sort(),next={closed:closed===true,none:keys,note:S(note)};doc.dayChecks=A(doc.dayChecks);let row=doc.dayChecks.find(x=>x.date===date);
+ const prev=row?{closed:!!row.closed,none:A(row.none).slice().sort(),note:S(row.note)}:{closed:false,none:[],note:''};if(JSON.stringify(prev)===JSON.stringify(next))throw Error('تغییری داده نشده است');
+ if(!row){row={id:`DAY-${date.split("/").join("")}`,date,history:[]};doc.dayChecks.push(row)}else row.history=[...A(row.history),{...prev,by:row.by,at:row.at}];
+ Object.assign(row,next,{by:ctx.actor,at:ctx.at});ctx.auditExtra={entityId:row.id,before:prev,after:next};return row}
+
 /* ---------- protected save ---------- */
 const state={busy:false,uncertain:false};
 function validDoc(doc){return !!doc&&typeof doc==='object'&&Array.isArray(doc.stocktakes)&&Array.isArray(doc.inventoryMovements)}
@@ -353,6 +364,6 @@ function closeCount(doc,ctx,{date,note}){date=D(date);const lines=countLinesOf(d
 function reopenCount(doc,ctx,{id,reason}){reason=S(reason);if(!reason)throw Error('علت بازگشایی لازم است');const c=A(doc.periodClosures).find(x=>x.id===id);if(!c||c.status!=='closed')throw Error('دورهٔ بسته پیدا نشد');
  const last=lastClosure(doc);if(last&&last.id!==c.id)throw Error(`فقط آخرین دورهٔ بسته (تا ${last.to}) باز می‌شود`);
  Object.assign(c,{status:'reopened',reopenedAt:ctx.at,reopenedBy:ctx.actor,reopenReason:reason});ctx.auditExtra={entityId:c.id,reason};return c}
-window.InvWrite={useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+window.InvWrite={saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();

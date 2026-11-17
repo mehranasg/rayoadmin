@@ -337,3 +337,26 @@ tr.sel>td{background:color-mix(in srgb,var(--primary) 8%,transparent)}
 .table tr.rp-sum td{background:var(--surface-2)}
 @media (max-width:720px){.rp-donut{grid-template-columns:minmax(0,1fr)}.rp-hb-row{grid-template-columns:minmax(70px,30%) minmax(0,1fr) auto}}
 @media print{.rp-title h2{font-size:16px}.chart{break-inside:avoid}}
+
+/* home (dashboard-real.js): today's tasks, days-of-month calendar, trust of a number (APP_REVIEW P-07, P-04, P-03) */
+.hm-task{gap:8px;padding:10px 14px;text-decoration:none;color:inherit;border-bottom:1px solid var(--border)}
+.hm-task:hover{background:var(--surface-2)}
+.hm-short{display:flex;flex-wrap:wrap;gap:6px}
+.daycal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.dc-h{font-size:11px;color:var(--text-3);text-align:center;padding-bottom:2px}
+.dc{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:44px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font:inherit;color:var(--text);padding:2px}
+.dc b{font-size:13px}.dc small{font-size:10px;color:var(--text-3)}
+button.dc{cursor:pointer}button.dc:hover{border-color:var(--accent)}
+.dc-pad{border:0;background:none}
+.dc-off{opacity:.4;background:var(--surface-2)}
+.dc-ok{background:color-mix(in srgb,var(--success) 14%,var(--surface));border-color:color-mix(in srgb,var(--success) 40%,var(--border))}
+.dc-part{background:color-mix(in srgb,var(--warning) 16%,var(--surface));border-color:color-mix(in srgb,var(--warning) 45%,var(--border))}
+.dc-bad{background:color-mix(in srgb,var(--danger) 14%,var(--surface));border-color:color-mix(in srgb,var(--danger) 45%,var(--border))}
+.dc-closed{background:var(--surface-2)}
+.dc-today{border-color:var(--accent);border-width:2px}
+.trust{display:inline-flex;vertical-align:middle;cursor:help}
+.trust-cell{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;white-space:nowrap}
+.trust-cell.trust-g{background:color-mix(in srgb,var(--success) 14%,transparent)}
+.trust-cell.trust-y{background:color-mix(in srgb,var(--warning) 18%,transparent)}
+.trust-cell.trust-r{background:color-mix(in srgb,var(--danger) 16%,transparent)}
+.night-text{white-space:pre-wrap;font:inherit;line-height:2;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:var(--s3) var(--s4);margin:0}
