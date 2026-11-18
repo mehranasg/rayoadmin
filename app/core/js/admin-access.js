@@ -61,10 +61,12 @@ function realSession(){const user=ss('rayo_admin_user');if(!user)return null;let
    Their permission keys (personnel[].userAccess.permissions) open only the matching saves; the session keys are the admin
    ones with role «staff» (so the save code names them) plus rayo_staff_session of the legacy staff panel. */
 const STAFF_PERMS={cashReport:['cash'],inventoryWaste:['inventory'],inventoryConsumption:['inventory'],beverageControl:['inventory'],inventoryCounts:['inventory'],purchaseRequests:['purchase'],purchaseInvoices:['purchase']};
+// every staff member may report a broken or missing asset (legacy staff panel: no permission key)
+const staffSections=perms=>[...new Set(['assets',...perms.flatMap(k=>STAFF_PERMS[k]||[])])];
 const staffPerms=p=>Object.entries(p?.userAccess?.permissions||{}).filter(([,v])=>v===true).map(([k])=>k);
 function verifyStaff(doc,username,password){username=S(username);if(!username||!password)return null;
  const p=A(doc?.personnel).find(x=>x.status==='فعال'&&x.userAccess?.enabled===true&&S(x.username)&&sameName(x.username,username)&&String(x.userPassword??'')===String(password));if(!p)return null;
- const perms=staffPerms(p);return{username:S(p.name)||S(p.username),role:'staff',personnelId:p.id,perms,sections:[...new Set(perms.flatMap(k=>STAFF_PERMS[k]||[]))]}}
+ const perms=staffPerms(p);return{username:S(p.name)||S(p.username),role:'staff',personnelId:p.id,perms,sections:staffSections(perms)}}
 function signInStaff(r){signIn(r);ss('rayo_staff_session',JSON.stringify({personnelId:r.personnelId,name:r.username,at:new Date().toISOString()}));ss('rayo_staff_perms',JSON.stringify(r.perms||[]))}
 function staff(){const r=realSession();if(!r||r.role!=='staff')return null;let s=null,perms=[];try{s=JSON.parse(ss('rayo_staff_session')||'null');perms=JSON.parse(ss('rayo_staff_perms')||'[]')}catch(_){}return s&&s.personnelId?{personnelId:s.personnelId,name:r.user,perms:A(perms)}:null}
 const staffCan=k=>!!staff()?.perms.includes(k);
@@ -85,7 +87,7 @@ function has(key){const s=session();if(!s)return false;if(s.role==='owner'||s.se
 const canManage=()=>{const s=session();return !!s&&(s.role==='owner'||s.sections==='*')};
 /* a signed-in user that was disabled or removed in the live personnel data is signed out (js/44 guardPage) */
 function stillValid(doc){const s=session();if(!s||s.role==='owner'||s.preview)return true;
- if(s.role==='staff'){const st=staff(),p=A(doc?.personnel).find(x=>x.id===st?.personnelId);if(!p||p.status!=='فعال'||p.userAccess?.enabled!==true)return false;const perms=staffPerms(p);ss('rayo_staff_perms',JSON.stringify(perms));ss('rayo_admin_sections',JSON.stringify([...new Set(perms.flatMap(k=>STAFF_PERMS[k]||[]))]));return true}
+ if(s.role==='staff'){const st=staff(),p=A(doc?.personnel).find(x=>x.id===st?.personnelId);if(!p||p.status!=='فعال'||p.userAccess?.enabled!==true)return false;const perms=staffPerms(p);ss('rayo_staff_perms',JSON.stringify(perms));ss('rayo_admin_sections',JSON.stringify(staffSections(perms)));return true}
  const rec=users(doc).find(x=>sameName(x.username,s.user));if(!rec||S(rec.status)==='غیرفعال')return false;ss('rayo_admin_sections',JSON.stringify(rec.fullAccess?'*':A(rec.sections)));return true}
 /* add or edit a user inside the personnel document (js/44 saveUser rules) */
 function saveUser(doc,ctx,x){const id=S(x.id),username=S(x.username),password=x.password||'',full=!!x.fullAccess;let sections=[...new Set(A(x.sections).map(S).filter(k=>SECTIONS.some(s=>s[0]===k)))];

@@ -66,6 +66,7 @@ throws(()=>W.addOilChange(baseDoc(),ctx(),{date:D3,fryerId:'T1',kind:'TOP_UP',li
 const c1=W.addCount(doc,ctx(),{date:D5,entries:[{itemId:'i1',quantity:'25'}],note:'شمارش هفتگی'});
 const st=doc.stocktakes.find(s=>s.id===c1.id),l1=st.lines[0];
 ok(c1.created&&st.inventoryScope==='RAYO'&&st.baselineBoundary==='END'&&st.status==='approved'&&st.source==='ui-template','count stocktake fields');
+{const d2=JSON.parse(JSON.stringify(doc)),c3=W.addCount(d2,{...ctx(),staff:{personnelId:'EMP-9',name:'پریسا'}},{date:D5,entries:[{itemId:'i1',quantity:'24'}]}),s3=d2.stocktakes.find(s=>s.id===c3.id),l3=s3.lines.find(l=>l.ingredientId==='i1');ok(!c3.created&&l3.actual===24&&l3.countedByPersonnelId==='EMP-9'&&l3.countedByName==='پریسا'&&s3.status==='approved','staff count merges into the count of the date and names the counter on the line')}
 ok(near(l1.expected,27.1)&&near(l1.variance,-2.1)&&l1.baseDate===D0&&near(l1.purchaseQty,20)&&near(l1.salesConsumption,1)&&near(l1.wasteQty,1.4)&&near(l1.otherOutQty,0.5),'count expected/variance from the engine');
 ok(near(l1.varianceValueToman,-2.1*40000),'variance value at item cost');
 const c2=W.addCount(doc,ctx(),{date:D5,entries:[{itemId:'i1',quantity:2.6,unit:'کارتن'}]});

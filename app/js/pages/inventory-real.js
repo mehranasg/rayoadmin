@@ -374,7 +374,7 @@ function recalcAll(){if(!canWrite())return P.toast(whyLocked(),'lock');
   onSave:(m,btn)=>run(btn,{action:'COUNT_VARIANCE_RECALCULATED_ALL',details:{},ioOpts:{recalcAll:true},mutate:()=>({}),done:o=>o.recalculated?'بازمحاسبه انجام شد':'مغایرت شمارش‌ها با دادهٔ فعلی تغییری نداشت'})})}
 window.InvEntry={receipt:receiptForm,event:eventForm,oil:oilForm,count:countForm,void:voidForm,edit:editForm,voidCount:voidCountForm,recalcAll,canWrite,canVoid,
  // shared with menu-real.js
- formModal,run,allowed,live,ses,dataList,latin,bevCfg,bevItems};
+ formModal,run,allowed,live,ses,dataList,latin,bevCfg,bevItems,cycleData};
 
 /* ---------- «مدیریت مصرف»: item and menu alerts for a month (ConsumptionAlerts on InvEngine.analyze) + oil view ---------- */
 const CA=()=>window.ConsumptionAlerts,cmS={sub:'items',month:'',all:false,q:'',key:'',R:null};

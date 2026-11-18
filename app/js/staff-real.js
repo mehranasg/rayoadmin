@@ -25,6 +25,10 @@ const PAGES=[
  {k:'cash',t:'گزارش صندوق',s:'گزارش هر شب و گزارش‌های من',icon:'banknote',ok:()=>can('cashReport'),data:1},
  {k:'bev',t:'شمارش نوشیدنی',s:'شمارش صبح و شب',icon:'cup-soda',ok:()=>can('beverageControl'),data:1},
  {k:'waste',t:'ضایعات و مصرف',s:'همان لحظه که اتفاق افتاد',icon:'trash-2',ok:()=>can('inventoryWaste')||can('inventoryConsumption'),data:1},
+ {k:'count',t:'شمارش انبار',s:'اقلام موعددار امروز',icon:'clipboard-check',ok:()=>can('inventoryCounts'),data:1},
+ {k:'invoice',t:'رسیدن بار / فاکتور',s:'فاکتور خرید و ورود به انبار',icon:'file-plus-2',ok:()=>can('purchaseInvoices'),data:1},
+ {k:'order',t:'سفارش خرید',s:'سفارش به تأمین‌کننده',icon:'clipboard-pen',ok:()=>can('purchaseRequests'),data:1},
+ {k:'asset',t:'خرابی و مفقودی وسیله',s:'شکستگی، آسیب یا گم شدن',icon:'hammer',data:1},
  {k:'shifts',t:'شیفت‌های من',s:'این ماه و ماه بعد',icon:'calendar-days',nav:1,hr:1},
  {k:'leave',t:'مرخصی',s:'درخواست و سوابق',icon:'calendar-off',nav:1,hr:1}];
 const title=p=>p.k==='waste'?(can('inventoryWaste')&&can('inventoryConsumption')?'ضایعات و مصرف':can('inventoryWaste')?'ضایعات':'مصرف مجاز'):p.t;
@@ -85,8 +89,8 @@ function homeView(){const t=today(),y=dayAdd(t,-1),tasks=[];
   ${todayS&&todayS.length&&tm.length?`<small class="muted" style="display:block">همکاران امروز: ${tm.map(([s,n])=>`${esc(s)}: ${n.map(esc).join('، ')}`).join(' — ')}</small>`:''}</div></div></div>
  ${tasks.length?`<h3 class="st-h">کارهای امروز</h3><div class="stack" style="gap:8px">${tasks.map(x=>`<div class="st-task st-${x.tone}"${x.go&&!x.btn?` onclick="P.go('${x.go}')" role="link"`:''}>${P.ic(x.icon)}<div class="grow"><b>${esc(x.t)}</b>${x.s?`<small>${esc(x.s)}</small>`:''}</div>${x.btn?`<button class="btn btn-primary btn-sm" onclick="${x.btn[1]}">${esc(x.btn[0])}</button>`:P.ic('chevron-left')}</div>`).join('')}</div>`:''}
  <h3 class="st-h">ثبت‌ها و صفحه‌ها</h3><div class="st-tiles">${tiles.map(p=>`<a class="st-tile" href="#/s/${p.k}">${P.ic(p.icon)}<b>${esc(title(p))}</b><small>${esc(p.s||'')}</small></a>`).join('')}</div>
- ${tiles.filter(p=>p.data).length?'':P.note('ثبتی برای شما فعال نیست؛ برای گزارش صندوق، شمارش نوشیدنی یا ضایعات از مدیر بخواهید دسترسی بدهد.','info')}
- <p class="muted st-foot">نسخهٔ تازهٔ پنل پرسنل. صفحه‌های دیگر (شمارش انبار، درخواست خرید، فاکتور، خرابی وسیله، چک‌لیست) فعلاً در پنل پرسنل قبلی است.</p>`}
+ ${tiles.filter(p=>p.ok).length?'':P.note('ثبتی برای شما فعال نیست؛ برای گزارش صندوق، شمارش، ضایعات یا خرید از مدیر بخواهید دسترسی بدهد.','info')}
+ <p class="muted st-foot">نسخهٔ تازهٔ پنل پرسنل. ثبت انعام، رزرو، دیدن تأمین‌کنندگان و دریافتی‌ها و کارکرد ماه هنوز در پنل پرسنل قبلی است.</p>`}
 
 /* ---------- cash report ---------- */
 function cashView(){const g=dataGate();if(g)return g;const t=today(),r=cashOf(t),mine=myCash().slice(0,40),T=v=>P.mt(CW.N(v)/10);
@@ -110,6 +114,34 @@ function wasteView(){const g=dataGate();if(g)return g;const u=me(),inv=INV(),nam
  return`<div class="card st-cta"><b>${esc(title(PAGES.find(p=>p.k==='waste')))}</b><small class="muted">همان لحظه ثبت کنید: چه چیزی، چقدر، از کدام بخش و چرا.</small><button class="btn btn-primary btn-lg" onclick="InvEntry.event()">${P.ic('plus')}ثبت تازه</button></div>
  <h3 class="st-h">ثبت‌های من</h3>${mine.length?`<div class="stack" style="gap:8px">${mine.map(r=>`<div class="st-row"><div class="grow"><b>${esc(r.type==='menu'?menu.get(r.itemId)||r.itemId:names.get(r.itemId)||r.itemId)}</b><small>${fa(E.D(r.date))} · ${esc(window.InvWrite.EVENT_LABELS[r.eventType]||r.eventType||'')} · ${fa(String(r.entryQuantity??r.quantity))} ${esc(r.entryUnit||'')}</small></div>${r.status==='void'?P.b('باطل','neutral',1):P.b(r.reviewStatus==='تأییدشده'?'تأییدشده':'در انتظار بررسی',r.reviewStatus==='تأییدشده'?'success':'warning',1)}</div>`).join('')}</div>`:P.note('هنوز ثبتی از شما نیست.','info')}`}
 
+/* ---------- inventory count (ABC due items first, the same count form as the panel) ---------- */
+const badge=(s,map)=>P.b(s,map[s]||'neutral',1);
+function countView(){const g=dataGate();if(g)return g;let cd=null;try{cd=IE.cycleData()}catch(_){}const due=cd?cd.rows.filter(r=>r.due):[],ids=f=>due.filter(f).map(r=>r.id),a=ids(r=>r.cls==='A'),ab=ids(r=>r.cls!=='C'),u=me();
+ const by=new Map;for(const s of A(INV().stocktakes)){if(s.status==='void'||s.isArchived)continue;const n=A(s.lines).filter(l=>l.countedByPersonnelId===u.personnelId).length;if(n)by.set(E.D(s.date),(by.get(E.D(s.date))||0)+n)}
+ const btn=(list,label,title,cls='btn-secondary')=>list.length?`<button class="btn ${cls}" onclick='StaffApp.count(${JSON.stringify(list)},${JSON.stringify(title)})'>${P.ic('clipboard-check')}${label} (${fa(list.length)})</button>`:'';
+ return`<div class="card st-cta"><b>شمارش امروز</b><small class="muted">اقلام پرمصرف (گروه A) باید زودتر شمرده شوند. فقط چیزی را که واقعاً شمردید بنویسید؛ خانهٔ خالی یعنی «شمرده نشد».</small>
+  ${a.length||ab.length?btn(a,'گروه A','شمارش گروه A','btn-primary btn-lg')+btn(ab.length>a.length?ab:[],'گروه A و B','شمارش گروه A و B'):P.note('امروز قلمی موعد شمارش ندارد.','check')}
+  <button class="btn btn-ghost btn-sm" onclick="InvEntry.count()">${P.ic('list')}شمارش اقلام دلخواه</button></div>
+ <h3 class="st-h">شمارش‌های من</h3>${by.size?`<div class="stack" style="gap:8px">${[...by].sort((x,y)=>y[0].localeCompare(x[0])).slice(0,20).map(([d,n])=>`<div class="st-row"><div class="grow"><b>${fa(d)} <small class="muted">${esc(wd(d))}</small></b><small>${fa(n)} قلم شمرده شد</small></div></div>`).join('')}</div>`:P.note('هنوز شمارشی از شما ثبت نشده است.','info')}`}
+
+/* ---------- purchase invoice (goods arrived) and purchase order: the panel's forms, with the supplier list ---------- */
+const SUP=()=>window.FinanceReal?.suppliers?.()||null;
+function supGate(){const F=window.FinanceReal;if(SUP())return'';if(F?.supState?.err)return P.note('فهرست تأمین‌کنندگان خوانده نشد: '+esc(F.supState.err),'alert-triangle');F?.loadSuppliers?.();return P.note('در حال خواندن تأمین‌کنندگان…','loader')}
+function invoiceView(){const g=dataGate()||supGate();if(g)return g;const u=me(),T=v=>P.t(Math.round(+v||0)),ST={finalized:'ثبت نهایی',draft:'پیش‌نویس',void:'لغوشده'};
+ const mine=A(INV().purchaseInvoices).filter(x=>x.registeredByPersonnelId===u.personnelId).sort((a,b)=>S(b.createdAt).localeCompare(S(a.createdAt))).slice(0,30);
+ return`<div class="card st-cta"><b>بار رسید</b><small class="muted">فاکتور را با اقلام ثبت کنید؛ همان ثبت کالا را وارد انبار می‌کند. اگر همان لحظه پول دادید (کارتخوان تأمین‌کننده، نقد)، پرداخت را هم در همان فرم بزنید. عکس فاکتور را هم می‌شود گذاشت.</small><button class="btn btn-primary btn-lg" onclick="PurchaseEntry.detailed()">${P.ic('plus')}ثبت فاکتور</button></div>
+ <h3 class="st-h">فاکتورهای ثبت‌شدهٔ من</h3>${mine.length?`<div class="stack" style="gap:8px">${mine.map(x=>`<div class="st-row"><div class="grow"><b>${esc(x.supplierNameSnapshot||'')}</b><small>${fa(E.D(x.date))} · شماره ${esc(fa(x.invoiceNumber||x.number||''))} · ${T(x.totalToman)} تومان · ${fa(A(x.lines).length)} ردیف</small></div>${badge(ST[x.status]||x.status,{'ثبت نهایی':'success','پیش‌نویس':'warning','لغوشده':'neutral'})}</div>`).join('')}</div>`:P.note('هنوز فاکتوری از شما ثبت نشده است.','info')}
+ ${P.note('اصلاح یا ابطال فاکتور ثبت‌شده با مدیر است.','info')}`}
+function orderView(){const g=dataGate()||supGate();if(g)return g;const u=me(),mine=A(SUP().purchaseRequests).filter(x=>!x.isArchived&&(x.requestedByPersonnelId===u.personnelId||x.createdByPersonnelId===u.personnelId)).sort((a,b)=>S(b.createdAt||b.date).localeCompare(S(a.createdAt||a.date))).slice(0,30);
+ return`<div class="card st-cta"><b>سفارش خرید</b><small class="muted">سفارشی که به تأمین‌کننده می‌دهید. موجودی، قیمت و بدهی را تغییر نمی‌دهد؛ وقتی بار رسید، فاکتورش ثبت می‌شود.</small><button class="btn btn-primary btn-lg" onclick="PurchaseEntry.order()">${P.ic('plus')}سفارش تازه</button></div>
+ <h3 class="st-h">سفارش‌های من</h3>${mine.length?`<div class="stack" style="gap:8px">${mine.map(o=>`<div class="st-row"><div class="grow"><b>${esc(o.supplierNameSnapshot||'')}</b><small>${fa(E.D(o.date))} · تحویل ${fa(E.D(o.expectedDeliveryDate||''))} · ${A(o.lines).slice(0,3).map(l=>esc(l.itemName||l.ingredientNameSnapshot||l.name||'')).join('، ')}${A(o.lines).length>3?' و '+fa(A(o.lines).length-3)+' قلم دیگر':''}</small></div>${badge(o.status||'ثبت‌شده',{'تحویل‌شده':'success','لغوشده':'neutral','ارسال‌شده':'info','تأیید تأمین‌کننده':'info'})}</div>`).join('')}</div>`:P.note('هنوز سفارشی از شما ثبت نشده است.','info')}`}
+
+/* ---------- broken or missing asset (everyone; the manager reviews it, stock of assets is not changed) ---------- */
+function assetView(){const AE=window.AssetsEntry,st=AE?.state?.()||{};if(!AE)return P.note('بخش دارایی‌ها بارگذاری نشده است.','alert-triangle');if(!AE.doc()){if(st.err)return P.note('دارایی‌ها خوانده نشد: '+esc(st.err),'alert-triangle');if(IC.ready())AE.load();return P.note('در حال خواندن دارایی‌ها…','loader')}
+ const u=me(),mine=A(AE.doc().assetIncidents).filter(x=>x.reportedByPersonnelId===u.personnelId).sort((a,b)=>S(b.createdAt).localeCompare(S(a.createdAt))).slice(0,30);
+ return`<div class="card st-cta"><b>خرابی، شکستگی یا مفقودی</b><small class="muted">همان موقع ثبت کنید: کدام وسیله، چند عدد و چه اتفاقی افتاد. ثبت شما موجودی اموال را کم نمی‌کند؛ مدیر بررسی می‌کند.</small><button class="btn btn-primary btn-lg" onclick="AssetsEntry.incident()">${P.ic('plus')}گزارش تازه</button></div>
+ <h3 class="st-h">گزارش‌های من</h3>${mine.length?`<div class="stack" style="gap:8px">${mine.map(x=>`<div class="st-row"><div class="grow"><b>${esc(x.assetName||'')}</b><small>${fa(E.D(x.date))} · ${esc(x.type||'')} · ${fa(String(x.quantity||1))} عدد</small>${x.managerNote?`<small class="muted">مدیر: ${esc(x.managerNote)}</small>`:''}</div>${badge(x.status||'جدید',{'جدید':'warning','بررسی‌شده':'success','بسته‌شده':'success','ردشده':'neutral'})}</div>`).join('')}</div>`:P.note('هنوز گزارشی از شما ثبت نشده است.','info')}`}
+
 /* ---------- shifts ---------- */
 function shiftsView(){const g=hrGate();if(g)return g;const sh=myShifts(),t=today();if(!sh.length)return P.note('شیفتی برای شما در برنامهٔ منتشرشده نیست.','info');
  const by=new Map;for(const x of sh)(by.get(x.date)||by.set(x.date,[]).get(x.date)).push(x);
@@ -129,12 +161,12 @@ function leaveForm(){const hr=PR()?.doc?.();if(!hr)return;const types=A(hr.lists
    PR().saveHr(btn,{action:'LEAVE_REQUESTED',details:{fromDate:x.fromDate,toDate:x.toDate},mutate:(d,c)=>PW.requestLeave(d,c,x),done:r=>`درخواست مرخصی ${fa(r.fromDate)} ثبت شد؛ منتظر تأیید مدیر بمانید`})}})}
 
 /* ---------- render ---------- */
-const VIEWS={home:[homeView],cash:[cashView],bev:[bevView,bevMount],waste:[wasteView],shifts:[shiftsView],leave:[leaveView]};
+const VIEWS={home:[homeView],cash:[cashView],bev:[bevView,bevMount],waste:[wasteView],count:[countView],invoice:[invoiceView],order:[orderView],asset:[assetView],shifts:[shiftsView],leave:[leaveView]};
 function render(){if(!me())return loginView();document.body.classList.remove('pn-locked');
  const hr=PR()?.doc?.();if(hr&&!AA.stillValid(hr)){AA.signOut();P.toast('دسترسی پنل پرسنل شما غیرفعال شده است','alert-triangle');return loginView()}
  if(IC.ready()&&PR()&&!hr&&!PR().state.busy&&!PR().state.err)PR().load();
  let p=PAGES.find(x=>x.k===route())||PAGES[0];if(!allowed(p))p=PAGES[0];chrome(p);
  const v=$('#pnView'),[view,mount]=VIEWS[p.k];v.innerHTML=`<div class="st-page">${view()}</div>`;RT.icons();mount&&IC.ready()&&mount(v)}
 P.render=render;P.route=()=>({mod:'staff',tab:route(),param:''});
-window.StaffApp={start:()=>{window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0)});render()},render,signOut,cash:cashForm,cashOther,leave:leaveForm,pages:PAGES};
+window.StaffApp={start:()=>{window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0)});render()},render,signOut,cash:cashForm,cashOther,leave:leaveForm,count:(only,title)=>InvEntry.count({only,title}),pages:PAGES};
 })();

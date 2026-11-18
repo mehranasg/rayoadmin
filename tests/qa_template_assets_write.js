@@ -24,5 +24,6 @@ const mn=AW.addMaintenance(d,ctx(),{assetId:'AST-2',date:day(1),type:'تعمیر
 ok(mn.id==='MNT-0001'&&mn.cost===2500000&&d.assets[1].nextServiceDate===mn.nextServiceDate,'maintenance record and next service date');
 throws(()=>AW.addMaintenance(d,ctx(),{assetId:'AST-1',date:T,type:'تعمیر'}),/شماره‌دار/,'maintenance only for numbered assets');
 const inc=AW.addIncident(d,ctx(),{assetId:'AST-2',date:T,type:'آسیب/خرابی',quantity:1,description:'نشتی گاز'});ok(inc.id==='AINC-000001'&&inc.status==='جدید','incident like js/32 wasteSaveAsset');
+{const d2=JSON.parse(JSON.stringify(d)),i2=AW.addIncident(d2,{...ctx(),staff:{personnelId:'EMP-9',name:'پریسا'}},{assetId:'AST-2',date:T,quantity:1,description:'شکست'});ok(i2.reportedByPersonnelId==='EMP-9'&&i2.reportedByName==='پریسا'&&i2.status==='جدید'&&i2.managerNote==='','staff incident names the person, waits for the manager')}
 throws(()=>AW.addEvent(d,ctx(),{assetId:'AST-1',date:E.CAL.k(E.CAL.i(T)+1),type:'شکستگی',quantity:1}),/بعد از امروز/,'future date refused');
 console.log(`qa_template_assets_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);
