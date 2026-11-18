@@ -79,15 +79,63 @@ function buildLines(pr,sup,supplierId,raw,finalized){const cat=new Map(procureme
  const purchaseUnit=S(x.purchaseUnit)||S(i.purchaseUnit),rel=relationFor(sup,supplierId,i);
  return{ingredientId:i.id,itemCode:i.code,itemName:i.name,supplierItemId:rel?.id||'',purchaseQuantity:quantity,quantity,purchaseUnit,unit:purchaseUnit,recipeUnit:i.recipeUnit||'',packageQuantity,unitPrice,expectedUnitPriceToman:unitPrice,discountToman,lineTotalToman:Math.max(0,quantity*unitPrice-discountToman),...(finalized?{updateCatalogPrice:x.updateCatalogPrice===true&&packageQuantity>0}:{})}})}
 
+/* ---------- invoice = stock receipt (APP_REVIEW P-02) ----------
+   A finalized detailed invoice can also be the stock receipt of its goods, in the same save (inventory module):
+     stockMode 'auto'  each stock line links to the unlinked direct receipts («ورود کالا») of the same item within ±3 days
+                       of the invoice date (the goods were already received — for months entered afterwards), else a new
+                       receipt is created;
+     stockMode 'new'   a new receipt for every stock line;
+     stockMode 'none'  no stock effect (the old behaviour; goods received separately, or services).
+   New receipt: stockReceipts {id REC-INV-<req>-<n>, invoiceId, invoiceLink 'created', sourceType PURCHASE_INVOICE,
+   quantity = purchase quantity × package quantity (base unit), entry quantity/unit, unitCostToman = line total ÷ quantity,
+   totalPriceToman} + its PURCHASE_RECEIPT movement (referenceType purchaseInvoice). Linked receipt: invoiceId, invoiceLink
+   'matched', price from the line (its previous price kept in priceBeforeInvoice); quantity and date unchanged.
+   Edit: created receipts of the invoice are voided (voidKind 'edit') and matched ones unlinked, then posted again.
+   Void: created receipts and their movements are voided, matched ones only unlinked (the goods did arrive).
+   Non-stock items are skipped. A date in a closed inventory period or in the future refuses a stock mode. */
+const STOCK_MODES=['auto','new','none'];
+const isStock=i=>!!i&&i.status!=='غیرفعال'&&i.itemType!=='NON_STOCK'&&i.inventoryTracked!==false;
+const dayIdx=d=>window.InvEngine.CAL.i(D(d));
+const invClosed=(inv,date)=>A(inv?.periodClosures).find(c=>c.status==='closed'&&S(c.to)>=date)||null;
+function stockPlan(inv,pricing,invoice,mode){mode=STOCK_MODES.includes(mode)?mode:'none';const ing=new Map(A(pricing?.ingredients).map(i=>[i.id,i])),taken=new Set,di=dayIdx(invoice.date);
+ return docLines(invoice).map((l,k)=>{const i=ing.get(l.ingredientId),qty=Z(l.purchaseQuantity||l.quantity)*Z(l.packageQuantity),total=Z(l.lineTotalToman);
+  if(mode==='none'||!isStock(i)||!(qty>0))return{k,l,i,qty,action:'skip',why:!isStock(i)?'کالای غیرانباری':mode==='none'?'بدون ورود':'مقدار ندارد'};
+  if(mode==='auto'){const cand=A(inv.stockReceipts).filter(r=>r.status!=='void'&&!S(r.invoiceId)&&r.ingredientId===i.id&&!taken.has(r.id)&&Math.abs(dayIdx(r.date)-di)<=3).sort((a,b)=>Math.abs(dayIdx(a.date)-di)-Math.abs(dayIdx(b.date)-di));
+   if(cand.length){const d0=D(cand[0].date),ms=cand.filter(r=>D(r.date)===d0);ms.forEach(r=>taken.add(r.id));return{k,l,i,qty,total,action:'match',matches:ms,matchedQty:ms.reduce((a,r)=>a+Z(r.quantity),0)}}}
+  return{k,l,i,qty,total,action:'new'}})}
+function unpostStock(inv,ctx,invoice,reason,kind){const out={voided:0,unlinked:0};
+ for(const r of A(inv.stockReceipts).filter(r=>r.invoiceId===invoice.id&&r.invoiceLink)){if(r.invoiceLink==='created'&&r.status!=='void'){Object.assign(r,{status:'void',voidKind:kind,voidReason:reason,voidedAt:ctx.at,voidedBy:ctx.actor});A(inv.inventoryMovements).filter(m=>m.sourceKey===`receipt:${r.id}`&&m.status!=='void').forEach(m=>Object.assign(m,{status:'void',voidKind:kind,voidReason:reason,voidedAt:ctx.at,voidedBy:ctx.actor}));out.voided++}
+  else if(r.invoiceLink==='matched'){const p=r.priceBeforeInvoice||{};Object.assign(r,{invoiceId:'',invoiceLink:'',unlinkedInvoiceId:invoice.id,unitCostToman:p.unitCostToman??null,totalPriceToman:p.totalPriceToman??null});delete r.priceBeforeInvoice;A(inv.inventoryMovements).filter(m=>m.sourceKey===`receipt:${r.id}`).forEach(m=>{m.unitCostToman=r.unitCostToman});out.unlinked++}}
+ return out}
+function postStock(inv,ctx,invoice,pricing,mode){mode=STOCK_MODES.includes(mode)?mode:'none';invoice.stockMode=mode;invoice.receiptIds=[];if(mode==='none'||!isFinal(invoice))return{created:0,matched:0,skipped:docLines(invoice).length};
+ const date=D(invoice.date);if(date>window.InvEngine.CAL.today)throw Error('فاکتور با تاریخ آینده وارد انبار نمی‌شود');const c=invClosed(inv,date);if(c)throw Error(`دورهٔ انبار ${c.from||''} تا ${c.to} بسته است؛ «بدون ورود به انبار» را انتخاب کنید`);
+ const loc=A(inv.locations).find(l=>l.id===S(inv.settings?.mainLocationId))||A(inv.locations)[0]||{id:S(inv.settings?.mainLocationId),name:''};
+ inv.stockReceipts=A(inv.stockReceipts);inv.inventoryMovements=A(inv.inventoryMovements);const out={created:0,matched:0,skipped:0};
+ for(const p of stockPlan(inv,pricing,invoice,mode)){if(p.action==='skip'){out.skipped++;continue}const unit=S(p.i.recipeUnit),cost=p.total/p.qty;
+  if(p.action==='match'){for(const r of p.matches){r.priceBeforeInvoice={unitCostToman:r.unitCostToman??null,totalPriceToman:r.totalPriceToman??null};Object.assign(r,{invoiceId:invoice.id,invoiceLink:'matched',unitCostToman:cost,totalPriceToman:Math.round(cost*Z(r.quantity)),linkedAt:ctx.at,linkedBy:ctx.actor});A(inv.inventoryMovements).filter(m=>m.sourceKey===`receipt:${r.id}`).forEach(m=>{m.unitCostToman=cost});invoice.receiptIds.push(r.id)}out.matched++;continue}
+  const id=`REC-INV-${ctx.reqId}-${p.k+1}`;invoice.receiptIds.push(id);out.created++;
+  inv.stockReceipts.push({id,requestId:ctx.reqId,batchId:`RECB-${ctx.reqId}`,date,ingredientId:p.i.id,locationId:loc.id,quantity:+p.qty.toFixed(6),entryQuantity:Z(p.l.purchaseQuantity||p.l.quantity),entryUnit:S(p.l.purchaseUnit)||unit,entryUnitFactor:Z(p.l.packageQuantity),totalPriceToman:Math.round(p.total),unitCostToman:cost,status:'posted',sourceType:'PURCHASE_INVOICE',invoiceId:invoice.id,invoiceLink:'created',supplierId:S(invoice.supplierId),notes:`فاکتور ${S(invoice.invoiceNumber||invoice.number)}`,itemNameSnapshot:p.i.name,itemCodeSnapshot:p.i.code||'',unitSnapshot:unit,locationNameSnapshot:loc.name||'',createdAt:ctx.at,createdBy:ctx.actor});
+  inv.inventoryMovements.push({id:`MOV-INV-${ctx.reqId}-${p.k+1}`,requestId:ctx.reqId,date,movementType:'PURCHASE_RECEIPT',ingredientId:p.i.id,quantity:+p.qty.toFixed(6),fromLocationId:'',toLocationId:loc.id,reasonCode:'PURCHASE',referenceType:'purchaseInvoice',referenceId:invoice.id,sourceKey:`receipt:${id}`,status:'posted',unitCostToman:cost,unitSnapshot:unit,notes:`فاکتور ${S(invoice.invoiceNumber||invoice.number)}`,createdAt:ctx.at,createdBy:ctx.actor})}
+ return out}
+/* payment at delivery (P-11): the supplier's card reader, cash or a transfer on the day the goods arrive. A reference is
+   asked only for transfers; the same location + reference twice is refused. */
+function deliveryPayment(inv,ctx,invoice,pay){if(!pay||pay.mode!=='now')return null;const amt=pay.amount===undefined||S(pay.amount)===''?invoiceTotal(invoice):NUM(pay.amount);if(!(amt>0))throw Error('مبلغ پرداخت سر تحویل باید مثبت باشد');if(amt>invoiceTotal(invoice)+0.5)throw Error('پرداخت سر تحویل از مبلغ فاکتور بیشتر است');
+ const loc=paymentLocations(inv).find(l=>l.id===S(pay.locationId));if(!loc)throw Error('محل پرداخت را انتخاب کنید');const method=S(pay.method)||PAYMENT_METHODS[0],ref=S(pay.reference),pd=D(pay.date)||invoice.date;assertDate(pd,'تاریخ پرداخت');
+ if(['کارت به کارت','واریز بانکی'].includes(method)&&!ref)throw Error('برای کارت به کارت یا واریز، شمارهٔ پیگیری لازم است');if(ref&&A(inv.supplierPayments).some(x=>x.status!=='void'&&x.paymentLocationId===loc.id&&S(x.reference)===ref))throw Error('این مرجع پرداخت قبلاً با همین محل ثبت شده است');
+ const p={id:`PAY-${ctx.reqId}`,requestId:`PAY-${ctx.reqId}`,supplierId:invoice.supplierId,supplierNameSnapshot:invoice.supplierNameSnapshot,invoiceId:invoice.id,date:pd,amount:amt,method,paymentLocationId:loc.id,paymentLocationNameSnapshot:loc.name||'—',reference:ref,notes:`پرداخت سر تحویل فاکتور ${S(invoice.invoiceNumber||invoice.number)}`,direction:'payment',directionLabelSnapshot:'پرداخت بدهی',directionEffect:'payment',source:'invoiceDelivery',status:'posted',createdAt:ctx.at,createdBy:ctx.actor};
+ inv.supplierPayments=A(inv.supplierPayments);inv.supplierPayments.push(p);return p}
+/* due date: invoice date + the supplier's settlement days (0 / none = no due date) */
+function dueDate(invoice,suppliers){const s=A(suppliers?.suppliers).find(x=>x.id===invoice.supplierId),n=Z(s?.settlementDays);if(!(n>0))return'';const i=dayIdx(invoice.date);return i===null?'':window.InvEngine.CAL.k(i+n)}
+
 /* ---------- detailed invoice (js/42 savePurchaseInvoice) ---------- */
-function addInvoice(inv,ctx,{supplierId,number,date,status,lines,discount,taxToman,extraCostToman,notes},{pricing,suppliers}){date=D(date);assertDate(date,'تاریخ فاکتور');number=S(number);if(!number)throw Error('شماره فاکتور لازم است');status=status==='draft'?'draft':'finalized';
+function addInvoice(inv,ctx,{supplierId,number,date,status,lines,discount,taxToman,extraCostToman,notes,stockMode,payment},{pricing,suppliers}){date=D(date);assertDate(date,'تاریخ فاکتور');number=S(number);if(!number)throw Error('شماره فاکتور لازم است');status=status==='draft'?'draft':'finalized';
  const supplier=supplierId?A(suppliers?.suppliers).find(s=>s.id===supplierId):null;if(supplierId&&!supplier)throw Error('تأمین‌کننده پیدا نشد');
  const rows=buildLines(pricing,suppliers,supplierId,lines,status==='finalized');if(!rows.length)throw Error('حداقل یک ردیف لازم است');
  if(A(inv.purchaseInvoices).some(x=>x.supplierId===S(supplierId)&&normalizeName(x.invoiceNumber||x.number)===normalizeName(number)&&x.status!=='void'))throw Error('این شماره فاکتور قبلاً برای همین تأمین‌کننده ثبت شده است');
  const [dc,tx,ex]=[discount,taxToman,extraCostToman].map(NUM);if([dc,tx,ex].some(v=>Number.isNaN(v)||v<0))throw Error('تخفیف، مالیات و هزینهٔ جانبی باید عدد نامنفی باشند');
  const row={id:`PINV-${ctx.reqId}`,invoiceNumber:number,number,date,supplierId:S(supplierId),supplierNameSnapshot:supplier?supplierName(supplier):'بدون تأمین‌کننده',purchaseOrderId:'',purchaseOrderNumberSnapshot:'',status,lines:rows,hasLineDetails:true,discount:dc,taxToman:tx,extraCostToman:ex,notes:S(notes),isArchived:false,createdAt:ctx.at,createdBy:ctx.actor,updatedAt:ctx.at,updatedBy:ctx.actor,pricingSyncStatus:status==='finalized'&&rows.some(l=>l.updateCatalogPrice)?'pending':'not-required',source:'ui-template'};
  row.totalToman=Math.max(0,rows.reduce((a,l)=>a+Z(l.lineTotalToman),0)-dc+tx+ex);
- inv.purchaseInvoices=A(inv.purchaseInvoices);inv.purchaseInvoices.unshift(row);ctx.auditExtra={entityId:row.id};return row}
+ inv.purchaseInvoices=A(inv.purchaseInvoices);inv.purchaseInvoices.unshift(row);const stock=postStock(inv,ctx,row,pricing,stockMode),pay=status==='finalized'?deliveryPayment(inv,ctx,row,payment):null;ctx.auditExtra={entityId:row.id,stock,...(pay?{paymentId:pay.id}:{})};return row}
 
 /* ---------- quick invoice (js/42 saveQuickPurchaseInvoice) ---------- */
 function addQuickInvoice(inv,ctx,{supplierId,number,date,amount,notes,settlement='unpaid',payAmount,payDate,payMethod,payLocationId,payRef},{suppliers}){date=D(date);assertDate(date,'تاریخ فاکتور');const supplier=A(suppliers?.suppliers).find(s=>s.id===supplierId);if(!supplier)throw Error('برای فاکتور سریع، انتخاب تأمین‌کننده الزامی است');
@@ -127,9 +175,9 @@ function markPricing(inv,ctx,{id,ok,error}){const x=A(inv.purchaseInvoices).find
 /* ---------- void (js/42 cancelPurchaseDocument) ---------- */
 function voidInvoice(inv,ctx,{id,reason}){reason=S(reason);if(!reason)throw Error('علت لغو لازم است');const x=A(inv.purchaseInvoices).find(i=>i.id===id);if(!x)throw Error('فاکتور پیدا نشد');if(x.status==='void')throw Error('این فاکتور قبلاً لغو شده است');
  ctx.auditExtra={entityId:id,before:clone(x),reason};
- const rids=new Set;for(const r of A(inv.stockReceipts).filter(r=>r.invoiceId===id)){rids.add(r.id);Object.assign(r,{status:'void',voidReason:reason,voidedAt:ctx.at})}
+ const managed=unpostStock(inv,ctx,x,reason,'void');const rids=new Set;for(const r of A(inv.stockReceipts).filter(r=>r.invoiceId===id&&!r.invoiceLink)){rids.add(r.id);Object.assign(r,{status:'void',voidReason:reason,voidedAt:ctx.at})}
  for(const m of A(inv.inventoryMovements).filter(m=>(m.referenceType==='purchaseInvoice'&&m.referenceId===id)||[...rids].some(r=>m.sourceKey===`receipt:${r}`)))Object.assign(m,{status:'void',voidReason:reason,voidedAt:ctx.at});
- Object.assign(x,{status:'void',voidReason:reason,voidedAt:ctx.at,voidedBy:ctx.actor});return{invoice:x,receipts:rids.size,needsPricing:docLines(x).some(l=>l.updateCatalogPrice===true)}}
+ Object.assign(x,{status:'void',voidReason:reason,voidedAt:ctx.at,voidedBy:ctx.actor});return{invoice:x,receipts:rids.size+managed.voided,unlinked:managed.unlinked,needsPricing:docLines(x).some(l=>l.updateCatalogPrice===true)}}
 
 /* ---------- supplier payment (js/14 savePayment, void as js/32 opsDeletePayment) ----------
    Settles a debt (or records a refund «وصول طلب قبلی»); it creates no new expense or income. An invoice is optional
@@ -171,7 +219,7 @@ function voidDirectDebt(inv,ctx,{id,reason}){reason=S(reason);if(!reason)throw E
 function editInvoice(inv,ctx,input,{pricing,suppliers}){const x=A(inv.purchaseInvoices).find(i=>i.id===input.id);if(!x)throw Error('فاکتور پیدا نشد');if(x.status==='void')throw Error('فاکتور لغوشده قابل ویرایش نیست');
  const date=D(input.date);assertDate(date,'تاریخ فاکتور');const number=S(input.number),supplierId=S(input.supplierId),supplier=supplierId?A(suppliers?.suppliers).find(s=>s.id===supplierId):null;if(supplierId&&!supplier)throw Error('تأمین‌کننده پیدا نشد');
  if(number&&A(inv.purchaseInvoices).some(o=>o.id!==x.id&&o.supplierId===supplierId&&normalizeName(o.invoiceNumber||o.number)===normalizeName(number)&&o.status!=='void'))throw Error('این شماره فاکتور قبلاً برای همین تأمین‌کننده ثبت شده است');
- const received=A(inv.stockReceipts).filter(r=>r.invoiceId===x.id&&!['void','rejected'].includes(r.status));if(received.length&&(supplierId!==x.supplierId||date!==x.date))throw Error('فاکتور دارای رسید انبار است؛ تأمین‌کننده و تاریخ را تغییر ندهید');
+ const received=A(inv.stockReceipts).filter(r=>r.invoiceId===x.id&&!r.invoiceLink&&!['void','rejected'].includes(r.status));if(received.length&&(supplierId!==x.supplierId||date!==x.date))throw Error('فاکتور دارای رسید انبار است؛ تأمین‌کننده و تاریخ را تغییر ندهید');
  ctx.auditExtra={entityId:x.id,before:clone(x)};const wasFinal=isFinal(x),status=wasFinal?'finalized':(input.status==='finalized'?'finalized':'draft');
  if(x.hasLineDetails===false&&!A(input.lines).length){const total=NUM(input.amount);if(!(total>0))throw Error('مبلغ کل فاکتور باید مثبت باشد');if(!supplier)throw Error('برای فاکتور سریع، انتخاب تأمین‌کننده الزامی است');
   Object.assign(x,{invoiceNumber:number,number,date,supplierId,supplierNameSnapshot:supplierName(supplier),totalToman:total,notes:S(input.notes),updatedAt:ctx.at,updatedBy:ctx.actor});return x}
@@ -180,7 +228,8 @@ function editInvoice(inv,ctx,input,{pricing,suppliers}){const x=A(inv.purchaseIn
  const [dc,tx,ex]=[input.discount,input.taxToman,input.extraCostToman].map(NUM);if([dc,tx,ex].some(v=>Number.isNaN(v)||v<0))throw Error('تخفیف، مالیات و هزینهٔ جانبی باید عدد نامنفی باشند');
  Object.assign(x,{invoiceNumber:number,number,date,supplierId,supplierNameSnapshot:supplier?supplierName(supplier):'بدون تأمین‌کننده',status,lines:rows,hasLineDetails:true,discount:dc,taxToman:tx,extraCostToman:ex,notes:S(input.notes),updatedAt:ctx.at,updatedBy:ctx.actor,
   pricingSyncStatus:status==='finalized'&&(rows.some(l=>l.updateCatalogPrice)||docLines(ctx.auditExtra.before).some(l=>l.updateCatalogPrice))?'pending':'not-required'});
- x.totalToman=Math.max(0,rows.reduce((a,l)=>a+Z(l.lineTotalToman),0)-dc+tx+ex);return x}
+ x.totalToman=Math.max(0,rows.reduce((a,l)=>a+Z(l.lineTotalToman),0)-dc+tx+ex);
+ const mode=STOCK_MODES.includes(input.stockMode)?input.stockMode:(x.stockMode||'none');if(mode!=='none'&&received.length)throw Error('این فاکتور ورود انبار قدیمی دارد؛ «بدون ورود به انبار» را نگه دارید');unpostStock(inv,ctx,x,'ویرایش فاکتور','edit');ctx.auditExtra.stock=postStock(inv,ctx,x,pricing,mode);return x}
 function editPayment(inv,ctx,input,{suppliers}){const p=A(inv.supplierPayments).find(x=>x.id===input.id);if(!p)throw Error('پرداخت پیدا نشد');if(p.status==='void')throw Error('پرداخت باطل‌شده قابل ویرایش نیست');if(p.source==='quickInvoiceForm'&&S(input.invoiceId)!==S(p.invoiceId))throw Error('پرداخت فاکتور سریع به فاکتور خودش وصل می‌ماند');
  const probe={...inv,supplierPayments:A(inv.supplierPayments).filter(x=>x.id!==p.id)},tmp={...ctx},row=addPayment(probe,tmp,input,{suppliers});ctx.auditExtra={entityId:p.id,before:clone(p)};
  const keep={id:p.id,requestId:p.requestId,source:p.source,createdAt:p.createdAt,createdBy:p.createdBy};Object.keys(p).forEach(k=>{if(!(k in keep))delete p[k]});Object.assign(p,row,keep,{status:'posted',updatedAt:ctx.at,updatedBy:ctx.actor});return p}
@@ -265,5 +314,5 @@ function saveSupplierItems(doc,ctx,{supplierId,ingredientIds,primaryIds},{pricin
  for(const id of prim)for(const r of doc.supplierItems)if(r.supplierCode!==s.code&&r.isPrimary==='بله'&&relIngredient(r,ings)?.id===id){r.isPrimary='خیر';r.updatedAt=ctx.at}
  ctx.auditExtra={supplierId,added,removed,total:want.size};return{added,removed,total:want.size}}
 
-window.PurchaseWrite={purchaseTree,debtSeries,SUP_LISTS,saveSupplierLists,parseSupplierSheets,applySupplierRows,SUP_FIELDS,CHANNELS,nextSupplierCode,supplierNameDuplicate,saveSupplier,archiveSupplier,supplierItems,saveSupplierItems,editInvoice,editPayment,addOrder,trackOrder,ORDER_STATUS,TRACK_STATUS,DEBT_TYPES,rawAccountPosition,closedPeriodOn,addDirectDebt,voidDirectDebt,paymentDirections,paymentSign,invoiceRemaining,addPayment,voidPayment,PAYMENT_METHODS,normalizeName,supplierName,isFinal,invoiceTotal,invoicePaid,supplierAccount,paymentLocations,procurementCatalog,previousPackPrice,buildLines,addInvoice,addQuickInvoice,nearDuplicate,syncInvoicePrices,markPricing,voidInvoice,NUM};
+window.PurchaseWrite={stockPlan,dueDate,STOCK_MODES,purchaseTree,debtSeries,SUP_LISTS,saveSupplierLists,parseSupplierSheets,applySupplierRows,SUP_FIELDS,CHANNELS,nextSupplierCode,supplierNameDuplicate,saveSupplier,archiveSupplier,supplierItems,saveSupplierItems,editInvoice,editPayment,addOrder,trackOrder,ORDER_STATUS,TRACK_STATUS,DEBT_TYPES,rawAccountPosition,closedPeriodOn,addDirectDebt,voidDirectDebt,paymentDirections,paymentSign,invoiceRemaining,addPayment,voidPayment,PAYMENT_METHODS,normalizeName,supplierName,isFinal,invoiceTotal,invoicePaid,supplierAccount,paymentLocations,procurementCatalog,previousPackPrice,buildLines,addInvoice,addQuickInvoice,nearDuplicate,syncInvoicePrices,markPricing,voidInvoice,NUM};
 })();

@@ -137,4 +137,30 @@ const full=PW.addQuickInvoice(I,ctx(),{supplierId:'SUP-1',date:day(1),amount:200
  const si=JSON.parse(srv.inventory),sp=JSON.parse(srv.pricing);
  ok(saves.join(',')==='inventory,pricing,inventory'&&si.purchaseInvoices[0].pricingSyncStatus==='synced'&&sp.ingredients[0].lastPurchasePriceToman===470000,'invoice, then pricing, then the invoice is marked synced');
  ok(si.changeLog.map(x=>x.action).join(',')==='PURCHASE_INVOICE_ADDED,INVOICE_PRICING_SYNCED'&&sp.changeLog[0].action==='INVOICE_PRICES_APPLIED','one audit row per save in each module');
+ // invoice = stock receipt (P-02), payment at delivery (P-11), due date
+ {const P=pr(),L=[{itemId:'ING-1',quantity:2,packageQuantity:1,unitPrice:450000},{itemId:'ING-2',quantity:3,packageQuantity:10,unitPrice:100000}],base={supplierId:'SUP-1',date:day(2),status:'finalized',lines:L};
+  let I=inv(),r=PW.addInvoice(I,ctx(),{...base,number:'S1',stockMode:'new'},{pricing:P,suppliers:sup});
+  const rs=I.stockReceipts.filter(x=>x.invoiceId===r.id);ok(rs.length===2&&rs[0].invoiceLink==='created'&&rs[0].quantity===2&&rs[0].unitCostToman===450000&&rs[1].quantity===30&&Math.abs(rs[1].unitCostToman-10000)<1e-9&&rs[1].totalPriceToman===300000,'new: one receipt per line in base units with the line price');
+  ok(I.inventoryMovements.filter(m=>m.referenceId===r.id&&m.movementType==='PURCHASE_RECEIPT').length===2&&r.stockMode==='new'&&r.receiptIds.length===2,'new: movements and receipt ids on the invoice');
+  // auto: an earlier direct receipt of ING-1 one day before is linked, ING-2 gets a new one
+  I=inv();I.stockReceipts.push({id:'REC-D1',date:day(3),ingredientId:'ING-1',quantity:2,status:'posted',sourceType:'DIRECT_ENTRY',totalPriceToman:null,unitCostToman:null},{id:'REC-OLD',date:day(9),ingredientId:'ING-2',quantity:5,status:'posted'});I.inventoryMovements.push({id:'M-D1',sourceKey:'receipt:REC-D1',status:'posted',unitCostToman:null});
+  const plan=PW.stockPlan(I,P,{date:day(2),lines:PW.addInvoice(inv(),ctx(),{...base,number:'X'},{pricing:P,suppliers:sup}).lines},'auto');ok(plan[0].action==='match'&&plan[0].matches[0].id==='REC-D1'&&plan[1].action==='new','auto plan: link within ±3 days, a receipt 7 days away is not linked');
+  r=PW.addInvoice(I,ctx(),{...base,number:'S2',stockMode:'auto'},{pricing:P,suppliers:sup});const d1=I.stockReceipts.find(x=>x.id==='REC-D1');
+  ok(d1.invoiceId===r.id&&d1.invoiceLink==='matched'&&d1.unitCostToman===450000&&d1.quantity===2&&I.inventoryMovements.find(m=>m.id==='M-D1').unitCostToman===450000&&I.stockReceipts.filter(x=>x.invoiceId===r.id).length===2,'auto: linked receipt gets the price, quantity unchanged, no double stock');
+  const ed=PW.editInvoice(I,ctx(),{...base,id:r.id,number:'S2',lines:[{...L[0],quantity:2},{...L[1],quantity:4}]},{pricing:P,suppliers:sup});const live=I.stockReceipts.filter(x=>x.invoiceId===r.id&&x.status!=='void');
+  ok(live.length===2&&live.some(x=>x.id==='REC-D1')&&live.find(x=>x.ingredientId==='ING-2').quantity===40&&I.stockReceipts.some(x=>x.status==='void'&&x.voidKind==='edit'),'edit: created receipt voided (edit) and posted again, linked one stays');
+  {const J=JSON.parse(JSON.stringify(I));J.settings=J.settings||{mainLocationId:'L1'};J.locations=[{id:'L1',name:'انبار'}];const nu=W.editReceipt(J,{...ctx(),pricing:P},{id:'REC-D1',date:day(3),quantity:3,reason:'مقدار فاکتور'});
+   ok(nu.invoiceId===r.id&&nu.invoiceLink==='matched'&&nu.unitCostToman===450000&&nu.totalPriceToman===1350000&&J.purchaseInvoices.find(x=>x.id===r.id).receiptIds.includes(nu.id),'a linked receipt can be corrected and keeps its invoice link and price');
+   throws(()=>W.voidReceipt(J,ctx(),{id:J.stockReceipts.find(x=>x.invoiceLink==='created'&&x.status!=='void').id,reason:'x'}),/فاکتور/,'a receipt made by the invoice is voided only through the invoice')}
+  const v=PW.voidInvoice(I,ctx(),{id:r.id,reason:'آزمون'});ok(v.unlinked===1&&v.receipts===1&&d1.status==='posted'&&!d1.invoiceId&&d1.unitCostToman===null&&d1.unlinkedInvoiceId===r.id,'void: created receipt voided, linked direct receipt only unlinked with its old price');
+  // none, non-stock, closed period, future
+  I=inv();r=PW.addInvoice(I,ctx(),{...base,number:'S3',stockMode:'none'},{pricing:P,suppliers:sup});ok(I.stockReceipts.length===0&&r.stockMode==='none','none: no stock');
+  I=inv();I.periodClosures=[{status:'closed',from:day(30),to:day(1)}];throws(()=>PW.addInvoice(I,ctx(),{...base,number:'S4',stockMode:'new'},{pricing:P,suppliers:sup}),/بسته/,'closed inventory period refuses stock');
+  I=inv();r=PW.addInvoice(I,ctx(),{...base,status:'draft',number:'S5',stockMode:'new'},{pricing:P,suppliers:sup});ok(I.stockReceipts.length===0,'draft: no stock until finalized');
+  // payment at delivery
+  I=inv();r=PW.addInvoice(I,ctx(),{...base,number:'S6',stockMode:'none',payment:{mode:'now',locationId:'PAYLOC-1',method:'کارتخوان تأمین‌کننده'}},{pricing:P,suppliers:sup});
+  ok(I.supplierPayments.length===1&&I.supplierPayments[0].amount===PW.invoiceTotal(r)&&I.supplierPayments[0].invoiceId===r.id&&PW.invoicePaid(I,r)===PW.invoiceTotal(r),'pay now: full amount, no reference needed for the supplier card reader');
+  throws(()=>PW.addInvoice(inv(),ctx(),{...base,number:'S7',payment:{mode:'now',locationId:'PAYLOC-1',method:'کارت به کارت'}},{pricing:P,suppliers:sup}),/پیگیری/,'card to card needs a reference');
+  throws(()=>PW.addInvoice(inv(),ctx(),{...base,number:'S8',payment:{mode:'now',locationId:'PAYLOC-1',amount:99999999}},{pricing:P,suppliers:sup}),/بیشتر/,'more than the invoice refused');
+  ok(PW.dueDate({supplierId:'SUP-1',date:'1405/08/01'},{suppliers:[{id:'SUP-1',settlementDays:10}]})==='1405/08/11'&&PW.dueDate({supplierId:'SUP-2',date:'1405/08/01'},sup)==='','due date = date + settlement days')}
  console.log(`qa_template_purchase_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0)})();

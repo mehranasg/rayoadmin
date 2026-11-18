@@ -30,6 +30,7 @@ app/
 - **میز کار** (`dashboard-real.js`): کارها از `tasks()`، روزها از `DAY` (هر ردیف به یک ردیف `DAILY` برای فرم و دسترسی وصل است)، اعتماد ماه از `monthTrust`. علامت روز با `InvWrite.saveDayCheck` در `inventory.dayChecks` ذخیره می‌شود (بدون بازمحاسبهٔ شمارش). ثبت روزانهٔ تازه را هم در `DAILY` و هم در `DAY` اضافه کنید.
 - `SAMPLE_TABS` در `shell.js` تب‌هایی است که با دادهٔ زنده پنهان می‌شوند؛ `LIVE_HIDE` تب‌های کنارگذاشته یا جایگزین‌شده است که پنهان‌اند ولی لینک مستقیمشان باز می‌شود. `P.LEGACY` تب «در پنل فعلی» است با لینک امکاناتی که فقط در `legacy/` مانده‌اند.
 - **دسترسی** با `P.can(بخش)` و `P.tabOk(بخش، تب)` بررسی می‌شود. نگاشت بخش و تب به کلیدها در `MOD_KEYS` و `TAB_KEYS` است. ثبت‌ها دوباره با `InvEntry.allowed(کلید)` چک می‌شوند. پیش‌نمایش چاپی (فیش، گزارش نهایی انبارگردانی) با `P.previewDoc(عنوان، css، html)` در `js/shell.js` است. ورود و نمای نقش در `core/js/admin-access.js` است؛ فهرست کلیدها با نام، گروه (بخش پنل) و شرح در `AdminAccess.SECTIONS` است و هر کلید تازه باید هم آنجا و هم در `MOD_KEYS`/`TAB_KEYS` بیاید.
+- **ویژگی `hidden`** همیشه پنهان می‌کند (`[hidden]{display:none!important}` در `panel.css`)؛ برای نمایش شرطی به‌جای `style.display` از آن استفاده کنید.
 - **ابزار رابط:**
   - `P.card`، `P.table`، `P.kpi`، `P.field`، `P.note`، `P.b` (نشان)، `P.modal`، `P.toast`؛
   - فرم ثبت: `InvEntry.formModal` (که `IE.formModal` هم صدا زده می‌شود)؛
@@ -42,6 +43,7 @@ app/
 | `personnel` | `PeopleReal` (`people-real.js`) | `people-write.js`، `payroll-core.js`، `shift-write.js` |
 | `attendance` | `attendance-real.js` | `attendance-write.js` (قواعد: `attendance-core.js`) |
 | `suppliers` | `FinanceReal` (`finance-real.js`) | `purchase-write.js` |
+| اتصال هوش مصنوعی (فقط مرورگر، `localStorage` «rayo.ai») | `core/js/ai-client.js` (`AiClient.invoice`، `chat`، `test`) | — |
 | `finance`، `assets`، `errorlog` | `ExtrasReal` (`extras-real.js`) | `finance-write.js`، `petty-write.js`، `assets-write.js` |
 | همهٔ ماژول‌ها (فقط خواندن) | گزارش‌های دوره‌ای: `core/js/report-core.js` (جمع دوره، فروش هر ماه، گروه‌های گزارش، حقوق دوره) و `js/pages/reports-real.js` (پنج تب اول «گزارش‌ها») | — |
 

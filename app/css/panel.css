@@ -23,6 +23,9 @@
 .quick-menu button small{display:block;color:var(--text-3);font-size:11.5px}
 .quick-menu .thumb{width:30px;height:30px;border-radius:9px}
 
+/* the hidden attribute always hides (classes such as .btn or .field set display and used to override it) */
+[hidden]{display:none!important}
+
 /* page tabs as sub-pages */
 .page-tabs{margin-top:calc(var(--s2) * -1)}
 /* second row: the tabs of the open group (shell tabBar, APP_REVIEW N-10) */
@@ -360,3 +363,17 @@ button.dc{cursor:pointer}button.dc:hover{border-color:var(--accent)}
 .trust-cell.trust-y{background:color-mix(in srgb,var(--warning) 18%,transparent)}
 .trust-cell.trust-r{background:color-mix(in srgb,var(--danger) 16%,transparent)}
 .night-text{white-space:pre-wrap;font:inherit;line-height:2;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:var(--s3) var(--s4);margin:0}
+
+/* purchase invoice: photo beside the form on desktop, above it on mobile; stock preview (APP_REVIEW P-02, P-13) */
+.pi-img img{display:block;width:100%;max-height:72vh;object-fit:contain;border:1px solid var(--border);border-radius:8px;background:var(--surface-2)}
+@media (min-width:1000px){.modal.pi-has-photo{width:min(1280px,96vw);max-width:none}.modal.pi-has-photo #iwForm{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,38%);column-gap:var(--s5);align-items:start}.modal.pi-has-photo #iwForm>*{grid-column:1}.modal.pi-has-photo #iwForm>.pi-img{grid-column:2;grid-row:1/span 40;position:sticky;top:0}}
+@media (max-width:999px){.pi-img img{max-height:40vh}}
+.pi-stock .card-sub-title{font-size:12.5px;font-weight:700;margin-bottom:4px}
+.pi-stock .list-item{padding:6px 0}
+
+/* reorder board (APP_REVIEW P-12) */
+.ro-bar{position:relative;height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden;min-width:90px}
+.ro-bar>i{position:absolute;inset-block:0;inset-inline-start:0;border-radius:999px;background:var(--success)}
+.ro-bar.low>i{background:var(--warning)}.ro-bar.out>i{background:var(--danger)}
+.ro-bar>b{position:absolute;inset-block:-2px;width:2px;background:var(--text-2)}
+.ro-sup .card-head{align-items:center}
