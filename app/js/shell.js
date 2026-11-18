@@ -193,10 +193,12 @@ P.modal=({title,body,foot,size='',onMount})=>{
     <div class="modal-body">${body}</div>
     <div class="modal-foot">${foot||'<button class="btn btn-ghost" data-close>بستن</button>'}</div>`;
   host.classList.add('open');RT.icons();
-  onMount&&onMount(m);P.enhanceSelects(m);
+  onMount&&onMount(m);P.enhanceSelects(m);foldNotes(m);
   return m;
 };
 P.close=()=>$('#pnModal').classList.remove('open');
+function foldNotes(m){for(const n of m.querySelectorAll('.modal-body .note')){if(n.dataset.fold||n.closest('#iwNeg,#payWarn'))continue;const ic=n.querySelector('[data-lucide],svg'),name=ic?.getAttribute('data-lucide')||[...(ic?.classList||[])].find(c=>c.startsWith('lucide-'))?.slice(7)||'';
+ if(!['info','sparkles','lock','history','database'].includes(name)||n.innerText.length<120)continue;n.dataset.fold='1';n.classList.add('note-fold');n.title='برای خواندن کامل بزنید';n.addEventListener('click',()=>n.classList.toggle('open'))}}
 /* simple form: fields html + primary label; onOk(form) may return false to keep open */
 P.form=({title,body,ok='ثبت',size='',onOk,onMount,info})=>P.modal({title,size,
   body:`<form id="pnForm" class="stack" style="gap:var(--s4)">${body}</form>${info?P.note(info,'sparkles'):''}`,
@@ -476,14 +478,15 @@ const QUICK=[
 ];
 /* live data: the real entry forms; each opens on its own page once that page's data is loaded */
 const QUICK_LIVE=[
+  {mod:'finance',key:'purchase',icon:'file-plus-2',t:'رسیدن بار / فاکتور خرید',s:'ورود به انبار، قیمت و بدهی در یک ثبت؛ با عکس فاکتور',go:'#/finance/docs',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.detailed()},
   {mod:'inventory',key:'pricing',icon:'tag',t:'آخرین قیمت خرید',s:'قیمت تازهٔ چند قلم، یا از فایل Excel',go:'#/base/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.pricesForm()},
-  {mod:'inventory',key:'inventory',icon:'package-plus',t:'ورود کالا به انبار',s:'چند ردیف، واحد انبار یا خرید',go:'#/inventory/receipt',open:()=>InvEntry.receipt()},
+  {mod:'inventory',key:'inventory',icon:'package-plus',t:'ورود کالا بدون فاکتور',s:'فقط وقتی فاکتور ندارد؛ فاکتور بعدی به آن وصل می‌شود',go:'#/inventory/receipt',open:()=>InvEntry.receipt()},
   {mod:'inventory',key:'inventory',icon:'trash-2',t:'ضایعات / مصرف پرسنل',s:'پرتی، مصرف پرسنل یا تست؛ ماده یا آیتم منو طبق رسپی',go:'#/inventory/waste',open:()=>InvEntry.event()},
   {mod:'inventory',key:'inventory',icon:'clipboard-check',t:'شمارش انبار',s:'شمارش کور پایان روز',go:'#/inventory/count',open:()=>InvEntry.count()},
   {mod:'inventory',key:'inventory',icon:'cup-soda',t:'شمارش نوشیدنی',s:'شمارش و مغایرت نوشیدنی‌ها',go:'#/inventory/beverage'},
   {mod:'finance',key:'cash',icon:'banknote',t:'گزارش صندوق روزانه',s:'فروش، دریافتی‌ها و مغایرت',go:'#/finance/cash',ready:()=>!!window.CashReal,open:()=>CashReal.form()},
   {mod:'finance',key:'financeLedger',icon:'coins',t:'صندوق نقدی',s:'پرداخت هزینه از صندوق؛ شارژ و شمارش در همان صفحه',go:'#/finance/cashbox',ready:()=>!!window.LedgerReal?.ready?.(),open:()=>LedgerReal.cashOut()},
-  {mod:'finance',key:'purchase',icon:'file-plus-2',t:'فاکتور خرید',s:'با جزئیات اقلام',go:'#/finance/docs',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.detailed()},
+
   {mod:'finance',key:'purchase',icon:'send',t:'پرداخت به تأمین‌کننده',s:'روی فاکتور باز یا علی‌الحساب',go:'#/finance/payments',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.payment({})},
   {mod:'finance',key:['petty','financeLedger'],icon:'wallet',t:'هزینهٔ تنخواه',s:'خرید ریز با کارت تنخواه',go:'#/finance/petty',ready:()=>!!window.ExtrasReal?.mods?.finance?.doc,open:()=>PettyEntry.expense()},
   {mod:'inventory',key:'pricing',icon:'book-plus',t:'قلم یا کالای جدید',s:'تعریف در کاتالوگ اصلی',go:'#/base/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.ingredientForm()},
@@ -495,6 +498,11 @@ const QUICK_LIVE=[
 P.previewDoc=(title,css,body)=>{P.modal({title:P.esc(title),size:'wide',body:'<iframe id="pvFrame" title="پیش‌نمایش" style="width:100%;height:68vh;border:1px solid var(--border);border-radius:8px;background:#fff"></iframe>',foot:`<button class="btn btn-ghost" data-close>بستن</button><button class="btn btn-primary" id="pvPrint">${P.ic('printer')}چاپ / ذخیرهٔ PDF</button>`,
   onMount:md=>{const fr=P.$('#pvFrame',md),d=fr.contentDocument;d.open();d.write(`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>${P.esc(title)}</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap"><style>${css}</style></head><body>${body}</body></html>`);d.close();P.$('#pvPrint',md).onclick=()=>{try{fr.contentWindow.focus();fr.contentWindow.print()}catch(e){P.toast('چاپ باز نشد: '+e.message,'alert-triangle')}}}})};
 P.openLive=q=>openLive(q);
+/* in-app help of the current page and the glossary (help.js, APP_REVIEW N-37) */
+P.glossaryHtml=()=>{const H=window.RayoHelp;return H?`<dl class="kv gloss">${H.glossary.map(([t,d])=>`<dt>${P.esc(t)}</dt><dd>${P.esc(d)}</dd>`).join('')}</dl>`:''};
+P.help=()=>{const H=window.RayoHelp;if(!H)return;let r=P.route();if(r.mod==='base'){const b=BASE_LINKS.find(x=>x[0]===r.tab);if(b)r={mod:b[1],tab:b[2]}}const m=P.mods[r.mod],t=(m?._t&&m._t.id)||r.tab,h=H.find(r.mod,t)||H.find(r.mod,'');
+ const title=m?(m._t?m.label+' ← '+m._t.label:m.label):'راهنما',li=a=>a&&a.length?`<ul class="help-list">${a.map(x=>`<li>${P.esc(x)}</li>`).join('')}</ul>`:'';
+ P.modal({title:'راهنما: '+P.esc(title),size:'md',body:(h?`<p style="margin-top:0">${P.esc(h.what)}</p>${h.steps?'<b>کار روزانه</b>'+li(h.steps):''}${h.tips?'<b>نکته</b>'+li(h.tips):''}`:P.note('برای این صفحه هنوز راهنمای جدا نوشته نشده است.','info'))+`<details class="fsec mt"><summary><b>واژه‌نامه</b><small>یک نام برای هر چیز، در همهٔ پنل</small></summary><div class="fsec-body">${P.glossaryHtml()}</div></details>`})};
 function openLive(q){if(location.hash!==q.go)P.go(q.go);if(!q.open)return;let n=0;const tick=()=>{const ok=P.live()&&(!q.ready||q.ready());if(ok){try{q.open()}catch(e){P.toast(e.message||String(e),'alert-triangle')}return}if(++n>60)return P.toast('داده هنوز خوانده نشده؛ چند لحظه بعد دوباره بزنید','alert-triangle');setTimeout(tick,250)};setTimeout(tick,150)}
 function buildTopbar(){
   const top=$('#pnTop'),E=window.InvEngine,today=E?.CAL?.today||'';
@@ -504,6 +512,7 @@ function buildTopbar(){
     ${today?`<span class="badge badge-accent plain" title="امروز">${P.ic('calendar')}${P.fa(today)}</span>`:''}
     <div class="quick-wrap"><button class="btn btn-primary" id="quickBtn">${P.ic('plus')}<span class="quick-label">ثبت جدید</span></button><div class="quick-menu" id="quickMenu"></div></div>
     <div class="quick-wrap"><button class="icon-btn" id="pnTheme" aria-label="تم و پوسته" title="تم و پوسته">${P.ic('palette')}</button><div class="quick-menu" id="themeMenu"></div></div>
+    <button class="icon-btn" id="pnHelp" aria-label="راهنمای این صفحه" title="راهنمای این صفحه" onclick="P.help()">${P.ic('circle-help')}</button>
     <button class="icon-btn" aria-label="کارهای امروز" title="کارهای امروز" onclick="P.go('#/home')">${P.ic('bell')}</button>`;
   $('#pnMenu').onclick=()=>setMenu(!$('#pnSide').classList.contains('open'));
   $('#pnBack').onclick=()=>setMenu(false);
@@ -584,12 +593,14 @@ function gridify(tb){if(tb.dataset.grid||tb.classList.contains('no-grid')||tb.cl
  const all=[...body.rows].filter(r=>!(r.cells.length===1&&r.cells[0].colSpan>1));if(!all.length)return;const orig=all.slice();
  const title=(tb.closest('.card')?.querySelector('.card-head h2,.card-head h3')?.innerText||'').trim(),key='pn_grid|'+location.hash.split('/').slice(0,3).join('/')+'|'+head.map(h=>h.innerText.trim()).join('|');
  let hidden=new Set();try{const sv=localStorage.getItem(key);hidden=new Set(sv?JSON.parse(sv):head.map((h,i)=>h.dataset.hide?i:-1).filter(i=>i>=0))}catch(_){}let size=50,page=0,sortI=-1,dir=1;
+ tb.classList.add('grid-cards');if(head.length>4){tb.classList.add('grid-more');body.addEventListener('click',e=>{if(innerWidth>720)return;const tr=e.target.closest('tr');if(tr&&!e.target.closest('button,a,input,select,label'))tr.classList.toggle('open')})}for(const r of all)if(r.cells.length===head.length)for(let i=0;i<r.cells.length;i++)r.cells[i].dataset.th=head[i].innerText.trim();
  const numCol=head.map(h=>h.classList.contains('num')),hasUnit=head.some(h=>/واحد/.test(h.innerText)),MONEY=/ارزش|مبلغ|بها|تومان|ریال|هزینه|قیمت|پرداخت|خرید|سهم|حقوق|انعام|جریمه|درآمد|مانده|بدهی|طلب/,sumCol=head.map((h,i)=>numCol[i]&&!h.dataset.nosum&&(!hasUnit||MONEY.test(h.innerText)));
  const vis=()=>{head.forEach((h,i)=>{const d=hidden.has(i)?'none':'';h.style.display=d;for(const r of [...body.rows,...(tb.tFoot?[...tb.tFoot.rows]:[])])if(r.cells[i]&&r.cells.length===head.length)r.cells[i].style.display=d})};
  // totals (all rows)
  if(!tb.tFoot&&all.length>1&&sumCol.some(Boolean)){const short=new Set,sums=head.map((_,i)=>{if(!sumCol[i])return null;let s=0,n=0;for(const r of all){const t=String(r.cells[i]?.innerText||'');if(/[٪%]/.test(t))return null;const v=P.num2(t);if(v===null){if(t.trim()&&t.trim()!=='—')return null;continue}if(/میلیارد|میلیون/.test(t))short.add(i);s+=v;n++}return n?s:null});
   if(sums.some(v=>v!==null)){const f=tb.createTFoot(),tr=f.insertRow();head.forEach((h,i)=>{const td=tr.insertCell();td.className=numCol[i]?'num':'';td.innerHTML=sums[i]!==null&&short.has(i)?`<b>${RT.money(sums[i])}</b>`:sums[i]!==null?`<b>${P.fa(Math.round(sums[i]*100)/100===Math.round(sums[i])?Math.round(sums[i]).toLocaleString('en-US'):(Math.round(sums[i]*100)/100).toLocaleString('en-US'))}</b>`:(i===head.findIndex((_,k)=>!hidden.has(k))?'<b>جمع</b>':'')});tr.className='grid-total'}}
  const bar=document.createElement('div');bar.className='grid-bar';const wrap=tb.closest('.table-wrap')||tb;wrap.parentNode.insertBefore(bar,wrap);
+ /* long lists on the page scroll inside their frame with the header kept visible (desktop; APP_REVIEW N-14) */if(all.length>15&&!tb.closest('#pnModal')&&wrap.classList.contains('table-wrap'))wrap.classList.add('grid-scroll');
  const draw=()=>{const rows=sortI<0?orig:orig.slice().sort((a,b)=>{const x=a.cells[sortI]?.innerText||'',y=b.cells[sortI]?.innerText||'',nx=P.num2(x),ny=P.num2(y);if(nx!==null&&ny!==null)return(nx-ny)*dir;if(nx!==null)return -1;if(ny!==null)return 1;return P.en(x).localeCompare(P.en(y),'fa')*dir});
   if(sortI>=0)for(const r of rows)body.appendChild(r);const pages=size?Math.max(1,Math.ceil(rows.length/size)):1;if(page>=pages)page=pages-1;rows.forEach((r,k)=>{r.style.display=!size||(k>=page*size&&k<(page+1)*size)?'':'none'});
   head.forEach((h,i)=>{h.classList.toggle('sorted',i===sortI);h.dataset.dir=i===sortI?(dir>0?'asc':'desc'):''});vis();
