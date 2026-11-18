@@ -60,7 +60,7 @@ function realSession(){const user=ss('rayo_admin_user');if(!user)return null;let
    (js/22 login: active, userAccess.enabled, username without case, userPassword as stored — plain text, BL-002).
    Their permission keys (personnel[].userAccess.permissions) open only the matching saves; the session keys are the admin
    ones with role «staff» (so the save code names them) plus rayo_staff_session of the legacy staff panel. */
-const STAFF_PERMS={cashReport:['cash'],inventoryWaste:['inventory'],inventoryConsumption:['inventory'],beverageControl:['inventory'],inventoryCounts:['inventory'],purchaseRequests:['purchase'],purchaseInvoices:['purchase']};
+const STAFF_PERMS={cashReport:['cash'],inventoryWaste:['inventory'],inventoryConsumption:['inventory'],beverageControl:['inventory'],inventoryCounts:['inventory'],purchaseRequests:['purchase'],purchaseInvoices:['purchase'],tips:['personnel'],reservations:['customers']};
 // every staff member may report a broken or missing asset (legacy staff panel: no permission key)
 const staffSections=perms=>[...new Set(['assets',...perms.flatMap(k=>STAFF_PERMS[k]||[])])];
 const staffPerms=p=>Object.entries(p?.userAccess?.permissions||{}).filter(([,v])=>v===true).map(([k])=>k);

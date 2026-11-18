@@ -44,6 +44,10 @@ PW.setReservationStatus(d,ctx(),{id:r.id,status:'انجام‌شده'});ok(r.sta
  throws(()=>PW.requestLeave(d,c,{personnelId:'EMP-1',fromDate:E.CAL.k(E.CAL.i(T)-2),toDate:T}),/گذشته/,'past days refused');
  const p=d.personnel[0];p.username='maryam';p.userAccess={enabled:true,permissions:{cashReport:true,inventoryTransfers:true}};PW.saveAccount(d,c,{id:'EMP-1',username:'maryam',enabled:true,permissions:['beverageControl']});
  ok(p.userAccess.permissions.beverageControl===true&&p.userAccess.permissions.cashReport===false&&p.userAccess.permissions.inventoryTransfers===true,'account form: listed keys set, keys not in the form kept')}
+// staff app: a tip or a reservation names the person who registered it
+{const d=doc(),c={...ctx(),staff:{personnelId:'EMP-2',name:'رضا'}};const t=PW.addTip(d,c,{date:T,type:'سالن',totalAmount:100000,participants:[{personnelId:'EMP-1'}]});ok(t.createdByPersonnelId==='EMP-2'&&t.createdByName==='رضا','staff tip names the person');
+ const r=PW.addReservation(d,c,{date:T,customerName:'مهمان',phone:'۰۹۱۲',partySize:2});ok(r.createdByPersonnelId==='EMP-2'&&r.createdByName==='رضا'&&r.status==='رزرو','staff reservation names the person');
+ const t2=PW.addTip(d,ctx(),{date:T,type:'سالن',totalAmount:1000,participants:[{personnelId:'EMP-1'}]});ok(!('createdByPersonnelId' in t2),'manager tip unchanged')}
 (async()=>{const srv={t:JSON.stringify(doc())},io={module:'personnel',validate:PW.validPersonnel,load:async()=>JSON.parse(srv.t),save:async x=>{srv.t=JSON.stringify(x)},actor:()=>'qa-admin',pricing:()=>null};
  await W.edit(io,{action:'TIP_ADDED',mutate:(x,cx)=>PW.addTip(x,cx,{date:T,type:'کلی',totalAmount:1000,participants:[{personnelId:'EMP-1'}]})});const s=JSON.parse(srv.t);
  ok(s.tipGroups.length===2&&s.personnel[0].userPassword==='secret'&&s.personnel[0].cardNumber==='6037991234567890'&&s.settings.adminUsers[0].passwordHash==='H','sensitive fields are written back unchanged');

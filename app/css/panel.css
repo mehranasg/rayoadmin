@@ -460,3 +460,4 @@ body.staff-app{background:var(--bg);min-height:100vh}
 .st-top-in .grow,.st-task .grow,.st-row .grow,.st-today .grow{flex:1 1 auto}
 .st-row b small{font-weight:400;margin-inline-start:4px}
 .st-top-in{width:100%;box-sizing:border-box}.staff-app .st-top{display:block}
+.st-page>.search{flex:none;align-self:stretch}

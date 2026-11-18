@@ -28,6 +28,9 @@ const PAGES=[
  {k:'count',t:'شمارش انبار',s:'اقلام موعددار امروز',icon:'clipboard-check',ok:()=>can('inventoryCounts'),data:1},
  {k:'invoice',t:'رسیدن بار / فاکتور',s:'فاکتور خرید و ورود به انبار',icon:'file-plus-2',ok:()=>can('purchaseInvoices'),data:1},
  {k:'order',t:'سفارش خرید',s:'سفارش به تأمین‌کننده',icon:'clipboard-pen',ok:()=>can('purchaseRequests'),data:1},
+ {k:'tips',t:'ثبت انعام',s:'انعام دریافتی و افراد شریک',icon:'hand-coins',ok:()=>can('tips'),hr:1},
+ {k:'res',t:'رزرو',s:'رزروهای پیش رو و رزرو تازه',icon:'calendar-plus',ok:()=>can('reservations'),hr:1},
+ {k:'sup',t:'تأمین‌کنندگان',s:'تماس و زمان سفارش',icon:'truck',ok:()=>can('suppliersView'),data:1},
  {k:'asset',t:'خرابی و مفقودی وسیله',s:'شکستگی، آسیب یا گم شدن',icon:'hammer',data:1},
  {k:'shifts',t:'شیفت‌های من',s:'این ماه و ماه بعد',icon:'calendar-days',nav:1,hr:1},
  {k:'leave',t:'مرخصی',s:'درخواست و سوابق',icon:'calendar-off',nav:1,hr:1}];
@@ -90,7 +93,7 @@ function homeView(){const t=today(),y=dayAdd(t,-1),tasks=[];
  ${tasks.length?`<h3 class="st-h">کارهای امروز</h3><div class="stack" style="gap:8px">${tasks.map(x=>`<div class="st-task st-${x.tone}"${x.go&&!x.btn?` onclick="P.go('${x.go}')" role="link"`:''}>${P.ic(x.icon)}<div class="grow"><b>${esc(x.t)}</b>${x.s?`<small>${esc(x.s)}</small>`:''}</div>${x.btn?`<button class="btn btn-primary btn-sm" onclick="${x.btn[1]}">${esc(x.btn[0])}</button>`:P.ic('chevron-left')}</div>`).join('')}</div>`:''}
  <h3 class="st-h">ثبت‌ها و صفحه‌ها</h3><div class="st-tiles">${tiles.map(p=>`<a class="st-tile" href="#/s/${p.k}">${P.ic(p.icon)}<b>${esc(title(p))}</b><small>${esc(p.s||'')}</small></a>`).join('')}</div>
  ${tiles.filter(p=>p.ok).length?'':P.note('ثبتی برای شما فعال نیست؛ برای گزارش صندوق، شمارش، ضایعات یا خرید از مدیر بخواهید دسترسی بدهد.','info')}
- <p class="muted st-foot">نسخهٔ تازهٔ پنل پرسنل. ثبت انعام، رزرو، دیدن تأمین‌کنندگان و دریافتی‌ها و کارکرد ماه هنوز در پنل پرسنل قبلی است.</p>`}
+ <p class="muted st-foot">اپ پرسنل رایو. مشکل یا پیشنهاد را به مدیر بگویید.</p>`}
 
 /* ---------- cash report ---------- */
 function cashView(){const g=dataGate();if(g)return g;const t=today(),r=cashOf(t),mine=myCash().slice(0,40),T=v=>P.mt(CW.N(v)/10);
@@ -142,6 +145,18 @@ function assetView(){const AE=window.AssetsEntry,st=AE?.state?.()||{};if(!AE)ret
  return`<div class="card st-cta"><b>خرابی، شکستگی یا مفقودی</b><small class="muted">همان موقع ثبت کنید: کدام وسیله، چند عدد و چه اتفاقی افتاد. ثبت شما موجودی اموال را کم نمی‌کند؛ مدیر بررسی می‌کند.</small><button class="btn btn-primary btn-lg" onclick="AssetsEntry.incident()">${P.ic('plus')}گزارش تازه</button></div>
  <h3 class="st-h">گزارش‌های من</h3>${mine.length?`<div class="stack" style="gap:8px">${mine.map(x=>`<div class="st-row"><div class="grow"><b>${esc(x.assetName||'')}</b><small>${fa(E.D(x.date))} · ${esc(x.type||'')} · ${fa(String(x.quantity||1))} عدد</small>${x.managerNote?`<small class="muted">مدیر: ${esc(x.managerNote)}</small>`:''}</div>${badge(x.status||'جدید',{'جدید':'warning','بررسی‌شده':'success','بسته‌شده':'success','ردشده':'neutral'})}</div>`).join('')}</div>`:P.note('هنوز گزارشی از شما ثبت نشده است.','info')}`}
 
+/* ---------- tips, reservations, suppliers (the panel's forms; tips and reservations live in the personnel module) ---------- */
+function tipsView(){const g=hrGate();if(g)return g;const hr=PR().doc(),u=me(),T=v=>P.t(Math.round(+v||0)),mine=A(hr.tipGroups).filter(x=>x.createdByPersonnelId===u.personnelId).sort((a,b)=>S(b.createdAt).localeCompare(S(a.createdAt))).slice(0,30);
+ return`<div class="card st-cta"><b>ثبت انعام</b><small class="muted">انعامی که مشتری داده: مبلغ، نوع و افرادی که در آن شریک‌اند. سهم هر نفر را مدیر در حقوق ماه می‌بیند.</small><button class="btn btn-primary btn-lg" onclick="PeopleEntry.tip()">${P.ic('plus')}انعام تازه</button></div>
+ <h3 class="st-h">انعام‌های ثبت‌شده توسط من</h3>${mine.length?`<div class="stack" style="gap:8px">${mine.map(x=>`<div class="st-row"><div class="grow"><b>${T(x.totalAmount)} تومان <small class="muted">${esc(x.type||'')}</small></b><small>${fa(E.D(x.receiveDate||x.date||''))} · ${fa(A(x.participants).length)} نفر</small></div>${badge(x.status||'ثبت‌شده',{'ثبت‌شده':'info','تسویه‌شده':'success','ابطال‌شده':'neutral'})}</div>`).join('')}</div>`:P.note('هنوز انعامی ثبت نکرده‌اید.','info')}`}
+function resView(){const g=hrGate();if(g)return g;const hr=PR().doc(),t=today(),T=v=>P.t(Math.round(+v||0)),up=A(hr.reservations).filter(r=>E.D(r.date)>=t&&!['لغو','لغوشده'].includes(r.status)).sort((a,b)=>(E.D(a.date)+S(a.time)).localeCompare(E.D(b.date)+S(b.time))).slice(0,60);
+ return`<div class="card st-cta"><b>رزرو تازه</b><small class="muted">نام، تلفن، تعداد نفر، ساعت و بیعانه (اگر گرفتید).</small><button class="btn btn-primary btn-lg" onclick="CustomersEntry.reservation()">${P.ic('plus')}ثبت رزرو</button></div>
+ <h3 class="st-h">رزروهای پیش رو</h3>${up.length?`<div class="stack" style="gap:8px">${up.map(r=>`<div class="st-row${E.D(r.date)===t?' st-now':''}"><div class="st-date"><b>${fa(+E.D(r.date).slice(8))}</b><small>${esc(wd(E.D(r.date)))}</small></div><div class="grow"><b>${esc(r.customerName||'')} <small class="muted">${fa(String(r.partySize||''))} نفر${r.time?' · ساعت '+fa(r.time):''}</small></b><small>${esc(r.area||'')}${+r.depositAmount?' · بیعانه '+T(r.depositAmount)+' تومان':''}${r.phone?` · <a href="tel:${esc(r.phone)}" dir="ltr">${fa(r.phone)}</a>`:''}</small></div>${badge(r.status||'رزرو',{'رزرو':'info','انجام‌شده':'success','نیامد':'danger'})}</div>`).join('')}</div>`:P.note('رزرو پیش رویی ثبت نشده است.','info')}`}
+function supView(){const g=dataGate()||supGate();if(g)return g;const rows=A(SUP().suppliers).filter(x=>x.status!=='غیرفعال'&&!x.isArchived).sort((a,b)=>S(a.mainGroup).localeCompare(S(b.mainGroup),'fa')||S(a.company).localeCompare(S(b.company),'fa'));
+ const tel=n=>n?`<a href="tel:${esc(S(n))}" dir="ltr">${fa(S(n))}</a>`:'';
+ return`<label class="search">${P.ic('search')}<input id="stSupQ" placeholder="نام یا کالا"></label><div class="stack" id="stSupL" style="gap:8px">${rows.map(x=>`<div class="st-row" data-k="${esc([x.company,x.contactName,x.mainGroup,x.purchaseItemsSummary].join(' '))}"><div class="grow"><b>${esc(x.company||x.contactName||'')} <small class="muted">${esc(x.mainGroup||'')}</small></b><small>${[x.contactName&&esc(x.contactName),tel(x.mobile),tel(x.phone)].filter(Boolean).join(' · ')}</small>${(o=>o?`<small>سفارش: ${esc(o)}</small>`:'')([A(x.orderDays).length?A(x.orderDays).join('، '):Array.isArray(x.orderDays)?'':S(x.orderDays),S(x.orderTimeWindow),S(x.orderMethod)].filter(Boolean).join(' · '))}${x.purchaseItemsSummary?`<small class="muted">${esc(x.purchaseItemsSummary)}</small>`:''}</div></div>`).join('')}</div>`}
+function supMount(v){const q=$('#stSupQ',v),l=$('#stSupL',v);if(q)q.oninput=()=>{const t=q.value.trim();for(const r of l.children)r.style.display=!t||P.match(r.dataset.k,t)?'':'none'}}
+
 /* ---------- shifts ---------- */
 function shiftsView(){const g=hrGate();if(g)return g;const sh=myShifts(),t=today();if(!sh.length)return P.note('شیفتی برای شما در برنامهٔ منتشرشده نیست.','info');
  const by=new Map;for(const x of sh)(by.get(x.date)||by.set(x.date,[]).get(x.date)).push(x);
@@ -161,7 +176,7 @@ function leaveForm(){const hr=PR()?.doc?.();if(!hr)return;const types=A(hr.lists
    PR().saveHr(btn,{action:'LEAVE_REQUESTED',details:{fromDate:x.fromDate,toDate:x.toDate},mutate:(d,c)=>PW.requestLeave(d,c,x),done:r=>`درخواست مرخصی ${fa(r.fromDate)} ثبت شد؛ منتظر تأیید مدیر بمانید`})}})}
 
 /* ---------- render ---------- */
-const VIEWS={home:[homeView],cash:[cashView],bev:[bevView,bevMount],waste:[wasteView],count:[countView],invoice:[invoiceView],order:[orderView],asset:[assetView],shifts:[shiftsView],leave:[leaveView]};
+const VIEWS={home:[homeView],cash:[cashView],bev:[bevView,bevMount],waste:[wasteView],count:[countView],invoice:[invoiceView],order:[orderView],asset:[assetView],tips:[tipsView],res:[resView],sup:[supView,supMount],shifts:[shiftsView],leave:[leaveView]};
 function render(){if(!me())return loginView();document.body.classList.remove('pn-locked');
  const hr=PR()?.doc?.();if(hr&&!AA.stillValid(hr)){AA.signOut();P.toast('دسترسی پنل پرسنل شما غیرفعال شده است','alert-triangle');return loginView()}
  if(IC.ready()&&PR()&&!hr&&!PR().state.busy&&!PR().state.err)PR().load();

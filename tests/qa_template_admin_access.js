@@ -52,6 +52,7 @@ ok(AA.sectionName('monitor').includes('مانیتورینگ')&&AA.sectionName('z
  AA.signOut();AA.signInStaff(r);ok(AA.session()===null&&AA.staff()===null&&!AA.has('cash'),'outside the staff app a staff sign-in opens nothing');
  window.RAYO_STAFF_APP=1;ok(AA.staff().personnelId==='EMP-1'&&AA.staffCan('cashReport')&&!AA.staffCan('tips')&&AA.has('cash')&&!AA.has('payroll')&&!AA.canManage(),'inside the staff app: the person and their permissions');
  ok(JSON.parse(sessionStorage.getItem('rayo_staff_session')).personnelId==='EMP-1','legacy staff session key written');
+ ok(AA.verifyStaff({personnel:[{id:'E',name:'ن',status:'فعال',username:'n',userPassword:'p',userAccess:{enabled:true,permissions:{tips:true,reservations:true,suppliersView:true}}}]},'n','p').sections.join()==='assets,personnel,customers','tips → personnel, reservations → customers, suppliersView needs no section');
  hr.personnel[0].userAccess.permissions.cashReport=false;ok(AA.stillValid(hr)&&!AA.staffCan('cashReport')&&!AA.has('cash'),'a permission removed by the manager is dropped on the next check');
  hr.personnel[0].userAccess.enabled=false;ok(!AA.stillValid(hr),'disabled panel signs the person out');
  AA.signOut();ok(!sessionStorage.getItem('rayo_staff_session')&&!sessionStorage.getItem('rayo_staff_perms'),'sign-out clears the staff keys');delete window.RAYO_STAFF_APP}
