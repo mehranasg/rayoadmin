@@ -183,5 +183,5 @@ function render(){if(!me())return loginView();document.body.classList.remove('pn
  let p=PAGES.find(x=>x.k===route())||PAGES[0];if(!allowed(p))p=PAGES[0];chrome(p);
  const v=$('#pnView'),[view,mount]=VIEWS[p.k];v.innerHTML=`<div class="st-page">${view()}</div>`;RT.icons();mount&&IC.ready()&&mount(v)}
 P.render=render;P.route=()=>({mod:'staff',tab:route(),param:''});
-window.StaffApp={start:()=>{window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0)});render()},render,signOut,cash:cashForm,cashOther,leave:leaveForm,count:(only,title)=>InvEntry.count({only,title}),pages:PAGES};
+window.StaffApp={start:()=>{setTimeout(()=>P.cssCheck&&P.cssCheck(),1500);window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0)});render()},render,signOut,cash:cashForm,cashOther,leave:leaveForm,count:(only,title)=>InvEntry.count({only,title}),pages:PAGES};
 })();

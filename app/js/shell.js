@@ -615,7 +615,12 @@ function gridify(tb){if(tb.dataset.grid||tb.classList.contains('no-grid')||tb.cl
 P.grid=root=>{for(const tb of (root||document).querySelectorAll('#pnView table.table, #pnModal table.table'))gridify(tb)};
 let gridT=0;new MutationObserver(()=>{clearTimeout(gridT);gridT=setTimeout(()=>P.grid(),40)}).observe(document.documentElement,{childList:true,subtree:true});
 
+/* css/panel.css sets --pn-css; without it (file not uploaded, wrong path or blocked) the layout falls apart, so say it plainly */
+P.cssCheck=()=>{if(getComputedStyle(document.documentElement).getPropertyValue('--pn-css').trim()==='1'||document.getElementById('pnCssWarn'))return;const el=document.createElement('div');el.id='pnCssWarn';el.setAttribute('role','alert');
+ el.style.cssText='position:fixed;inset-inline:0;top:0;z-index:9999;padding:10px 16px;background:#d1342f;color:#fff;font:600 14px/1.6 Vazirmatn,Tahoma,sans-serif;text-align:center';
+ el.textContent='فایل ظاهر پنل (css/panel.css) بارگذاری نشد؛ صفحه‌ها به‌هم‌ریخته دیده می‌شوند. همین پوشه را دوباره کامل آپلود کنید و صفحه را با Ctrl+F5 باز کنید.';document.body.appendChild(el)};
 P.start=()=>{
+  setTimeout(P.cssCheck,1500);
   /* skin chosen in the look menu (night / bazaar), else the light or dark theme */
   const sk=store('pn_skin');if(SKIN_BASE[sk])applySkin(sk);
   /* short tab labels (the page title keeps the full name) so all tabs of a section fit on one line */

@@ -461,3 +461,12 @@ body.staff-app{background:var(--bg);min-height:100vh}
 .st-row b small{font-weight:400;margin-inline-start:4px}
 .st-top-in{width:100%;box-sizing:border-box}.staff-app .st-top{display:block}
 .st-page>.search{flex:none;align-self:stretch}
+
+/* ---------- owner's UI report (1405/08/27) ---------- */
+/* marker read by shell.js: when this file did not load, the panel says so instead of showing a broken layout */
+:root{--pn-css:1}
+/* an open modal keeps the wheel and touch scroll to itself; the page behind does not move */
+html:has(#pnModal.open),html:has(#pnModal.open) body{overflow:hidden}
+.modal-body{overscroll-behavior:contain}
+/* long text in a list cell (e.g. the sections of an admin user) wraps in a fixed width instead of widening the table */
+.table td .wrap{display:block;white-space:normal;min-width:180px;max-width:320px}
