@@ -286,6 +286,24 @@ function saveReorderPoints(pr,ctx,{rows}){const ing=new Map(A(pr.ingredients).ma
   if(rp!==(orp===null?null:Number(orp))||ts!==(ots===null?null:Number(ots))){changes.push({ingredientId:id,before:{reorderPoint:orp,targetStock:ots},after:{reorderPoint:rp,targetStock:ts}});i.reorderPoint=rp;i.targetStock=ts;i.updatedAt=ctx.at}}
  if(!changes.length)throw Error('تغییری داده نشده است');ctx.auditExtra={changes};return changes.length}
 
+/* ---------- cycle counting and reorder suggestions (APP_REVIEW P-08, P-18) ----------
+   ABC: stock items ranked by the value they used (sales by recipe + waste + staff use, at cost) in the last days; the
+   items that make the first aShare٪ of the value are A, up to bShare٪ B, the rest (and items without use) C.
+   Due: an item is due when its last count (any approved or submitted count line, not an assumed zero) is older than the
+   interval of its class (default A 2 days, B 7, C 30), or it was never counted. Settings: inventory.settings.cycleCount
+   {a,b,c,aShare,bShare}. Reorder suggestion: reorder point = daily use × (lead + safety days), target = reorder point +
+   daily use × order-cycle days, rounded up to 2 decimals of the base unit. */
+const CYCLE_DEF={a:2,b:7,c:30,aShare:80,bShare:95,lead:2,safety:2,cycle:7};
+function cycleSettings(doc){const c=doc?.settings?.cycleCount||{},o={};for(const k of Object.keys(CYCLE_DEF)){const v=Number(c[k]);o[k]=Number.isFinite(v)&&v>0?v:CYCLE_DEF[k]}return o}
+function saveCycleSettings(doc,ctx,input){const next={};for(const k of Object.keys(CYCLE_DEF)){const v=N(input[k]);if(!(v>0))throw Error('همهٔ مقادیر شمارش چرخه‌ای باید عدد مثبت باشند');next[k]=v}
+ if(!(next.aShare<next.bShare&&next.bShare<=100))throw Error('سهم A باید کمتر از سهم A+B و حداکثر ۱۰۰ باشد');if(!(next.a<=next.b&&next.b<=next.c))throw Error('فاصلهٔ شمارش A ≤ B ≤ C باشد');
+ doc.settings=doc.settings||{};const before=cycleSettings(doc);if(JSON.stringify(before)===JSON.stringify(next))throw Error('تغییری داده نشده است');doc.settings.cycleCount=next;ctx.auditExtra={before,after:next};return next}
+function abcClasses(rows,{aShare=80,bShare=95}={}){const used=A(rows).filter(r=>N(r.value)>0).sort((x,y)=>N(y.value)-N(x.value)),tot=used.reduce((t,r)=>t+N(r.value),0),out=new Map;let run=0;
+ for(const r of used){const before=tot?run/tot*100:0;run+=N(r.value);out.set(r.id,before<aShare?'A':before<bShare?'B':'C')}for(const r of A(rows))if(!out.has(r.id))out.set(r.id,'C');return out}
+function lastCountDates(doc){const m=new Map;for(const st of A(doc?.stocktakes)){if(!['approved','submitted'].includes(st.status))continue;const d=D(st.date);if(!validDate(d))continue;for(const l of A(st.lines)){if(l.assumedZero||!l.ingredientId)continue;if(!m.has(l.ingredientId)||m.get(l.ingredientId)<d)m.set(l.ingredientId,d)}}return m}
+function cycleDue(ids,classes,last,set,today){const t=E().CAL.i(today),gap={A:set.a,B:set.b,C:set.c};return A(ids).map(id=>{const cl=classes.get(id)||'C',d=last.get(id)||'',age=d?t-E().CAL.i(d):null;return{id,cls:cl,last:d,age,due:age===null||age>=gap[cl],over:age===null?Infinity:age-gap[cl]}})}
+function suggestReorder(daily,set){const u=N(daily);if(!(u>0))return null;const up=v=>Math.ceil(v*100-1e-9)/100,rp=up(u*(set.lead+set.safety));return{reorderPoint:rp,targetStock:up(rp+u*set.cycle)}}
+
 /* ---------- day checks («روزهای ماه» on the home page, APP_REVIEW P-04) ----------
    inventory.dayChecks {id DAY-<date>, date, closed (the café was closed), none [keys entered as «نداشتیم»: snapp, waste,
    inv…], note, by, at, history[]}: one per date; a change keeps the previous state in history (nothing is removed). It only
@@ -366,6 +384,6 @@ function closeCount(doc,ctx,{date,note}){date=D(date);const lines=countLinesOf(d
 function reopenCount(doc,ctx,{id,reason}){reason=S(reason);if(!reason)throw Error('علت بازگشایی لازم است');const c=A(doc.periodClosures).find(x=>x.id===id);if(!c||c.status!=='closed')throw Error('دورهٔ بسته پیدا نشد');
  const last=lastClosure(doc);if(last&&last.id!==c.id)throw Error(`فقط آخرین دورهٔ بسته (تا ${last.to}) باز می‌شود`);
  Object.assign(c,{status:'reopened',reopenedAt:ctx.at,reopenedBy:ctx.actor,reopenReason:reason});ctx.auditExtra={entityId:c.id,reason};return c}
-window.InvWrite={saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+window.InvWrite={CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();

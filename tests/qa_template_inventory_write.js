@@ -196,6 +196,18 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  W.saveDayCheck(d,ctx(),{date:T,closed:true,none:[]});ok(d.dayChecks.length===1&&d.dayChecks[0].closed===true&&d.dayChecks[0].history.length===1&&d.dayChecks[0].history[0].none.join()==='inv,waste','change keeps the previous state in history');
  throws(()=>W.saveDayCheck(d,ctx(),{date:'1499/01/01',closed:true}),/آینده|معتبر/,'future day refused')}
 
+// 6c. cycle counting (ABC) and reorder suggestions
+{const cls=W.abcClasses([{id:'a',value:700},{id:'b',value:150},{id:'c',value:100},{id:'d',value:50},{id:'z',value:0}],{aShare:80,bShare:95});
+ ok(cls.get('a')==='A'&&cls.get('b')==='A'&&cls.get('c')==='B'&&cls.get('d')==='C'&&cls.get('z')==='C','ABC: first 80٪ of value A (the item crossing 80٪ included), up to 95٪ B, rest and unused C');
+ const st=W.cycleSettings({});ok(st.a===2&&st.b===7&&st.c===30&&st.lead===2,'cycle defaults');
+ const doc={stocktakes:[{status:'approved',date:day(3),lines:[{ingredientId:'a',actual:1},{ingredientId:'c',actual:0,assumedZero:true}]},{status:'void',date:day(0),lines:[{ingredientId:'b'}]},{status:'submitted',date:day(10),lines:[{ingredientId:'b'}]}]};
+ const last=W.lastCountDates(doc);ok(last.get('a')===day(3)&&!last.has('c')&&last.get('b')===day(10),'last count: approved or submitted, not void, not assumed zero');
+ const due=W.cycleDue(['a','b','c'],new Map([['a','A'],['b','B'],['c','C']]),last,st,day(0));ok(due.find(x=>x.id==='a').due===true&&due.find(x=>x.id==='b').due===true&&due.find(x=>x.id==='c').due===true&&due.find(x=>x.id==='c').last==='','due: A after 2 days, B after 7, never counted always due');
+ ok(W.cycleDue(['a'],new Map([['a','B']]),last,st,day(0))[0].due===false,'B counted 3 days ago is not due');
+ const d={settings:{}};W.saveCycleSettings(d,ctx(),{a:1,b:7,c:30,aShare:70,bShare:90,lead:3,safety:1,cycle:7});ok(d.settings.cycleCount.a===1&&d.settings.cycleCount.aShare===70,'cycle settings saved');
+ throws(()=>W.saveCycleSettings({settings:{}},ctx(),{a:9,b:7,c:30,aShare:80,bShare:95,lead:2,safety:2,cycle:7}),/A ≤ B/,'intervals must grow');
+ const sg=W.suggestReorder(1.5,st);ok(sg.reorderPoint===6&&sg.targetStock===16.5&&W.suggestReorder(0,st)===null,'reorder = daily × (lead+safety), target = + daily × cycle')}
+
 // 7. protected save protocol
 (async()=>{
  const server={text:JSON.stringify(baseDoc()),saves:0};

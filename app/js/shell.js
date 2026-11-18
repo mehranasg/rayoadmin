@@ -335,12 +335,12 @@ function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localSto
    everywhere (live data only; the sample pages keep theirs). The glossary is shown in «راهنما». */
 const TAB_GROUPS={
  finance:[['خلاصه','layout-grid',['overview']],['خرید و تأمین‌کننده','shopping-cart',['docs','payments','debts','parties']],['صندوق و حساب‌ها','banknote',['cash','cashbox','petty','accounts']],['هزینه‌ها','receipt',['ledger','meals']],['سود و زیان','chart-line',['pnl','plan']],['دارایی و تنظیمات','settings-2',['assets','finset']]],
- inventory:[['داشبورد','layout-dashboard',['control','reports']],['موجودی و سفارش','boxes',['stock','reorder','requests']],['ورود کالا','package-plus',['receipt']],['فروش و ضایعات','trash-2',['sales','waste','consumption']],['شمارش','clipboard-check',['count','beverage']],['تنظیمات','settings-2',['settings']]],
+ inventory:[['داشبورد','layout-dashboard',['control','issues','reports']],['موجودی و سفارش','boxes',['stock','reorder','requests']],['ورود کالا','package-plus',['receipt']],['فروش و ضایعات','trash-2',['sales','waste','consumption']],['شمارش','clipboard-check',['cycle','count','beverage']],['تنظیمات','settings-2',['settings']]],
  people:[['پرسنل','users',['staff']],['شیفت و حضور','calendar-range',['shifts','presence','leaves']],['حقوق و پرداخت','wallet',['payroll','work','violations','payments']],['انعام','hand-coins',['tips']],['گزارش','chart-column',['staffreport']],['تنظیمات','settings-2',['payset','users']]]
 };
 const TAB_LABELS={
  finance:{overview:'خلاصه',docs:'فاکتورهای خرید',payments:'پرداخت به تأمین‌کننده',debts:'بدهی، طلب و چک',parties:'تأمین‌کنندگان',cash:'گزارش صندوق',cashbox:'صندوق نقدی',petty:'تنخواه',accounts:'حساب‌های بانکی',ledger:'هزینه و درآمد',meals:'غذای پرسنل',pnl:'سود و زیان',plan:'پیش‌بینی',assets:'دارایی‌ها',finset:'تنظیمات مالی'},
- inventory:{control:'داشبورد کنترل',reports:'گزارش‌های انبار',stock:'موجودی',reorder:'نقطهٔ سفارش',requests:'درخواست خرید',receipt:'ورود کالا',sales:'فروش آیتم‌ها',waste:'ضایعات',consumption:'الگوی مصرف',count:'انبارگردانی',beverage:'شمارش نوشیدنی',settings:'تنظیمات انبار'},
+ inventory:{control:'داشبورد کنترل',issues:'ایرادهای داده',cycle:'شمارش امروز',reports:'گزارش‌های انبار',stock:'موجودی',reorder:'نقطهٔ سفارش',requests:'درخواست خرید',receipt:'ورود کالا',sales:'فروش آیتم‌ها',waste:'ضایعات',consumption:'الگوی مصرف',count:'انبارگردانی',beverage:'شمارش نوشیدنی',settings:'تنظیمات انبار'},
  people:{staff:'پرسنل',shifts:'شیفت‌پلن',presence:'حضور و غیاب',leaves:'مرخصی',payroll:'حقوق ماه',work:'کارکرد ماه',violations:'تخلفات',payments:'پرداخت به پرسنل',tips:'انعام',staffreport:'گزارش پرسنل',payset:'تنظیمات حقوق',users:'کاربران و دسترسی'}
 };
 P.TAB_GROUPS=TAB_GROUPS;P.TAB_LABELS=TAB_LABELS;

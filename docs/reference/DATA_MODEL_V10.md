@@ -96,6 +96,7 @@ Gateway با spread سطح بالا و merge شیءهای شناخته‌شده 
 | salesPeriods | id، بازه/تاریخ، کانال/منبع، lines | lines: menuItemId, quantity؛ چندروزه فاقد تفکیک برای forecast کافی نیست |
 | settings.dataIssueAcks | [{key: "<نوع>:<شناسه>", note, at, by}] — مواردی از «مشکلات اطلاعات» که مدیر «درست است» زده؛ کلید از نوع و شناسهٔ رکورد ساخته می‌شود | فقط پنهان‌کردن؛ دادهٔ اصلی تغییر نمی‌کند |
 | wasteRecords/consumptionRecords | id، تاریخ، محل، قلم/نوع آیتم، مقدار، نوع مصرف/ضایعات، status/review و گزارش‌دهنده؛ `unitEntryDetail` اختیاری. تعویض روغن: `eventType:FRYER_OIL_CHANGE`، `fryerId/fryerName/fryerLiters`، `oilChangeKind` (FULL/TOP_UP)، `liters`، `density`، `quantity`=کیلو؛ ابطال با `status:void` و `voidReason` | pending پرسنلی تا تأیید اثر ندارد؛ مصرف مجاز از ضایعات جدا. اصلاح مقدار در بررسی مدیر، `unitEntryDetail` را به‌عنوان ورود اولیه (`originalQuantity`) نگه می‌دارد |
+| settings.cycleCount (inventory) | a, b, c (فاصلهٔ شمارش به روز)، aShare، bShare (٪)، lead، safety، cycle (روز) | از ۱۴۰۵/۰۸/۲۷؛ نبودنش = پیش‌فرض ۲، ۷، ۳۰، ۸۰، ۹۵، ۲، ۲، ۷ |
 | dayChecks | id (`DAY-YYYYMMDD`), date (یکتا), closed, none[] (`sepidz`،`snapp`،`bev`،`waste`،`inv`), note, by, at, history[] | از ۱۴۰۵/۰۸/۲۷؛ فقط علامت کامل بودن روز در میز کار، بی‌اثر روی اعداد؛ تغییر، حالت قبلی را در history نگه می‌دارد |
 | periodClosures | id, from, to, status, metrics, lines | `closed` snapshot؛ بازهٔ دقیق منطبق از snapshot خوانده می‌شود |
 
