@@ -39,6 +39,19 @@ const x2=MW.metrics(d,d.menuItems[1]);ok(x2.state==='manual'&&x2.cost===30000&&x
 d.recipes.push({id:'REC-0009',menuItemId:'MENU-1',ingredientId:'ING-3',quantity:1});x=MW.metrics(d,d.menuItems[0]);ok(x.state==='incomplete'&&x.suggested===0&&x.rows.find(r=>r.l.ingredientId==='ING-3').why==='بدون قیمت خرید','missing price → incomplete, no suggestion');
 ok(MW.versionDrift(d,'MENU-1')==='differs','current lines differing from today\'s version are detected');
 
+// 1b. recipe campaign (P-06): similar items, copied lines, one-line recipe candidates, approximate cost
+{const d=doc();d.menuItems.push({id:'MENU-4',code:'102',name:'پیتزا جونیور',category:'پیتزا',currentPriceToman:300000,status:'فعال'},{id:'MENU-5',code:'401',name:'چیزکیک شکلاتی',category:'کیک',currentPriceToman:150000,status:'فعال'});
+ d.ingredients.push({id:'ING-5',code:'5',name:'چیزکیک شکلاتی',status:'فعال',itemType:'MENU_INGREDIENT',purchaseUnit:'عدد',recipeUnit:'عدد',packageQuantity:1,lastPurchasePriceToman:60000},{id:'ING-6',code:'6',name:'شکلات',status:'فعال',itemType:'MENU_INGREDIENT',purchaseUnit:'کیلوگرم',recipeUnit:'کیلوگرم',packageQuantity:1,lastPurchasePriceToman:1});
+ const sim=MW.similarItems(d,'MENU-4');ok(sim.length===1&&sim[0].id==='MENU-1'&&sim[0].lines===2,'similar item with a recipe found by name word and category');
+ ok(MW.similarItems(d,'MENU-1').every(o=>o.id!=='MENU-1'),'an item is never similar to itself');
+ const cl=MW.copyLines(d,'MENU-1');ok(cl.length===2&&cl[0].ingredientId==='ING-1'&&cl[0].quantity===0.2&&!('id' in cl[0])&&!('menuItemId' in cl[0]),'copied lines carry ingredient and quantity only');
+ MW.saveRecipe(d,ctx(),{menuId:'MENU-4',lines:cl});ok(MW.recipeLines(d,'MENU-4').length===2&&MW.versionsOf(d,'MENU-4')[0].effectiveFrom==='0000/00/00'&&MW.recipeLines(d,'MENU-1').length===2,'copied recipe saved as the first version (from the start); the source is untouched');
+ const dc=MW.directCandidates(d,'MENU-5');ok(dc[0]?.id==='ING-5'&&dc[0].score===2&&!dc.some(o=>o.id==='ING-6'),'one-line candidate: same name scores 2; a single shared word does not qualify');
+ throws(()=>MW.setApproxCost(d,ctx(),{menuId:'MENU-5',cost:300000}),/۱٫۵ برابر/,'approximate cost far above the price refused');
+ const c=ctx(),r=MW.setApproxCost(d,c,{menuId:'MENU-5',cost:'۵۰٬۰۰۰'});ok(r.cost===50000&&MW.metrics(d,d.menuItems.find(m=>m.id==='MENU-5')).state==='manual'&&c.auditExtra.before.manualCostToman===0,'approximate cost saved as manual cost with the old value in the audit');
+ throws(()=>MW.setApproxCost(d,ctx(),{menuId:'MENU-5',cost:50000}),/تغییری/,'same approximate cost refused');
+ MW.setApproxCost(d,ctx(),{menuId:'MENU-5',cost:0});ok(MW.metrics(d,d.menuItems.find(m=>m.id==='MENU-5')).state==='none'&&d.menuItems.find(m=>m.id==='MENU-5').manualCostEnabled===false,'zero clears the approximate cost')}
+
 // 2. recipe edit
 d=doc();let c=ctx();const r1=MW.saveRecipe(d,c,{menuId:'MENU-1',lines:[{ingredientId:'ING-1',quantity:'۰٫۲۵'},{ingredientId:'ING-2',quantity:1}],effectiveFrom:day(2),note:'پنیر بیشتر'});
 const lines=MW.recipeLines(d,'MENU-1');

@@ -109,6 +109,7 @@ function settings(){return`<div class="grid grid-2">
 P.mod({id:'menu',label:'منو و قیمت',icon:'utensils-crossed',desc:'آیتم‌ها، رسپی، بهای تمام‌شده و قیمت در همهٔ کانال‌ها',
   tabs:[
     {id:'items',label:'آیتم‌های منو',icon:'utensils',title:'منو و قیمت‌گذاری',render:items,actions:()=>`<button class="btn btn-primary" onclick="P.toast('فرم آیتم جدید (نمونه)')">${P.ic('plus')}آیتم جدید</button>`},
+    {id:'campaign',label:'تکمیل رسپی‌ها',icon:'list-checks',desc:'آیتم‌های بی‌رسپی به ترتیب فروش، با کپی از آیتم مشابه',render:()=>P.note('این صفحه فقط روی دادهٔ واقعی کار می‌کند.','info')},
     {id:'recipes',label:'رسپی و بهای تمام‌شده',icon:'chef-hat',desc:'مواد هر پرس، افت، سربار و نسخه‌ها',render:recipes,mount:mountRecipes},
     {id:'pricing',label:'قیمت‌گذاری',icon:'tag',desc:'پیشنهاد قیمت، تغییر قیمت از تاریخ و تاریخچه',render:pricing},
     {id:'channels',label:'کانال‌های فروش',icon:'store',desc:'سالن، بیرون‌بر، اسنپ‌فود و منوی QR — از یک قیمت',render:channels},
