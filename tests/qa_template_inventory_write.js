@@ -258,5 +258,9 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  {const juice={id:'j1',recipeUnit:'عدد',purchaseUnit:'لیتر',packageQuantity:1,useUnit:'سی‌سی',countUnit:'لیتر',countingUnits:[{name:'سی‌سی',factor:0.001}]};
   ok(W.unitsOf(juice).map(u=>u.name).join()==='عدد,لیتر,سی‌سی'&&W.useUnitOf(juice).name==='سی‌سی'&&W.countUnitOf(juice).name==='لیتر'&&W.smallestUnit(juice).name==='سی‌سی','bottle item: لیتر offered though it equals one عدد; use سی‌سی, count لیتر');
   ok(E.UK('سی‌سی')==='ml'&&W.unitsOf({recipeUnit:'لیتر',countingUnits:[{name:'سی سی',factor:0.001}]}).length===2,'سی‌سی is a millilitre (no duplicate automatic میلی‌لیتر)');}
+ // staff app: waste counts at once but waits for the manager's review, with the person who reported it
+ {const d=baseDoc(),c={...ctx(),staff:{personnelId:'EMP-9',name:'پریسا'}};const w=W.addEvent(d,c,{date:D3,eventType:'WASTE',type:'ingredient',itemId:'i1',quantity:1,reason:'افتاد',section:'بار'});
+  ok(w.status==='posted'&&w.reviewStatus==='در انتظار بررسی'&&w.reportedByPersonnelId==='EMP-9'&&w.reportedByName==='پریسا'&&w.registeredByType==='staff'&&!w.reviewedBy,'staff waste: posted, waiting for review, names the person');
+  ok(d.inventoryMovements.some(m=>m.sourceKey&&m.sourceKey.includes(w.id)||m.referenceId===w.id),'staff waste moves stock like any waste')}
  console.log(`qa_template_inventory_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);
 })();

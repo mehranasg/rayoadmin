@@ -16,7 +16,7 @@ const limit=()=>N(CR()?.settings?.discrepancyLimit)||1000000;
 const T=rial=>P.mt(N(rial)/10),TU=rial=>P.mT(N(rial)/10);
 const signed=rial=>{const v=N(rial);return`<span class="${v<0?'down':v>0?'up':''}">${v>0?'+':''}${T(v)}</span>`};
 const reports=()=>CW.reports(CR()).filter(r=>E.D(r.date));
-const ctx=()=>({actor:IE.ses('rayo_admin_user'),at:new Date().toISOString(),today:E.CAL.today,reqId:API.requestId()});
+const ctx=()=>({actor:IE.ses('rayo_admin_user'),at:new Date().toISOString(),today:E.CAL.today,reqId:API.requestId(),staff:window.AdminAccess?.staff?.()||null});
 const st={view:'reports',month:'',fu:'open',cust:{from:'',to:'',person:'',source:''},fin:null,finErr:'',finBusy:false,pending:null};
 
 /* ---------- server ---------- */
@@ -81,13 +81,14 @@ function summary(r,m){if(!m.valid)return P.note('مبلغ نامعتبر','alert
   +(warn.length?`<div class="stack" style="gap:6px;margin-top:var(--s3)">${warn.map(w=>P.note(w,'alert-triangle')).join('')}</div>`:P.note('هشداری نیست.','check'))}
 const badge=m=>{if(!m.valid)return`<span class="cr-bal bad">مبلغ نامعتبر</span>`;const v=m.finalVariance;return`<span class="cr-bal ${v<0?'bad':v>0?'over':'ok'}"><small>تراز صندوق</small><b>${v?signed(v):'تراز ✓'}</b><small>${v<0?'کسری':v>0?'اضافه':'بدون مغایرت'}</small></span>`};
 function reportForm(id='',presetDate=''){if(!canW())return P.toast(why(),'lock');const c=CR(),old=id?reports().find(r=>r.id===id):null;if(id&&!old)return P.toast('گزارش پیدا نشد','alert-triangle');
+ const staffMe=window.AdminAccess?.staff?.()||null;
  const r=old||{date:presetDate||E.CAL.today,cashierId:''},cashiers=A(c?.cashiers).filter(x=>x.status!=='غیرفعال'||x.id===r.cashierId);
  const knownCashier=cashiers.some(x=>x.id===r.cashierId),cash=CW.itemsOf(old,'cash'),card=CW.itemsOf(old,'card');let step=0;
  const posShown=i=>i<=3||N(r[`pos${i}`])>0;
  const body=`<div class="cr-head"><div class="segmented" id="crSteps">${STEPS.map(([t],i)=>`<button type="button" data-step="${i}">${fa(i+1)}. ${t}</button>`).join('')}</div><div id="crBal"></div></div>
  <form id="crForm" class="stack" style="gap:var(--s4)" onsubmit="return false">
   <section data-pane="0" class="stack" style="gap:var(--s4)">
-   <div class="form-grid">${P.field('تاریخ',`<input class="input num" name="date" value="${fa(r.date)}" placeholder="۱۴۰۵/۰۸/۱۷">`)}${P.field('صندوقدار',`<select class="select" name="cashier"><option value="">انتخاب کنید</option>${cashiers.map(x=>`<option value="${esc(x.id)}" ${x.id===r.cashierId?'selected':''}>${esc(x.name)}</option>`).join('')}${r.cashierId&&!knownCashier?`<option value="${esc(r.cashierId)}" selected>${esc(r.cashierName||r.cashierId)} (ثبت پرسنل)</option>`:''}</select>`)}</div>
+   <div class="form-grid">${P.field('تاریخ',`<input class="input num" name="date" value="${fa(r.date)}" placeholder="۱۴۰۵/۰۸/۱۷">`)}${staffMe?P.field('صندوقدار',`<input class="input" value="${esc(staffMe.name)}" disabled><input type="hidden" name="cashier" value="${esc(staffMe.personnelId)}">`,'گزارش به نام شما ثبت می‌شود'):P.field('صندوقدار',`<select class="select" name="cashier"><option value="">انتخاب کنید</option>${cashiers.map(x=>`<option value="${esc(x.id)}" ${x.id===r.cashierId?'selected':''}>${esc(x.name)}</option>`).join('')}${r.cashierId&&!knownCashier?`<option value="${esc(r.cashierId)}" selected>${esc(r.cashierName||r.cashierId)} (ثبت پرسنل)</option>`:''}</select>`)}</div>
    ${P.note('<b>مبالغ به تومان است</b>، مثل فاکتورها. گزارش سپیدز به ریال است: یک صفر آخر را نزنید (۳٬۴۶۸٬۴۶۶٬۵۰۰ ریال ← ۳۴۶٬۸۴۶٬۶۵۰ تومان).','info')}
    <div class="form-grid">${P.field('خالص دریافتی سپیدز',money('netReceivable',r.netReceivable),'شامل ارزش افزوده و کرایه')}${P.field('ارزش افزوده (مالیات سپیدز)',money('taxAmount',r.taxAmount),'از فروش کم می‌شود؛ مبلغی که بابت ارزش افزوده بدهکار می‌شوید')}
     ${P.field('بدهکار سپیدز (مشترکین)',money('debtorAmount',r.debtorAmount),'بعداً تسویه می‌شود؛ اثری در مغایرت ندارد')}${P.field('جمع کرایه‌های دریافتی',money('deliveryFeeAmount',r.deliveryFeeAmount),'داخل خالص دریافتی است؛ فقط از فروش کم می‌شود')}

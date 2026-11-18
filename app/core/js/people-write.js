@@ -78,7 +78,8 @@ const ACC_ITEMS=['تیشرت','ایپرون','روپوش','کلاه','بیسیم
 /* handed-over items: the owner's list (lists.equipmentTypes, «تنظیمات ← فهرست‌های پرسنل»); ACC_ITEMS until one is saved */
 const accItems=doc=>{const v=[...new Set(A(doc?.lists?.equipmentTypes).map(S).filter(Boolean))];return v.length?v:ACC_ITEMS.slice()};
 const baseList=(doc,k)=>k==='equipmentTypes'?accItems(doc):A(doc?.lists?.[k]);
-const PERMS=[['cashReport','ثبت گزارش صندوق روزانه'],['purchaseRequests','ثبت سفارش خرید'],['purchaseInvoices','ثبت فاکتور خرید'],['tips','ثبت انعام'],['surveys','ثبت نظرسنجی مشتری'],['suppliersView','مشاهدهٔ اطلاعات تأمین‌کنندگان']];
+// keys of userAccess.permissions (legacy js/22 staff panel); the staff app (app/staff.html) opens a page per key
+const PERMS=[['cashReport','ثبت گزارش صندوق روزانه'],['beverageControl','شمارش نوشیدنی‌ها'],['inventoryWaste','ثبت ضایعات و پرتی'],['inventoryConsumption','ثبت مصرف پرسنل، مهمان و تست'],['inventoryCounts','شمارش موجودی انبار'],['purchaseRequests','ثبت سفارش خرید'],['purchaseInvoices','ثبت فاکتور خرید'],['tips','ثبت انعام'],['reservations','ثبت رزرو'],['surveys','ثبت نظرسنجی مشتری'],['suppliersView','مشاهدهٔ اطلاعات تأمین‌کنندگان']];
 const mainSection=s=>['سالن بالا','سالن پایین','حیاط','تراس'].includes(S(s))?HALL:S(s);
 // js/03 sectionsForGroupV51 / positions lists of the personnel module
 /* standard structure (decided 2026-11-10): four groups — مدیریت، سالن (front of house)، آشپزخانه (back of house)، خدمات.
@@ -171,7 +172,7 @@ function saveAccount(doc,ctx,x){const p=person(doc,x.id);if(!p)throw Error('پر
  if(username&&(A(doc.settings?.adminUsers).some(u=>S(u.username).toLowerCase()===username.toLowerCase())||window.AdminAccess?.isStatic?.(username)))throw Error('این نام کاربری برای یک کاربر مدیریت ثبت شده است');
  const pass=password||S(p.userPassword);if(enabled&&(!username||!pass))throw Error('برای فعال‌کردن پنل، نام کاربری و رمز عبور لازم است');if(password&&password.length<4)throw Error('رمز عبور حداقل ۴ نویسه باشد');
  if(enabled&&p.status!=='فعال')throw Error('پنل فقط برای پرسنل با وضعیت «فعال» باز می‌شود');
- const permissions={};for(const [k] of PERMS)permissions[k]=A(x.permissions).includes(k);p.username=username;if(password)p.userPassword=password;p.userAccess={enabled,permissions,updatedAt:ctx.at};
+ const permissions={...(p.userAccess?.permissions||{})};for(const [k] of PERMS)permissions[k]=A(x.permissions).includes(k);p.username=username;if(password)p.userPassword=password;p.userAccess={enabled,permissions,updatedAt:ctx.at};
  ctx.auditExtra={entityId:p.id,enabled,passwordChanged:!!password};return{id:p.id}}
 // anything that names the person blocks the delete (the file itself excluded); other modules are checked by the page
 function personRefs(doc,id){const out=[],needle=`"${id}"`;for(const [k,v] of Object.entries(doc||{})){if(k==='personnel'||k==='changeLog'||!v||typeof v!=='object')continue;const n=JSON.stringify(v).split(needle).length-1;if(n)out.push([k,n])}return out}
@@ -225,6 +226,11 @@ function reviewLeave(doc,ctx,{id,status,note}){const r=A(doc.leaveRequests).find
  if(status==='تاییدشده'){const {f,t,c}=checkRange(doc,{personnelId:r.personnelId,fromDate:r.fromDate,toDate:r.toDate,count:r.count||'',type:r.type||'مرخصی استحقاقی'}),o=leaveOverlap(doc,{personnelId:r.personnelId,fromDate:f,toDate:t,requestId:r.id});if(o)throw Error(`با مرخصی ${o.fromDate} تا ${o.toDate} هم‌پوشانی دارد`);
   doc.leaves=A(doc.leaves);if(!doc.leaves.some(x=>x.requestId===r.id))doc.leaves.push({id:uid('LEV',doc.leaves,4),requestId:r.id,personnelId:r.personnelId,type:r.type||'مرخصی استحقاقی',fromDate:f,toDate:t,count:c,notes:`تایید درخواست پرسنل${S(note)?` — ${S(note)}`:''}`,createdAt:ctx.at,createdBy:ctx.actor})}
  Object.assign(r,{status,managerNote:S(note),reviewedAt:ctx.at,reviewedBy:ctx.actor});ctx.auditExtra={entityId:id,status};return status}
+// a staff member's own request from the staff app (legacy js/22 saveLeave shape); the manager approves it in «مرخصی»
+function requestLeave(doc,ctx,x){const pid=S(x.personnelId),p=person(doc,pid);if(!p)throw Error('پرسنل پیدا نشد');const type=S(x.type)||'مرخصی استحقاقی',{f,t,c}=checkRange(doc,{personnelId:pid,fromDate:x.fromDate,toDate:x.toDate,count:x.count,type});
+ if(f<today())throw Error('درخواست مرخصی برای روزهای گذشته ثبت نمی‌شود');const o=leaveOverlap(doc,{personnelId:pid,fromDate:f,toDate:t});if(o)throw Error(`با مرخصی ${o.fromDate} تا ${o.toDate} هم‌پوشانی دارد`);
+ if(A(doc.leaveRequests).some(r=>r.personnelId===pid&&(r.status||'در انتظار')==='در انتظار'&&D(r.fromDate)<=t&&D(r.toDate)>=f))throw Error('برای همین روزها درخواست در انتظار دارید');
+ doc.leaveRequests=A(doc.leaveRequests);const r={id:uid('LREQ',doc.leaveRequests),personnelId:pid,fromDate:f,toDate:t,type,count:c,employeeNote:S(x.note),status:'در انتظار',managerNote:'',createdAt:ctx.at,createdBy:ctx.actor};doc.leaveRequests.push(r);ctx.auditExtra={entityId:r.id};return r}
 function addLeave(doc,ctx,x){const pid=S(x.personnelId);if(!person(doc,pid))throw Error('پرسنل را انتخاب کنید');const type=S(x.type)||'مرخصی استحقاقی',{f,t,c}=checkRange(doc,{personnelId:pid,fromDate:x.fromDate,toDate:x.toDate,count:x.count,type});
  const o=leaveOverlap(doc,{personnelId:pid,fromDate:f,toDate:t});if(o)throw Error(`با مرخصی ${o.fromDate} تا ${o.toDate} هم‌پوشانی دارد`);
  doc.leaves=A(doc.leaves);const row={id:uid('LEV',doc.leaves,4),personnelId:pid,type,fromDate:f,toDate:t,count:c,notes:S(x.notes),source:'manager',createdAt:ctx.at,createdBy:ctx.actor};doc.leaves.push(row);ctx.auditExtra={entityId:row.id};return row}
@@ -232,5 +238,5 @@ function cancelLeave(doc,ctx,{id,reason}){const l=A(doc.leaves).find(x=>x.id===i
  Object.assign(l,{status:LEAVE_CANCEL,cancelledCount:NUM(l.count)||0,count:0,cancelReason:S(reason),cancelledAt:ctx.at,cancelledBy:ctx.actor});
  const r=l.requestId&&A(doc.leaveRequests).find(x=>x.id===l.requestId);if(r)Object.assign(r,{status:LEAVE_CANCEL,managerNote:`لغو پس از تأیید: ${S(reason)}`,reviewedAt:ctx.at,reviewedBy:ctx.actor});ctx.auditExtra={entityId:id};return true}
 
-window.PeopleWrite={STD,groupsOf,standardPlan,applyStandard,BASE_LISTS,saveBaseSettings,GROUPS,ACC_ITEMS,accItems,baseList,PERMS,ENDED,sectionsFor,positionsFor,personDuplicate,savePerson,saveSalaryTerms,saveAccount,personRefs,removePerson,violationRepeats,violationVoidBlock,saveViolation,voidViolation,saveViolationTypes,LEAVE_CANCEL,dayCount,leaveOverlap,leaveUsed,reviewLeave,addLeave,cancelLeave,TIP_TYPES,TIP_STATUS,PAY,PR_TYPES,APPROVAL,RES_STATUS,tipCode,tipDefault,addTip,settleTip,voidTip,addPenalty,setPenaltyStatus,addMessage,archiveMessage,addReservation,setReservationStatus,validPersonnel,list};
+window.PeopleWrite={requestLeave,STD,groupsOf,standardPlan,applyStandard,BASE_LISTS,saveBaseSettings,GROUPS,ACC_ITEMS,accItems,baseList,PERMS,ENDED,sectionsFor,positionsFor,personDuplicate,savePerson,saveSalaryTerms,saveAccount,personRefs,removePerson,violationRepeats,violationVoidBlock,saveViolation,voidViolation,saveViolationTypes,LEAVE_CANCEL,dayCount,leaveOverlap,leaveUsed,reviewLeave,addLeave,cancelLeave,TIP_TYPES,TIP_STATUS,PAY,PR_TYPES,APPROVAL,RES_STATUS,tipCode,tipDefault,addTip,settleTip,voidTip,addPenalty,setPenaltyStatus,addMessage,archiveMessage,addReservation,setReservationStatus,validPersonnel,list};
 })();

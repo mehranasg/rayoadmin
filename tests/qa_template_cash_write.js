@@ -69,4 +69,11 @@ const L=C.ledger(doc,[{id:'CUST-1',type:'custodyReturn',custodyKind:'custodyRetu
 const cashG=L.groups.find(g=>g.type==='cash');ok(cashG&&cashG.received===20000&&cashG.paid===3000&&cashG.closing===17000,'custody ledger in toman');
 const e=C.custodyEntry(doc,{sourceKey:'cash:CREC-1',kind:'custodyReturn',date:'1405/08/12',amountToman:'۳٬۰۰۰',title:'تحویل به بانک'},ctx());ok(e.amountToman===3000&&e.custodyOwnerNameSnapshot==='مهران'&&/^CUST-/.test(e.id),'custody entry shape like js/11');
 ok(C.voidEntry(e,'اشتباه',ctx()).status==='void','custody entry void');
+// staff app: the cashier is the signed-in person, the record names them, they edit only their own unreviewed report
+{const staff={personnelId:'EMP-9',name:'پریسا'},d0=JSON.parse(JSON.stringify(doc));d0.reports=[];
+ const s1=C.buildReport(d0,{...base1,date:'1405/08/12',cashierId:'CASHIER-0001'},ctx({staff,recordId:'CASH-S1'}));
+ ok(s1.cashierId==='EMP-9'&&s1.cashierName==='پریسا'&&s1.registeredByType==='staff'&&s1.registeredByPersonnelId==='EMP-9'&&s1.registeredByName==='پریسا','staff report: cashier = the person, like the legacy staff panel');
+ d0.reports.push(s1);const s2=C.buildReport(d0,{...base1,date:'1405/08/12',notes:'اصلاح'},ctx({staff,old:s1}));ok(s2.notes==='اصلاح'&&s2.registeredByPersonnelId==='EMP-9','own unreviewed report edited');
+ throws(()=>C.buildReport(d0,{...base1,date:'1405/08/12'},ctx({staff:{personnelId:'EMP-8',name:'دیگری'},old:s1})),/خودتان/,'another person cannot edit it');
+ throws(()=>C.buildReport(d0,{...base1,date:'1405/08/12'},ctx({staff,old:{...s1,managerReview:'بررسی شده'}})),/بررسی شده/,'reviewed report locked for staff')}
 console.log(`qa_template_cash_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

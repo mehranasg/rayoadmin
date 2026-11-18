@@ -45,4 +45,14 @@ ok(AA.PRESETS.every(p=>p.sections.every(k=>keys.includes(k))),'presets use known
 const d2={settings:{adminUsers:[{id:'ADM-1',username:'old1',salt:'s',passwordHash:'h',status:'فعال',sections:['dashboard','monitor','cash']}]}};
 AA.saveUser(d2,c,{id:'ADM-1',username:'old1',status:'فعال',sections:['cash','petty','cash']});ok(JSON.stringify(d2.settings.adminUsers[0].sections)==='["cash","petty","monitor"]','edit keeps a hidden legacy key, drops duplicates');
 ok(AA.sectionName('monitor').includes('مانیتورینگ')&&AA.sectionName('zzz')==='zzz','section names');
+// staff of the staff app (app/staff.html, 1G-1): legacy staff-panel check, permissions → sections, only inside the staff app
+{const hr={personnel:[{id:'EMP-1',name:'سارا',status:'فعال',username:'Sara',userPassword:'1234',userAccess:{enabled:true,permissions:{cashReport:true,beverageControl:true,tips:false}}},{id:'EMP-2',name:'علی',status:'فعال',username:'ali',userPassword:'x',userAccess:{enabled:false,permissions:{}}},{id:'EMP-3',name:'رفته',status:'غیرفعال',username:'old',userPassword:'y',userAccess:{enabled:true}}]};
+ ok(AA.verifyStaff(hr,'sara','12345')===null&&AA.verifyStaff(hr,'ali','x')===null&&AA.verifyStaff(hr,'old','y')===null,'wrong password, disabled panel or inactive person refused');
+ const r=AA.verifyStaff(hr,'SARA','1234');ok(r&&r.role==='staff'&&r.personnelId==='EMP-1'&&r.username==='سارا'&&r.sections.join()==='cash,inventory','staff sign-in: username without case, sections from permissions');
+ AA.signOut();AA.signInStaff(r);ok(AA.session()===null&&AA.staff()===null&&!AA.has('cash'),'outside the staff app a staff sign-in opens nothing');
+ window.RAYO_STAFF_APP=1;ok(AA.staff().personnelId==='EMP-1'&&AA.staffCan('cashReport')&&!AA.staffCan('tips')&&AA.has('cash')&&!AA.has('payroll')&&!AA.canManage(),'inside the staff app: the person and their permissions');
+ ok(JSON.parse(sessionStorage.getItem('rayo_staff_session')).personnelId==='EMP-1','legacy staff session key written');
+ hr.personnel[0].userAccess.permissions.cashReport=false;ok(AA.stillValid(hr)&&!AA.staffCan('cashReport')&&!AA.has('cash'),'a permission removed by the manager is dropped on the next check');
+ hr.personnel[0].userAccess.enabled=false;ok(!AA.stillValid(hr),'disabled panel signs the person out');
+ AA.signOut();ok(!sessionStorage.getItem('rayo_staff_session')&&!sessionStorage.getItem('rayo_staff_perms'),'sign-out clears the staff keys');delete window.RAYO_STAFF_APP}
 console.log(`qa_template_admin_access: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

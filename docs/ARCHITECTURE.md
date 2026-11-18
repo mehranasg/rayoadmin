@@ -8,7 +8,8 @@
 ```
 app/
   index.html            پنل مدیریت (نقطهٔ ورود)
-  pos.html waiter.html kds.html staff.html   دموی نرم‌افزارهای داخل مجموعه (دادهٔ نمونه)
+  staff.html            اپ پرسنل روی دادهٔ زنده (همان اسکریپت‌های index.html + js/staff-real.js)
+  pos.html waiter.html kds.html staffdemo.html   دموی نرم‌افزارهای داخل مجموعه (دادهٔ نمونه)
   core/                 هسته: قابل استفاده بدون رابط کاربری
     css/theme.css       سیستم طراحی (رنگ‌ها، فاصله‌ها، کارت، جدول، فرم، تب، تم تیره)
     js/app.js           ابزار مشترک رابط (RT: آیکون، نمودار، قالب‌بندی عدد و پول)
@@ -20,6 +21,7 @@ app/
   js/data.js            دادهٔ نمونهٔ بخش‌های طرح
   js/pages/<بخش>.js     صفحهٔ طرح هر بخش (دادهٔ نمونه)
   js/pages/<بخش>-real.js  همان صفحه روی دادهٔ واقعی؛ render و mount تب طرح را جایگزین می‌کند
+  js/staff-real.js      اپ پرسنل: ورود پرسنل، خانه، صفحه‌ها بر اساس دسترسی؛ P.render را جایگزین می‌کند
   js/ops-data.js pos.js waiter.js kds.js staff.js   دموها
 ```
 
@@ -29,6 +31,7 @@ app/
 - **نوار تب:** `TAB_GROUPS` در `shell.js` تب‌های هر بخش را گروه می‌کند (حداکثر شش گروه، تب‌های گروه باز در ردیف دوم `.page-subtabs`). تب تازه اگر در هیچ گروهی نباشد گروه جدای خودش را می‌گیرد؛ پس تب تازه را در گروه درستش اضافه کنید. `TAB_LABELS` واژه‌نامهٔ نام تب‌ها روی دادهٔ زنده است و بر نام تعریف‌شده در فایل صفحه غلبه می‌کند. نشان قرمز (`badge`) فقط برای کار امروز است.
 - **میز کار** (`dashboard-real.js`): کارها از `tasks()`، روزها از `DAY` (هر ردیف به یک ردیف `DAILY` برای فرم و دسترسی وصل است)، اعتماد ماه از `monthTrust`. علامت روز با `InvWrite.saveDayCheck` در `inventory.dayChecks` ذخیره می‌شود (بدون بازمحاسبهٔ شمارش). ثبت روزانهٔ تازه را هم در `DAILY` و هم در `DAY` اضافه کنید.
 - **تکمیل رسپی‌ها:** تب `menu/campaign` در `menu-real.js` (`campData`، `copyFromForm`، `directForm`، `approxForm`)؛ منطق مشترک در `menu-write.js` (`similarItems`، `copyLines`، `directCandidates`، `setApproxCost`). فرم رسپی (`MenuEntry.recipe(id,pre)`) با `pre.lines` از پیش پر می‌شود. probe: `tools/probes/recipe-campaign.js`.
+- **اپ پرسنل:** `staff.html` پیش از اسکریپت‌ها `window.RAYO_STAFF_APP=1` می‌گذارد. ورود با `AdminAccess.verifyStaff/signInStaff` (نقش `staff`؛ کلیدهای دسترسی پرسنل در `STAFF_PERMS` به بخش‌ها نگاشت می‌شوند؛ بیرون از اپ پرسنل این نشست `null` است). `AdminAccess.staff()` شخص را می‌دهد و `InvWrite.edit` و `cash-real` آن را در `ctx.staff` می‌گذارند؛ نویسنده‌ها (`CashWrite.buildReport`، `InvWrite.addEvent`) با آن نام و شناسهٔ شخص را روی رکورد می‌نویسند. فرم‌ها همان فرم‌های پنل‌اند (`CashReal.form`، `InvEntry.event`، `InvEntry.bevCfg({staff})`) و با `AdminAccess.staff()` رفتار پرسنلی می‌گیرند. صفحهٔ تازه: یک ردیف در `PAGES` و یک تابع در `VIEWS` در `staff-real.js`. probe: `PAGE=staff.html NOSESSION=1 node tools/smoke.cjs tools/probes/staff-app.js 300 390`.
 - **راهنما:** `app/js/help.js` (`RayoHelp.pages['بخش/تب']`، `glossary`)؛ دکمهٔ «؟» نوار بالا `P.help()` را باز می‌کند. صفحهٔ تازه را در `help.js` هم اضافه کنید.
 - **جدول یکپارچه** (`gridify`): هر خانه `data-th` (نام ستون) می‌گیرد تا در موبایل کارت شود (`grid-cards`، با بیش از ۴ ستون `grid-more`)؛ فهرست بیش از ۱۵ ردیف بیرون از پنجره `grid-scroll` می‌گیرد (اسکرول در قاب با سرستون ثابت). یادداشت‌های توضیحی طولانی پنجره‌ها با `foldNotes` (در `P.modal`) یک‌خطی می‌شوند.
 - **هشدار موجودی منفی:** `InvEntry.run(btn,{negWarn:true,…})` ثبت را روی کپی دادهٔ انبار اجرا می‌کند (`negativeAfter` در `inventory-real.js`) و پیش از ذخیره هشدار می‌دهد؛ برای ثبت تازه‌ای که از موجودی کم می‌کند همین گزینه را بدهید.

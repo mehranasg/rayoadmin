@@ -1,4 +1,4 @@
-// Probe: in-venue demo apps (pos.html, waiter.html, kds.html, staff.html). Sample data in localStorage only.
+// Probe: in-venue demo apps (pos.html, waiter.html, kds.html, staffdemo.html). Sample data in localStorage only.
 // On index.html it opens each app in a full-size iframe, one after another; the same probe runs inside each app
 // page, exercises the new features and hands its result to the parent. Writes nothing to the API.
 //   node tools/smoke.cjs tools/probes/ops-apps.js
@@ -9,7 +9,7 @@ if(page==='index.html'||page===''){const out={};
   const shot=async n=>{window.__shotReq=n;for(let i=0;i<60&&window.__shotDone!==n;i++)await wait(200)};
   try{localStorage.removeItem('rayo_ops_proto');localStorage.removeItem('rayo_kds_user')}catch(e){}
   window.__opsShot=shot;
-  for(const p of ['pos.html','waiter.html','kds.html','staff.html']){
+  for(const p of ['pos.html','waiter.html','kds.html','staffdemo.html']){
     const f=document.createElement('iframe');f.style.cssText='position:fixed;inset:0;width:100vw;height:100vh;border:0;z-index:99999;background:#fff';
     f.src=p;document.body.appendChild(f);window.__opsRes=null;
     for(let i=0;i<150&&!window.__opsRes;i++)await wait(200);out[p]=window.__opsRes||'timeout';f.remove()}
@@ -88,7 +88,7 @@ try{await wait(800);
   await click('.k-sum button',300);await click('#opModal.open [data-amin="20"]',300);out.delays=Object.values(S().delays||{}).map(d=>d.min);
   out.recallHint=/آماده‌شده‌های اخیر/.test($('#main').innerText)||'no recent ready';await shot('ops-kds');
  }
- if(page==='staff.html'){
+ if(page==='staffdemo.html'){
   await click('[data-who="s3"]',300);out.firstTab=$('.w-nav .active')?.innerText.trim();out.navTabs=$$('.w-nav button').map(b=>b.innerText.trim());
   out.noPayslip=!/فیش|حقوق/.test(document.body.innerText);await shot('ops-staff-ops');
   await click('[data-tab="shift"]',300);out.calDays=$$('.sf-day').length;out.today=!!$('.sf-day.today');await shot('ops-staff-shift');

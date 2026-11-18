@@ -423,3 +423,40 @@ button.dc{cursor:pointer}button.dc:hover{border-color:var(--accent)}
   table.grid-more tbody tr:not(.open)>td:nth-child(n+5){display:none!important}
   table.grid-more tbody tr:not(.open)::after{content:"▾ بیشتر";display:block;font-size:11.5px;color:var(--accent);text-align:end;padding-top:2px}
 }
+
+/* ---------- staff app (app/staff.html, js/staff-real.js): phone first, one column ---------- */
+body.staff-app{background:var(--bg);min-height:100vh}
+.staff-app .st-top{position:sticky;top:0;z-index:30;height:auto;padding:0;border-bottom:1px solid var(--border);background:var(--surface)}
+.st-top-in{display:flex;align-items:center;gap:10px;max-width:720px;margin:0 auto;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top))}
+.st-top-in .grow{display:flex;flex-direction:column;min-width:0}.st-top-in b{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.st-top-in small{font-size:12px}
+.st-top-in .brand-mark.sm{width:34px;height:34px;font-size:16px}
+.staff-app .st-main{max-width:720px;margin:0 auto;padding:16px 16px calc(84px + env(safe-area-inset-bottom))}
+.st-page{display:flex;flex-direction:column;gap:12px}
+.st-h{font-size:14px;margin:8px 0 0;color:var(--text-2)}
+.st-nav{position:fixed;inset-inline:0;bottom:0;z-index:30;display:flex;justify-content:space-around;background:var(--surface);border-top:1px solid var(--border);padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+.st-nav:empty{display:none}
+.st-nav a{flex:1;max-width:140px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;border-radius:var(--radius);color:var(--text-3);font-size:12px;text-decoration:none}
+.st-nav a svg{width:22px;height:22px}.st-nav a.active{color:var(--accent);background:var(--accent-soft)}
+.st-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.st-tile{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);color:var(--text);text-decoration:none;box-shadow:var(--shadow-sm);min-height:104px}
+.st-tile svg{width:26px;height:26px;color:var(--accent)}.st-tile b{font-size:15px}.st-tile small{color:var(--text-3);font-size:12px}
+.st-tile:active{transform:scale(.98)}
+.st-today svg{width:22px;height:22px;color:var(--accent);flex:none;margin-top:2px}.st-today .mt-xs{margin:4px 0}
+.st-task,.st-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+.st-task .grow,.st-row .grow{display:flex;flex-direction:column;gap:2px;min-width:0}.st-task small,.st-row small{color:var(--text-3);font-size:12px}
+.st-task>svg{width:22px;height:22px;flex:none}.st-task[role=link]{cursor:pointer}
+.st-task.st-ok{border-color:color-mix(in srgb,var(--success) 35%,var(--border))}.st-task.st-ok>svg{color:var(--success)}
+.st-task.st-todo>svg{color:var(--accent)}
+.st-task.st-late{background:var(--warning-soft);border-color:color-mix(in srgb,var(--warning) 40%,var(--border))}.st-task.st-late>svg{color:var(--warning)}
+.st-cta{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:16px}
+.st-cta .btn{justify-content:center}.st-cta .btn-lg{min-height:48px;font-size:16px}
+.st-row.st-now{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.st-date{display:flex;flex-direction:column;align-items:center;min-width:48px;padding-inline-end:10px;border-inline-end:1px solid var(--border)}.st-date b{font-size:20px;line-height:1.1}.st-date small{font-size:11px;color:var(--text-3)}
+.st-foot{font-size:12px;margin:8px 0 0}
+.st-login{width:min(400px,100%);margin:8vh auto 0;padding:var(--s6);box-shadow:var(--shadow)}
+.st-bev{padding:12px;overflow-x:auto}
+.staff-app .input,.staff-app .select,.staff-app .textarea{font-size:16px}
+@media (min-width:600px){.st-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.st-top-in .grow,.st-task .grow,.st-row .grow,.st-today .grow{flex:1 1 auto}
+.st-row b small{font-weight:400;margin-inline-start:4px}
+.st-top-in{width:100%;box-sizing:border-box}.staff-app .st-top{display:block}

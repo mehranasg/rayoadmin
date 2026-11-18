@@ -37,6 +37,13 @@ const m=PW.addMessage(d,ctx(),{date:T,title:'سلام',text:'روز خوب'});ok
 const r=PW.addReservation(d,ctx(),{date:T,customerName:'خانم الف',phone:'۰۹۱۲۰۰۰۰۰۰۰',partySize:4,depositAmount:500000,depositMethod:'نقدی'});ok(r.id==='RES-00001'&&r.phone==='09120000000'&&r.status==='رزرو','reservation like js/22');
 PW.setReservationStatus(d,ctx(),{id:r.id,status:'انجام‌شده'});ok(r.status==='انجام‌شده','reservation status');throws(()=>PW.addReservation(d,ctx(),{date:T,customerName:'',phone:'1',partySize:1}),/الزامی/,'reservation fields required');
 
+// staff app: leave request of the person (legacy js/22 shape), no past days, no overlap with a waiting request
+{const d=doc(),c=ctx(),f=E.CAL.k(E.CAL.i(T)+3),t=E.CAL.k(E.CAL.i(T)+4);const r=PW.requestLeave(d,c,{personnelId:'EMP-1',type:'مرخصی استحقاقی',fromDate:f,toDate:t,count:'',note:'سفر'});
+ ok(r.id==='LREQ-00001'&&r.status==='در انتظار'&&r.count===2&&r.employeeNote==='سفر'&&d.leaveRequests.length===1,'leave request saved waiting for the manager');
+ throws(()=>PW.requestLeave(d,c,{personnelId:'EMP-1',fromDate:t,toDate:t}),/در انتظار/,'overlapping waiting request refused');
+ throws(()=>PW.requestLeave(d,c,{personnelId:'EMP-1',fromDate:E.CAL.k(E.CAL.i(T)-2),toDate:T}),/گذشته/,'past days refused');
+ const p=d.personnel[0];p.username='maryam';p.userAccess={enabled:true,permissions:{cashReport:true,inventoryTransfers:true}};PW.saveAccount(d,c,{id:'EMP-1',username:'maryam',enabled:true,permissions:['beverageControl']});
+ ok(p.userAccess.permissions.beverageControl===true&&p.userAccess.permissions.cashReport===false&&p.userAccess.permissions.inventoryTransfers===true,'account form: listed keys set, keys not in the form kept')}
 (async()=>{const srv={t:JSON.stringify(doc())},io={module:'personnel',validate:PW.validPersonnel,load:async()=>JSON.parse(srv.t),save:async x=>{srv.t=JSON.stringify(x)},actor:()=>'qa-admin',pricing:()=>null};
  await W.edit(io,{action:'TIP_ADDED',mutate:(x,cx)=>PW.addTip(x,cx,{date:T,type:'کلی',totalAmount:1000,participants:[{personnelId:'EMP-1'}]})});const s=JSON.parse(srv.t);
  ok(s.tipGroups.length===2&&s.personnel[0].userPassword==='secret'&&s.personnel[0].cardNumber==='6037991234567890'&&s.settings.adminUsers[0].passwordHash==='H','sensitive fields are written back unchanged');

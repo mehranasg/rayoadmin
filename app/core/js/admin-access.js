@@ -53,7 +53,21 @@ function verify(doc,username,password){username=S(username);if(!username||!passw
  return{username:rec.username,role:'user',sections:rec.fullAccess?'*':A(rec.sections)}}
 const KEYS=['rayo_admin_user','rayo_admin_role','rayo_admin_sections'];
 const ss=(k,v)=>{try{if(v===undefined)return sessionStorage.getItem(k)||'';if(v===null)sessionStorage.removeItem(k);else sessionStorage.setItem(k,v)}catch(_){return ''}};
-function realSession(){const user=ss('rayo_admin_user');if(!user)return null;let sections=null;try{sections=JSON.parse(ss('rayo_admin_sections')||'null')}catch(_){}const role=ss('rayo_admin_role')||(isStatic(user)?'owner':'user');return{user,role,sections:role==='owner'?'*':sections}}
+function realSession(){const user=ss('rayo_admin_user');if(!user)return null;let sections=null;try{sections=JSON.parse(ss('rayo_admin_sections')||'null')}catch(_){}const role=ss('rayo_admin_role')||(isStatic(user)?'owner':'user');
+ // a staff sign-in (staff app) never opens the management panel
+ if(role==='staff'&&!(typeof window!=='undefined'&&window.RAYO_STAFF_APP))return null;return{user,role,sections:role==='owner'?'*':sections}}
+/* staff of the staff app (app/staff.html): personnel with «پنل پرسنل» enabled, checked like the legacy staff panel
+   (js/22 login: active, userAccess.enabled, username without case, userPassword as stored — plain text, BL-002).
+   Their permission keys (personnel[].userAccess.permissions) open only the matching saves; the session keys are the admin
+   ones with role «staff» (so the save code names them) plus rayo_staff_session of the legacy staff panel. */
+const STAFF_PERMS={cashReport:['cash'],inventoryWaste:['inventory'],inventoryConsumption:['inventory'],beverageControl:['inventory'],inventoryCounts:['inventory'],purchaseRequests:['purchase'],purchaseInvoices:['purchase']};
+const staffPerms=p=>Object.entries(p?.userAccess?.permissions||{}).filter(([,v])=>v===true).map(([k])=>k);
+function verifyStaff(doc,username,password){username=S(username);if(!username||!password)return null;
+ const p=A(doc?.personnel).find(x=>x.status==='فعال'&&x.userAccess?.enabled===true&&S(x.username)&&sameName(x.username,username)&&String(x.userPassword??'')===String(password));if(!p)return null;
+ const perms=staffPerms(p);return{username:S(p.name)||S(p.username),role:'staff',personnelId:p.id,perms,sections:[...new Set(perms.flatMap(k=>STAFF_PERMS[k]||[]))]}}
+function signInStaff(r){signIn(r);ss('rayo_staff_session',JSON.stringify({personnelId:r.personnelId,name:r.username,at:new Date().toISOString()}));ss('rayo_staff_perms',JSON.stringify(r.perms||[]))}
+function staff(){const r=realSession();if(!r||r.role!=='staff')return null;let s=null,perms=[];try{s=JSON.parse(ss('rayo_staff_session')||'null');perms=JSON.parse(ss('rayo_staff_perms')||'[]')}catch(_){}return s&&s.personnelId?{personnelId:s.personnelId,name:r.user,perms:A(perms)}:null}
+const staffCan=k=>!!staff()?.perms.includes(k);
 /* owner «view as»: the panel shows and allows only the sections of a preset role or of a real admin user; the owner
    stays the signed-in user (saves carry the owner name). Kept in its own sessionStorage key, which the current panel does not read. */
 const PRESETS=[
@@ -66,11 +80,13 @@ function setPreview(p){if(!p){ss('rayo_np_preview',null);return}const r=realSess
  ss('rayo_np_preview',JSON.stringify({id:S(p.id),label:S(p.label),icon:S(p.icon)||'user',sections:A(p.sections).map(S).filter(k=>SECTIONS.some(x=>x[0]===k))}))}
 function session(){const r=realSession();if(!r)return null;const p=preview();return p?{user:r.user,role:'user',sections:p.sections,preview:p}:r}
 function signIn(r){ss('rayo_admin_user',r.username);ss('rayo_admin_role',r.role);ss('rayo_admin_sections',JSON.stringify(r.sections))}
-function signOut(){KEYS.forEach(k=>ss(k,null));ss('rayo_np_preview',null)}
+function signOut(){KEYS.forEach(k=>ss(k,null));ss('rayo_np_preview',null);ss('rayo_staff_session',null);ss('rayo_staff_perms',null)}
 function has(key){const s=session();if(!s)return false;if(s.role==='owner'||s.sections==='*')return true;return Array.isArray(s.sections)&&s.sections.includes(key)}
 const canManage=()=>{const s=session();return !!s&&(s.role==='owner'||s.sections==='*')};
 /* a signed-in user that was disabled or removed in the live personnel data is signed out (js/44 guardPage) */
-function stillValid(doc){const s=session();if(!s||s.role==='owner'||s.preview)return true;const rec=users(doc).find(x=>sameName(x.username,s.user));if(!rec||S(rec.status)==='غیرفعال')return false;ss('rayo_admin_sections',JSON.stringify(rec.fullAccess?'*':A(rec.sections)));return true}
+function stillValid(doc){const s=session();if(!s||s.role==='owner'||s.preview)return true;
+ if(s.role==='staff'){const st=staff(),p=A(doc?.personnel).find(x=>x.id===st?.personnelId);if(!p||p.status!=='فعال'||p.userAccess?.enabled!==true)return false;const perms=staffPerms(p);ss('rayo_staff_perms',JSON.stringify(perms));ss('rayo_admin_sections',JSON.stringify([...new Set(perms.flatMap(k=>STAFF_PERMS[k]||[]))]));return true}
+ const rec=users(doc).find(x=>sameName(x.username,s.user));if(!rec||S(rec.status)==='غیرفعال')return false;ss('rayo_admin_sections',JSON.stringify(rec.fullAccess?'*':A(rec.sections)));return true}
 /* add or edit a user inside the personnel document (js/44 saveUser rules) */
 function saveUser(doc,ctx,x){const id=S(x.id),username=S(x.username),password=x.password||'',full=!!x.fullAccess;let sections=[...new Set(A(x.sections).map(S).filter(k=>SECTIONS.some(s=>s[0]===k)))];
  if(!/^[A-Za-z0-9_.-]{3,32}$/.test(username))throw Error('نام کاربری ۳ تا ۳۲ حرف انگلیسی، عدد، نقطه، خط تیره یا زیرخط باشد');
@@ -84,5 +100,5 @@ function saveUser(doc,ctx,x){const id=S(x.id),username=S(x.username),password=x.
  Object.assign(rec,{displayName:S(x.displayName),status:S(x.status)==='غیرفعال'?'غیرفعال':'فعال',fullAccess:full,sections:full?[]:sections,updatedAt:ctx.at,updatedBy:ctx.actor});
  if(password){rec.salt=sha256(`${Math.random()}:${Date.now()}:${username}`).slice(0,16);rec.passwordHash=passwordHash(rec.salt,password)}
  ctx.auditExtra={entityId:rec.id};return{id:rec.id,username:rec.username}}
-window.AdminAccess={SECTIONS,LEGACY_SECTIONS,SECTION_GROUPS,sectionName,PRESETS,preview,setPreview,realSession,verify,session,signIn,signOut,has,canManage,stillValid,saveUser,isStatic,sha256,passwordHash};
+window.AdminAccess={SECTIONS,LEGACY_SECTIONS,SECTION_GROUPS,sectionName,PRESETS,preview,setPreview,realSession,verify,session,signIn,signOut,has,canManage,stillValid,saveUser,isStatic,sha256,passwordHash,STAFF_PERMS,verifyStaff,signInStaff,staff,staffCan};
 })();

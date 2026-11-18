@@ -116,7 +116,10 @@ function buildReport(doc,input,ctx){
  const err=(msg,step)=>Object.assign(Error(msg),{step});const old=ctx.old||null,refs={transferAccounts:A(doc?.transferAccounts),cashRecipients:A(doc?.cashRecipients)};
  const d=date(input.date);if(!d)throw err('تاریخ معتبر نیست (مثال ۱۴۰۵/۰۸/۱۷)',1);if(ctx.today&&d>ctx.today)throw err('تاریخ گزارش نمی‌تواند در آینده باشد',1);
  if(reports(doc).some(r=>r.date===d&&r.id!==old?.id))throw err(`برای ${d} قبلاً گزارش صندوق ثبت شده است؛ همان را ویرایش کنید`,1);
- const cashier=A(doc?.cashiers).find(c=>c.id===input.cashierId);
+ // staff app: the cashier is the signed-in person (legacy staff panel: cashierId = personnel id), and a person edits only
+ // their own report until a manager has reviewed it (js/22 staffCashEditable)
+ if(ctx.staff){input={...input,cashierId:ctx.staff.personnelId};if(old&&!(old.registeredByPersonnelId===ctx.staff.personnelId||(old.registeredByType==='staff'&&old.cashierId===ctx.staff.personnelId)))throw err('فقط گزارش خودتان را می‌توانید ویرایش کنید',1);if(old&&(old.managementReviewStatus||S(old.managerReview||'بررسی نشده')!=='بررسی نشده'))throw err('این گزارش بررسی شده است؛ برای اصلاح به مدیر بگویید',1)}
+ const cashier=A(doc?.cashiers).find(c=>c.id===input.cashierId)||(ctx.staff&&input.cashierId===ctx.staff.personnelId?{id:ctx.staff.personnelId,name:ctx.staff.name,status:'فعال'}:null);
  if(!input.cashierId)throw err('صندوقدار را انتخاب کنید',1);
  if(!(cashier&&cashier.status!=='غیرفعال')&&input.cashierId!==old?.cashierId)throw err('صندوقدار انتخاب‌شده فعال نیست',1);
  const r={date:d,cashierId:input.cashierId,cashierName:cashier?.name||(input.cashierId===old?.cashierId?old.cashierName:'')||''};
@@ -153,7 +156,7 @@ function buildReport(doc,input,ctx){
  r.otherTransactions=rows;r.notes=S(input.notes);
  const m=calc(r);if(!m.valid)throw err('مبلغ نامعتبر: '+m.errors.map(e=>e.message).join('، '),1);
  const id=old?.id||ctx.recordId||`CASH-${d.replace(/\D/g,'')}-${ctx.reqId||Date.now()}`;
- return old?{...old,...r,...m,id,updatedAt:ctx.at,updatedBy:ctx.actor}:{...r,...m,id,registeredByType:'admin',registeredByName:ctx.actor,createdAt:ctx.at,updatedAt:ctx.at,managerReview:'بررسی نشده'};
+ return old?{...old,...r,...m,id,updatedAt:ctx.at,updatedBy:ctx.actor}:{...r,...m,id,...(ctx.staff?{registeredByType:'staff',registeredByName:ctx.staff.name,registeredByPersonnelId:ctx.staff.personnelId}:{registeredByType:'admin',registeredByName:ctx.actor}),createdAt:ctx.at,updatedAt:ctx.at,managerReview:'بررسی نشده'};
 }
 // doc with one report replaced (or archived when rec is null) — to work out receivable patches before saving
 function withReport(doc,id,rec){const d={...doc,reports:A(doc?.reports).filter(r=>r.id!==id)};if(rec)d.reports.push(rec);return d}

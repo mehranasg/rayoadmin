@@ -104,7 +104,7 @@ function addEvent(doc,ctx,input){if(input.type==='prepared')return addPreparedEv
  if(!reason&&!notes)throw Error('علت یا توضیح رویداد را وارد کنید');
  /* section (بخش) and responsible person: waste must name its section; the person is optional (legacy field responsiblePersonnelId) */
  const section=S(input.section),responsiblePersonnelId=S(input.responsiblePersonnelId);if(!AUTH_TYPES.has(eventType)&&!section)throw Error('بخش پرتی را انتخاب کنید');
- const common={date,eventType,type,itemId,locationId:l.id,shift,quantity,invoiceNumber:'',responsiblePersonnelId,...(responsiblePersonnelId?{responsibleNameSnapshot:S(input.responsibleName)}:{}),...(section?{section}:{}),reason,notes,...(entry||{}),reviewStatus:'تأییدشده',reportedByName:ctx.actor,reviewedBy:ctx.actor,reviewedAt:ctx.at,createdBy:ctx.actor,createdAt:ctx.at,status:'posted'};
+ const common={date,eventType,type,itemId,locationId:l.id,shift,quantity,invoiceNumber:'',responsiblePersonnelId,...(responsiblePersonnelId?{responsibleNameSnapshot:S(input.responsibleName)}:{}),...(section?{section}:{}),reason,notes,...(entry||{}),...(ctx.staff?{reviewStatus:'در انتظار بررسی',reportedByName:ctx.staff.name,reportedByPersonnelId:ctx.staff.personnelId,registeredByType:'staff'}:{reviewStatus:'تأییدشده',reportedByName:ctx.actor,reviewedBy:ctx.actor,reviewedAt:ctx.at}),createdBy:ctx.actor,createdAt:ctx.at,status:'posted'};
  let rec;if(AUTH_TYPES.has(eventType)){doc.consumptionRecords=A(doc.consumptionRecords);rec={id:uid('CON',doc.consumptionRecords),recordKind:'consumption',...common};doc.consumptionRecords.push(rec)}
  else{doc.wasteRecords=A(doc.wasteRecords);rec={id:uid('WST',doc.wasteRecords),recordKind:'waste',known:true,causeKnown:true,...common};doc.wasteRecords.push(rec)}
  addMovementsFor(doc,rec,ctx,M);return rec}
@@ -329,7 +329,8 @@ async function edit(io,{action,details={},mutate}){
  try{
   const before=await io.load();if(!(io.validate||validDoc)(before))throw Error(`Load کامل و معتبر ${io.module==='pricing'?'منو و قیمت':'انبار'} لازم است؛ چیزی ذخیره نشد`);
   const after=clone(before);after.settings=after.settings&&typeof after.settings==='object'?after.settings:{};
-  const ctx={actor,at:now(),reqId:requestId(),pricing:io.pricing(),module:io.module||'inventory'};
+  // staff of the staff app (AdminAccess.staff): the records name the person (reportedByPersonnelId…)
+  const ctx={actor,at:now(),reqId:requestId(),pricing:io.pricing(),module:io.module||'inventory',staff:(typeof window!=='undefined'&&window.AdminAccess?.staff?.())||null};
   // one audit row per save; a void adds the record as it was before the change (ctx.auditExtra)
   const out=mutate(after,ctx);
   // inventory saves: later whole counts follow the change (opt out with io.recalc===false, e.g. pure settings)

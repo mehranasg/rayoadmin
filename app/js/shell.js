@@ -425,7 +425,7 @@ function buildSidebar(active){
 }
 
 /* in-house apps: static prototypes on sample data (ops-data.js), for the owner to try; they do not touch the live data */
-const DEMOS=[['pos.html','صندوق','monitor-smartphone'],['waiter.html','سفارش‌گیر (ویتر)','smartphone'],['kds.html','مانیتور آشپزخانه','monitor'],['staff.html','پنل کاربر (پرسنل)','user-round']];
+const DEMOS=[['pos.html','صندوق','monitor-smartphone'],['waiter.html','سفارش‌گیر (ویتر)','smartphone'],['kds.html','مانیتور آشپزخانه','monitor'],['staffdemo.html','پنل کاربر (پرسنل)','user-round']];
 /* owner: view the panel as a preset role or as one of the admin users (AdminAccess.setPreview) */
 function rolePicker(){
   const pv=AAx().preview(),users=(window.PeopleReal?.doc?.()?.settings?.adminUsers||[]).filter(u=>u.status!=='غیرفعال');
