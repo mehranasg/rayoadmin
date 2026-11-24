@@ -161,4 +161,32 @@ ok(/id:'ledger'/.test(lr)&&/id:'cashbox'/.test(lr)&&/id:'debts'/.test(lr)&&/id:'
  FW.endRecurring(f,ctx(),{id:net.id,toMonth:'1405/09'});ok(FW.recurringMonth(f,'1405/10',new Map()).every(x=>x.category!=='اینترنت')&&FW.recurringMonth(f,'1405/09',new Map()).some(x=>x.category==='اینترنت'),'an ended template stops after its last month');
  const fc=FW.forecast({past:[{sales:1000,materials:300,staffMeal:0,expenseTotal:500,expenses:[{category:'اجاره',amount:400},{category:'سایر',amount:100}]}],payroll:0,knownExpenses:0,recurring:450,recurringCats:['اجاره']});
  ok(fc.otherExpenses===550&&fc.recurring===450&&fc.otherAverage===100,'forecast = recurring templates + average of the other categories')}
+// one real account in two lists (accountAliases), petty cards as accounts, POS account on a payment place
+{const cash={transferAccounts:[{id:'A1',name:'پاسارگاد - مهران'}],cashRecipients:[{id:'C1',name:'مهران'}],reports:[{id:'R1',date:'1405/08/02',pos1:100000000,cardToCardItems:[{amount:20000000,accountId:'A1'}]}]};
+ const inv={settings:{paymentLocations:[{id:'L5',name:'کارت به کارت مهران'},{id:'L1',name:'حساب سامان'}]},supplierPayments:[{id:'SP1',date:'1405/08/05',amount:3e6,paymentLocationId:'L5',directionEffect:'payment',status:'posted'}]};
+ const f={settings:{},entries:[],pettyCash:{cards:[{id:'PCC-001',holderName:'زیبا',last4:'1111',openingToman:5e5,openedAt:'1405/08/01',status:'active'}],topups:[{id:'PCT-1',cardId:'PCC-001',date:'1405/08/03',amountToman:2e6,accountKey:'payment:L5',accountName:'کارت به کارت مهران',status:'active'},{id:'PCT-2',cardId:'PCC-001',date:'1405/08/04',amountToman:3e5,direction:'out',accountKey:'account:A1',status:'active'},{id:'PCT-3',cardId:'PCC-001',date:'1405/08/04',amountToman:9e9,status:'void'}],expenses:[{id:'PCE-1',cardId:'PCC-001',date:'1405/08/04',amountToman:4e5,merchant:'میوه',status:'submitted'}],closes:[]}};
+ const src={fin:f,cash,inv,hr:{}};let L=FW.accountLedger(src);const g=k=>L.find(r=>r.key===k);
+ ok(g('petty:PCC-001').balance===5e5+2e6-3e5-4e5&&g('petty:PCC-001').type==='petty','petty card is an account: opening + charge − money back − expenses (void ignored)');
+ ok(g('payment:L5').balance===-3e6-2e6&&g('account:A1').balance===2e6+3e5,'charge leaves the source account, money back comes into the account');
+ FW.setPosAccount(f,ctx(),{accountKey:'payment:L1'});L=FW.accountLedger(src);ok(g('payment:L1').balance===1e7&&g('payment:L1').pos,'card machines may go to a bank payment place');
+ throws(()=>FW.setPosAccount(f,ctx(),{accountKey:'petty:PCC-001'}),/بانکی/,'petty card is not a POS account');
+ throws(()=>FW.setAlias(f,ctx(),{fromKey:'payment:L5',toKey:'payment:L5'}),/یکی است/,'same account refused');
+ throws(()=>FW.setAlias(f,ctx(),{fromKey:'petty:PCC-001',toKey:'account:A1'}),/یکی نمی‌شود/,'a petty card is never the duplicate');
+ throws(()=>FW.setAlias(f,ctx(),{fromKey:'account:A1',toKey:'petty:PCC-001'}),/محل پرداخت/,'only a payment place merges into a petty card');
+ {const f2=JSON.parse(JSON.stringify(f));const inv2={settings:{paymentLocations:[...inv.settings.paymentLocations,{id:'L7',name:'تنخواه صندوقدار'}]},supplierPayments:[...inv.supplierPayments,{id:'SP0',date:'1405/07/22',amount:4e7,paymentLocationId:'L7',status:'posted'},{id:'SP9',date:'1405/08/06',amount:1e6,paymentLocationId:'L7',directionEffect:'payment',status:'posted'}]};
+  FW.setAlias(f2,ctx(),{fromKey:'payment:L7',toKey:'petty:PCC-001'});const L2=FW.accountLedger({...src,fin:f2,inv:inv2}),p=L2.find(r=>r.key==='petty:PCC-001');
+  ok(p.opening.amount===5e5&&p.balance===5e5+2e6-3e5-4e5-1e6&&!L2.some(r=>r.key==='payment:L7'),'payment place merged into the petty card: purchases paid with the card from its start date lower its balance (older ones are inside the opening)');
+  const b=FW.pettyPurchases(f2,inv2,'PCC-001');ok(b.length===1&&b[0].amount===1e6,'petty purchases for the petty page: only after the start date')}
+ FW.setOpening(f,ctx(),{accountKey:'payment:L5',date:'1405/08/01',amountToman:1e7,notes:'بانک'});
+ const al=FW.setAlias(f,ctx(),{fromKey:'payment:L5',toKey:'account:A1'});L=FW.accountLedger(src);
+ ok(al.toKey==='account:A1'&&!g('payment:L5')&&g('account:A1').balance===1e7+2e6+3e5-3e6-2e6&&g('account:A1').opening.amount===1e7,'merged: duplicate hidden, its moves and opening counted under the main account');
+ ok(FW.accountRows(src).find(r=>r.key==='account:A1').aliases[0].name==='کارت به کارت مهران'&&FW.accountRows(src).find(r=>r.key==='payment:L5').aliasOf==='account:A1','main account lists the duplicate name');
+ throws(()=>FW.setAlias(f,ctx(),{fromKey:'payment:L5',toKey:'payment:L1'}),/قبلاً/,'a duplicate is merged once');
+ throws(()=>FW.setAlias(f,ctx(),{fromKey:'payment:L1',toKey:'payment:L5'}),/حساب اصلی/,'no chains: the main account cannot be a duplicate');
+ throws(()=>FW.setAlias(f,ctx(),{fromKey:'account:A1',toKey:'payment:L1'}),/اصلی انتخاب/,'an account with duplicates is not merged into another');
+ FW.setOpening(f,ctx(),{accountKey:'payment:L1',date:'1405/08/01',amountToman:1,notes:'x'});
+ FW.setOpening(f,ctx(),{accountKey:'cash:C1',date:'1405/08/01',amountToman:1,notes:'x'});throws(()=>FW.setAlias(f,ctx(),{fromKey:'cash:C1',toKey:'payment:L1'}),/ماندهٔ اول/,'both with an opening refused');
+ ok(FW.cashBoxKey({fin:{settings:{cashBoxKey:'payment:L5',accountAliases:{'payment:L5':'account:A1'}}},inv})==='account:A1','cash box key follows the merge');
+ FW.removeAlias(f,ctx(),{fromKey:'payment:L5'});L=FW.accountLedger(src);ok(g('payment:L5')&&g('account:A1').balance===2e6+3e5&&!Object.keys(f.settings.accountAliases).length,'split restores both accounts');
+ throws(()=>FW.removeAlias(f,ctx(),{fromKey:'payment:L5'}),/یکی نشده/,'split of an unmerged account refused')}
 console.log(`qa_template_finance: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

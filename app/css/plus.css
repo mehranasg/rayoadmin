@@ -36,8 +36,9 @@
 .iw-row{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,2fr) auto;gap:8px;align-items:center}
 @media (max-width:640px){.iw-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.iw-row [data-f=item],.iw-row [data-f=note]{grid-column:1/-1}}
 /* recipe row: item · quantity · unit · cost · note · remove (6 cells; the cost never runs into the unit) */
-.iw-row.mr-row{grid-template-columns:minmax(0,3fr) minmax(64px,.8fr) minmax(104px,auto) minmax(84px,1fr) minmax(0,1.6fr) auto}
-.mr-row [data-f=unit]{width:100%!important;min-width:0!important}.mr-row [data-f=cost]{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iw-row.mr-row,.iw-row.mr-head{grid-template-columns:minmax(0,3fr) minmax(64px,.8fr) 116px minmax(96px,1fr) minmax(0,1.6fr) 34px}
+.mr-row [data-f=unit]{width:100%!important;min-width:0!important}.mr-row [data-f=cost]{text-align:left;line-height:1.3;overflow:hidden}.mr-row [data-f=cost] small{font-size:11px;white-space:normal}.mr-row [data-f=cost].mr-changed b{color:var(--warning)}.mr-head{padding-bottom:2px;border-bottom:1px solid var(--border)}.mr-head span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mr-head span:nth-child(4){text-align:left}.mr-delta{margin-top:6px;font-size:13px}
+@media (max-width:640px){.mr-head{display:none}}
 @media (max-width:640px){.iw-row.mr-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}.mr-row [data-f=note]{grid-column:1/-2}}
 .mr-row{grid-template-columns:minmax(0,3fr) minmax(0,1fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1.6fr) auto}
 /* purchase invoice rows (purchase-real.js, stage 6) */

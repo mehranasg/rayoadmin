@@ -23,7 +23,14 @@ ok(n.code==='1003'&&n.id==='ING-0003'&&ni.recipeCapable===true&&ni.inventoryTrac
 ok(d.lists.ingredientCategories.includes('سبزی')&&d.ingredientPriceHistory.length===1&&d.ingredientPriceHistory[0].priceToman===200000&&d.ingredientPriceHistory[0].date==='1405/08/10','new group listed; manual price history row');
 throws(()=>MW.saveIngredient(d,ctx(),{id:'ING-0001',name:'پنیر موزارلا',purchaseUnit:'کیلوگرم',recipeUnit:'کیلوگرم',packageQuantity:1}),/واحد پایه/,'stock unit locked for an existing item');
 throws(()=>MW.saveIngredient(d,ctx(),{id:'ING-0001',code:'9999',name:'پنیر موزارلا',purchaseUnit:'کیلوگرم',packageQuantity:1000}),/کد قلم/,'code locked');
-throws(()=>MW.saveIngredient(d,ctx(),{name:'شیر',purchaseUnit:'لیتر',recipeUnit:'گرم',packageQuantity:1000}),/هم‌جنس/,'mass/volume units refused');
+throws(()=>MW.saveIngredient(d,ctx(),{name:'شیر',purchaseUnit:'لیتر',recipeUnit:'گرم',packageQuantity:1000}),/وزن هر لیتر/,'mass/volume units refused without density');
+{const r=MW.saveIngredient(d,ctx(),{name:'شیر عسل تست',purchaseUnit:'لیتر',recipeUnit:'گرم',packageQuantity:1400,densityKgPerLiter:1.4});ok(r&&r.created,'weight base bought by لیتر with density saved');
+ const i=d.ingredients.find(x=>x.name==='شیر عسل تست');ok(Number.isFinite(MW.unitCost({...i,lastPurchasePriceToman:1400},d).v),'unit cost with density across weight/volume');
+ throws(()=>MW.saveIngredient(d,ctx(),{...i,packageQuantity:1000}),/با تبدیل‌های این قلم هر لیتر = 1400/,'pack size must agree with density');}
+// a jar item (عدد) with «۱ عدد = ۹۰۰ گرم» brings کیلوگرم; bought by کیلوگرم the pack size must match (1000/900 jar)
+{const cu=[{name:'گرم',factor:1/900,def:{a:'عدد',q:900,b:'گرم'}}];
+ throws(()=>MW.saveIngredient(d,ctx(),{name:'عسل شیشه تست',purchaseUnit:'کیلوگرم',recipeUnit:'عدد',packageQuantity:1,countingUnits:cu}),/هر کیلوگرم = 1.111111 عدد/,'kg pack contradicts the gram row');
+ const r=MW.saveIngredient(d,ctx(),{name:'عسل شیشه تست',purchaseUnit:'کیلوگرم',recipeUnit:'عدد',packageQuantity:1000/900,countingUnits:cu});ok(r&&r.created,'kg pack from the gram row saved');}
 throws(()=>MW.saveIngredient(d,ctx(),{name:'ماست',purchaseUnit:'کیلوگرم',recipeUnit:'گرم',packageQuantity:0}),/بیشتر از صفر/,'package quantity > 0');
 // edit: keeps unknown keys (sepids), no price change unless edited; waste change → recipe version
 const e1=MW.saveIngredient(d,ctx(),{id:'ING-0001',name:'پنیر موزارلا',category:'لبنیات',purchaseUnit:'کیلوگرم',packageQuantity:1000,price:400000,priceEdited:false,wastePercent:5});

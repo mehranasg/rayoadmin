@@ -53,4 +53,27 @@ throws(()=>PW.saveSettings(fin,ctx(),{categories:[{id:'x',name:'تنها',limitT
 const st=PW.saveSettings(fin,ctx(),{categories:PW.settings(fin).categories.map(c=>c.id==='dairy'?{...c,limitToman:'3000000'}:c),blockedMerchantKeywords:'کارواش، بنزین',priceTolerancePercent:'15',workFrom:'08:00',workTo:'23:00',splitWindowMinutes:60,roundAmountToman:500000});
 ok(st.categories.find(c=>c.id==='dairy').limitToman===3000000&&st.blockedMerchantKeywords.length===2&&PW.settings(fin).priceTolerancePercent===15,'settings saved under finance.settings.pettyCash');
 ok(JSON.stringify(Object.keys(fin).sort())===JSON.stringify(['changeLog','entries','meta','monthlyOverrides','parties','pettyCash','settings']),'only pettyCash and settings added to finance');
+// edit, delete, allowed accounts, money taken back (owner request 1405/08/29)
+{const f={meta:{},entries:[]};const k=PW.addCard(f,ctx(),{holderName:'زیبا',last4:'1111',openingToman:500000,openedAt:prevMonth+'/01',accountKeys:['account:A1','account:A1','']});
+ ok(JSON.stringify(k.accountKeys)==='["account:A1"]','allowed accounts kept once, empty dropped');
+ const base={id:k.id,holderPersonnelId:'',holderName:'زیبا',last4:'1111',limitToman:0,openingToman:500000,openedAt:prevMonth+'/01',accountKeys:['account:A1']};
+ throws(()=>PW.editCard(f,ctx(),base),/تغییری نیست/,'edit without change refused');
+ const e1=PW.editCard(f,ctx(),{...base,holderName:'مریم',last4:'۲۲۲۲'});ok(e1.holderName==='مریم'&&e1.last4==='2222'&&e1.changes.length===1&&e1.changes[0].before.holderName==='زیبا'&&e1.changes[0].before.last4==='1111'&&!('limitToman' in e1.changes[0].before),'wrong holder name and a new card number edited; previous values kept on the card');
+ ok(PW.canDeleteCard(f,k.id),'card without any record can be deleted');
+ throws(()=>PW.addTopup(f,ctx(),{cardId:k.id,date:day(0),amountToman:1000}),/حساب/,'with allowed accounts, a charge needs the account');
+ throws(()=>PW.addTopup(f,ctx(),{cardId:k.id,date:day(0),amountToman:1000,accountKey:'cash:X'}),/مجاز نیست/,'account outside the allowed list refused');
+ const t1=PW.addTopup(f,ctx(),{cardId:k.id,date:day(0),amountToman:2000000,accountKey:'account:A1',accountName:'پاسارگاد'});ok(!t1.direction&&t1.accountKey==='account:A1'&&t1.accountName==='پاسارگاد','charge from an account (no direction = in)');
+ throws(()=>PW.addTopup(f,ctx(),{cardId:k.id,date:day(0),direction:'out',amountToman:9000000,accountKey:'account:A1'}),/کمتر/,'cannot take back more than the balance');
+ const t2=PW.addTopup(f,ctx(),{cardId:k.id,date:day(0),direction:'out',amountToman:700000,accountKey:'account:A1'});const b=PW.balance(f,k.id);
+ ok(t2.direction==='out'&&b.topups===2000000&&b.returned===700000&&b.expected===500000+2000000-700000,'money taken back off the card lowers its balance');
+ ok(!PW.canDeleteCard(f,k.id),'card with a charge is not deletable');throws(()=>PW.deleteCard(f,ctx(),{id:k.id}),/حذف نمی‌شود/,'delete of a card with history refused');
+ PW.voidRow(f,ctx(),{kind:'topup',id:t2.id,reason:'x'});ok(PW.balance(f,k.id).expected===2500000&&!PW.canDeleteCard(f,k.id),'void return restores balance; a void row still blocks delete');
+ const s0={id:'PCS-1',cardId:k.id,period:prevMonth,status:'active'};f.pettyCash.closes.push(s0);
+ throws(()=>PW.editCard(f,ctx(),{...base,holderName:'مریم',last4:'2222',openingToman:1}),/قفل/,'opening locked after a month close');
+ ok(PW.editCard(f,ctx(),{...base,holderName:'مریم',last4:'2222',limitToman:3000000}).limitToman===3000000,'limit still editable after a month close');s0.status='void';
+ PW.addTopup(f,ctx(),{cardId:k.id,date:prevMonth+'/05',amountToman:1000,accountKey:'account:A1'});
+ throws(()=>PW.editCard(f,ctx(),{...base,holderName:'مریم',last4:'2222',openedAt:prevMonth+'/10'}),/اولین ثبت/,'start date cannot move after the first record');
+ const k2=PW.addCard(f,ctx(),{holderName:'تست',last4:'3333'});throws(()=>PW.editCard(f,ctx(),{id:k2.id,holderName:'تست',last4:'2222',openedAt:k2.openedAt}),/همین چهار رقم/,'another active card with the same digits refused');
+ const bp=PW.balance(f,k.id,'',[{date:day(0),amount:100000}]);ok(bp.purchases===100000&&bp.expected===PW.balance(f,k.id).expected-100000,'purchases paid with the card in purchases lower its balance');
+ const del=PW.deleteCard(f,ctx(),{id:k2.id});ok(del.id===k2.id&&!f.pettyCash.cards.some(c=>c.id===k2.id),'unused card deleted')}
 console.log(`qa_template_petty_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

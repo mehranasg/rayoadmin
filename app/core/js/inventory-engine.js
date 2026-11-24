@@ -37,10 +37,18 @@ const NN=v=>{const n=Number(String(v??'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶�
    (e.g. «عدد» that always meant a litre → «لیتر»); records saved under the old label are the same unit, nothing is converted */
 const oldBase=(i,u)=>!!i&&A(i.baseUnitRenames).some(r=>UK(r.from)===UK(u));
 const sameUnit=(i,u)=>!u||!i||UK(u)===UK(i.recipeUnit)||oldBase(i,u);
+/* factor of a unit to the item's base unit from the item's own units (same rule as InvWrite.unitsOf): base 1, the purchase
+   unit (packageQuantity), the active other units (countingUnits, e.g. «۱ عدد = ۹۰۰ گرم») and the standard units any of them
+   brings (گرم ↔ کیلوگرم, میلی‌لیتر ↔ لیتر, weight ↔ volume with the density); null when the item does not know the unit */
+const STD_F={kg:['m',1],g:['m',0.001],l:['v',1],ml:['v',0.001]};
+function unitFactor(i,u){if(!i)return null;const k=UK(u),own=[[i.recipeUnit,1]];if(S(i.purchaseUnit)&&NN(i.packageQuantity)>0)own.push([i.purchaseUnit,NN(i.packageQuantity)]);for(const c of A(i.countingUnits))if(c&&c.active!==false&&S(c.name)&&NN(c.factor)>0)own.push([c.name,NN(c.factor)]);
+ const hit=own.find(([n])=>UK(n)===k);if(hit)return hit[1];const sk=STD_F[k];if(!sk)return null;const per={};for(const [n,f] of own){const s=STD_F[UK(n)];if(s&&!per[s[0]])per[s[0]]=f/s[1]}
+ const d=NN(i.densityKgPerLiter);if(d>0){if(per.m&&!per.v)per.v=per.m*d;else if(per.v&&!per.m)per.m=per.v/d}return per[sk[0]]?per[sk[0]]*sk[1]:null}
 function convertQty(i,qty,from,to){const U=UK;if(oldBase(i,from))from=i.recipeUnit;if(oldBase(i,to))to=i.recipeUnit;const f=U(from),t=U(to);if(!(qty>=0))return{value:null,reason:'مقدار نامعتبر است'};if(f===t)return{value:qty,reason:''};
- const fam=u=>u==='kg'||u==='g'?'mass':u==='l'||u==='ml'?'volume':null,ff=fam(f),ft=fam(t);if(!ff||!ft)return{value:null,reason:'تبدیل بین این دو واحد پشتیبانی نمی‌شود'};
+ // a unit of the item itself (e.g. «عدد» of an oil bought by the bottle, «بسته» of a pack): through its factors
+ const fam=u=>u==='kg'||u==='g'?'mass':u==='l'||u==='ml'?'volume':null,ff=fam(f),ft=fam(t);if(!ff||!ft){const a=unitFactor(i,from),b=unitFactor(i,to);return a&&b?{value:qty*a/b,reason:''}:{value:null,reason:`«${S(!a?from:to)}» از واحدهای این ماده نیست؛ در فرم ماده «تبدیل واحد» را بنویسید`}}
  const toB=(q,u)=>u==='g'||u==='ml'?q/1000:q,fromB=(q,u)=>u==='g'||u==='ml'?q*1000:q;if(ff===ft)return{value:fromB(toB(qty,f),t),reason:''};
- const d=Number(i?.densityKgPerLiter);if(!(d>0))return{value:null,reason:'چگالی این ماده تعریف نشده است؛ تبدیل حجم و وزن ممکن نیست'};
+ const d=Number(i?.densityKgPerLiter);if(!(d>0)){const x=unitFactor(i,from),y=unitFactor(i,to);return x&&y?{value:qty*x/y,reason:''}:{value:null,reason:'چگالی این ماده تعریف نشده است؛ تبدیل حجم و وزن ممکن نیست'}}
  return ff==='volume'?{value:fromB(toB(qty,f)*d,t),reason:''}:{value:fromB(toB(qty,f)/d,t),reason:''}}
 function prepConvert(pricing,item,countedQuantity,countedUnit){const qty=NN(countedQuantity),bad=reason=>({complete:false,reason,contributions:[]});
  if(!item)return bad('قلم آماده‌سازی تعریف نشده است');if(item.status==='غیرفعال')return bad(`قلم آماده‌سازی «${item.name}» غیرفعال است`);if(!(qty>=0))return bad(`مقدار شمارش «${item.name}» نامعتبر است`);
@@ -84,11 +92,14 @@ function build(raw){
  const wastes=[];for(const w of [...A(inv.wasteRecords),...A(inv.consumptionRecords).map(x=>({...x,__auth:true}))]){if(w.status==='void'||w.status==='pending'||w.isArchived)continue;const day=CAL.i(w.date);if(day===null)continue;const base={id:w.id,day,date:D(w.date),reason:S(w.reason||w.notes),eventType:S(w.eventType),by:S(w.reportedByName||w.createdBy),person:S(w.responsiblePersonnelId),known:w.known!==false,auth:!!w.__auth||w.recordKind==='consumption',raw:w};
   if(w.type==='menu'){for(const r of recipeAt(w.itemId,D(w.date))){const i=ing.get(r.ingredientId),q=gross(i,r,N(w.quantity));if(Number.isFinite(q))wastes.push({...base,kind:'waste',item:r.ingredientId,qty:q,fromMenu:menu.get(w.itemId)?.name||w.itemId})}}
   else wastes.push({...base,kind:'waste',item:w.itemId,qty:N(w.quantity),unit:ing.get(w.itemId)?.recipeUnit})}
+ // item merge (catalog «ادغام اقلام»): a pair of ITEM_MERGE movements moves the on-hand of the merged item to the kept item;
+ // toLocationId = in (+), fromLocationId = out (−). Kept apart from receipts so purchase lists and receipt checks ignore them.
+ const merges=A(inv.inventoryMovements).filter(m=>m&&m.movementType==='ITEM_MERGE'&&m.status!=='void'&&!m.isArchived).map(m=>({kind:'merge',id:m.id,item:m.ingredientId,day:CAL.i(m.date),date:D(m.date),qty:(S(m.toLocationId)?1:-1)*N(m.quantity),note:S(m.notes),by:S(m.createdBy),raw:m})).filter(x=>x.day!==null&&x.qty);
  const sales=A(inv.salesPeriods).filter(s=>s.status!=='void'&&!s.isArchived&&!['pending','rejected'].includes(s.status)).map(s=>{const a=CAL.i(s.from||s.date),b=CAL.i(s.to||s.date||s.from);return{...s,a,b,src:S(s.salesSource||s.source).toUpperCase()==='SNAPP'?'SNAPP':'SEPIDZ'}}).filter(s=>s.a!==null&&s.b!==null);
  // first and last activity day
  const allDays=[...receipts.map(x=>x.day),...wastes.map(x=>x.day),...sales.flatMap(s=>[s.a,s.b]),...[...points.values()].flatMap(l=>l.map(p=>p.at))].filter(x=>x!==null);
  const fo=inv.settings?.fryerOil||{},foFrom=D(fo.logFrom),recipeDeducts=(id,date)=>!(foFrom&&S(fo.ingredientId)===S(id)&&date>=foFrom);
- return{recipeDeducts,raw,inv,pr,ing,menu,recipeAt,costAt,catalog,gross,points,receipts,wastes,sales,firstDay:Math.min(...allDays),lastDay:Math.max(...allDays,CAL.i(CAL.today))};
+ return{recipeDeducts,raw,inv,pr,ing,menu,recipeAt,costAt,catalog,gross,points,receipts,merges,wastes,sales,firstDay:Math.min(...allDays),lastDay:Math.max(...allDays,CAL.i(CAL.today))};
 }
 
 /* ---------- Classification helpers ---------- */
@@ -103,7 +114,7 @@ const FRIED_RE=/سوخاری|سرخ کرده|پفکی|وینگز|چیپس رای
 // from/to are inclusive dates; the period covers morning of «from» to night of «to» = index range [f, t+1)
 function analyze(M,from,to,opts={}){
  const f=CAL.i(from),t1=CAL.i(to)+1,TOL=opts.tolerance??3,fixUnits=opts.fixUnits!==false,items=new Map,issues=[],addIssue=(type,o)=>issues.push({type,...o});
- const row=id=>{if(!items.has(id)){const i=M.ing.get(id);items.set(id,{id,name:i?.name||id,code:i?.code||'',unit:i?.recipeUnit||'',category:i?.category||'',bev:BEV_RE.test(i?.name||''),open:null,openPt:null,close:null,closePt:null,receipt:0,receiptV:0,sales:0,salesV:0,waste:0,wasteV:0,staff:0,staffV:0,events:[],flags:new Set})}return items.get(id)};
+ const row=id=>{if(!items.has(id)){const i=M.ing.get(id);items.set(id,{id,name:i?.name||id,code:i?.code||'',unit:i?.recipeUnit||'',category:i?.category||'',bev:BEV_RE.test(i?.name||''),open:null,openPt:null,close:null,closePt:null,receipt:0,receiptV:0,merge:0,mergeV:0,sales:0,salesV:0,waste:0,wasteV:0,staff:0,staffV:0,events:[],flags:new Set})}return items.get(id)};
  // windows per item from count points
  for(const [id,pts] of M.points){const r=row(id);let open=null,close=null;for(const p of pts){if(p.at<=f)open=p}if(!open){const late=pts.find(p=>p.at>f&&p.at<=f+TOL&&p.at<t1);if(late){open=late;r.flags.add('openLate')}}
   const cands=pts.filter(p=>p.at>(open?open.at:f-1)&&Math.abs(p.at-t1)<=TOL);if(cands.length)close=cands.sort((a,b)=>Math.abs(a.at-t1)-Math.abs(b.at-t1))[0];
@@ -120,6 +131,7 @@ function analyze(M,from,to,opts={}){
   if(x.unit&&UK(x.unit)!==UK(r.unit)){r.flags.add('receiptUnit');addIssue('receiptUnit',{item:r.id,name:r.name,date:x.date,qty:x.qty,unit:x.unit,expectedUnit:r.unit,ref:x.id})}
   if(bad){r.flags.add('suspectReceipt');addIssue('suspectReceipt',{item:r.id,name:r.name,date:x.date,qty:x.qty,unit:r.unit,fix:x.qty/1000,impact:c===null?null:(x.qty-x.qty/1000)*c,ref:x.id});if(fixUnits)q=x.qty/1000}
   r.receipt+=q;r.receiptV+=c===null?0:q*c;r.events.push({...x,qty:q,origQty:x.qty,suspect:bad,cost:c})}
+ for(const x of A(M.merges)){const r=row(x.item);if(!inWin(r,x.day))continue;const c=M.costAt(x.item,x.date);r.merge+=x.qty;r.mergeV+=c===null?0:x.qty*c;r.events.push({...x,cost:c})}
  // waste
  const calWaste=[],inCal=d=>d>=f&&d<t1;
  for(const x of M.wastes){const r=row(x.item),win=inWin(r,x.day),cal=inCal(x.day);if(!win&&!cal)continue;const avail=(r.open||0)+r.receipt;let q=x.qty;const bad=!x.fromMenu&&suspect(r,x,avail,[],'waste'),c=M.costAt(x.item,x.date),resp=responsibility(x);
@@ -142,13 +154,13 @@ function analyze(M,from,to,opts={}){
  // finalize items
  let tot={open:0,receipt:0,sales:0,waste:0,staff:0,close:0,variance:0,short:0,surplus:0,unexplained:0,flaggedVar:0},counted=0;
  for(const r of items.values()){const costClose=M.costAt(r.id,to),costOpen=r.openPt?M.costAt(r.id,r.openPt.date):costClose;
-  r.expected=r.open===null&&!r.receipt&&!r.sales?null:(r.open||0)+r.receipt-r.sales-r.waste-r.staff;
+  r.expected=r.open===null&&!r.receipt&&!r.merge&&!r.sales?null:(r.open||0)+r.receipt+r.merge-r.sales-r.waste-r.staff;
   if(r.open===null&&(r.receipt||r.sales))r.flags.add('noOpen');
   r.variance=r.close===null||r.expected===null?null:r.close-r.expected;r.cost=costClose;
   r.openV=r.open===null||costOpen===null?null:r.open*costOpen;r.closeV=r.close===null||costClose===null?null:r.close*costClose;r.varianceV=r.variance===null||costClose===null?null:r.variance*costClose;
   if(r.expected!==null&&r.expected<-1e-6)r.flags.add('negative');
   if(r.close===null&&(r.receipt||r.sales>1e-6||r.waste))r.flags.add('notCounted');
-  const active=r.open!==null||r.close!==null||r.receipt||r.sales||r.waste||r.staff;if(!active){items.delete(r.id);continue}
+  const active=r.open!==null||r.close!==null||r.receipt||r.merge||r.sales||r.waste||r.staff;if(!active){items.delete(r.id);continue}
   r.dataFlags=[...r.flags].filter(x=>!['multiCount','closeShift','staffAsWaste','notCounted'].includes(x));
   tot.open+=r.openV||0;tot.receipt+=r.receiptV;tot.sales+=r.salesV;tot.waste+=r.wasteV;tot.staff+=r.staffV;tot.close+=r.closeV||0;
   if(r.varianceV!==null){counted++;tot.variance+=r.varianceV;if(r.varianceV<0)tot.short+=r.varianceV;else tot.surplus+=r.varianceV;if(r.dataFlags.length)tot.flaggedVar+=r.varianceV;else tot.unexplained+=r.varianceV}}
@@ -168,15 +180,16 @@ function analyze(M,from,to,opts={}){
 }
 
 /* ---------- Current stock ---------- */
-function positions(M,date){const t1=CAL.i(date)+1,out=new Map,row=id=>{if(!out.has(id)){const i=M.ing.get(id);out.set(id,{id,name:i?.name||id,code:i?.code||'',unit:i?.recipeUnit||'',category:i?.category||'',status:i?.status||'',itemType:i?.itemType||'',base:null,basePt:null,receipt:0,sales:0,waste:0,auth:0,lastReceipt:'',flags:new Set})}return out.get(id)};
+function positions(M,date){const t1=CAL.i(date)+1,out=new Map,row=id=>{if(!out.has(id)){const i=M.ing.get(id);out.set(id,{id,name:i?.name||id,code:i?.code||'',unit:i?.recipeUnit||'',category:i?.category||'',status:i?.status||'',itemType:i?.itemType||'',base:null,basePt:null,receipt:0,merge:0,sales:0,waste:0,auth:0,lastReceipt:'',flags:new Set})}return out.get(id)};
  for(const i of M.ing.values())if(i.status!=='غیرفعال'&&i.itemType!=='NON_STOCK'&&i.inventoryTracked!==false)row(i.id);
  for(const [id,pts] of M.points){const r=row(id);let b=null;for(const p of pts)if(p.at<=t1)b=p;if(b){r.base=b.qty;r.basePt=b;if([...b.statuses].some(x=>x!=='approved'))r.flags.add('unapproved');if(b.unitIssue)r.flags.add('countUnit')}}
  const from=r=>r.basePt?r.basePt.at:-Infinity;
  for(const x of M.receipts){const r=row(x.item);if(x.day>=from(r)&&x.day<t1){r.receipt+=x.qty;if(x.date>r.lastReceipt)r.lastReceipt=x.date}}
+ for(const x of A(M.merges)){const r=row(x.item);if(x.day>=from(r)&&x.day<t1)r.merge+=x.qty}
  for(const x of M.wastes){const r=row(x.item);if(x.day>=from(r)&&x.day<t1){if(x.auth)r.auth+=x.qty;else r.waste+=x.qty}}
  for(const s of M.sales)for(const l of A(s.lines)){const ld=l.date?CAL.i(l.date):null,a=ld??s.a,b=ld??s.b,n=b-a+1,q=N(l.quantity),dEnd=ld!==null?D(l.date):D(s.to||s.date);
   for(const rl of M.recipeAt(l.menuItemId,dEnd)){if(!M.recipeDeducts(rl.ingredientId,dEnd))continue;const i=M.ing.get(rl.ingredientId),per=M.gross(i,rl,1);if(!Number.isFinite(per))continue;const r=row(rl.ingredientId),lo=Math.max(a,from(r)),hi=Math.min(b,t1-1),part=Math.max(0,hi-lo+1)/n;if(part>0)r.sales+=per*q*part}}
- for(const r of out.values()){r.qty=r.base===null&&!r.receipt?null:(r.base||0)+r.receipt-r.sales-r.waste-r.auth;if(r.base===null)r.flags.add('noCount');if(r.qty!==null&&r.qty<-1e-6)r.flags.add('negative');r.cost=M.costAt(r.id,date);r.value=r.qty===null||r.cost===null?null:Math.max(0,r.qty)*r.cost;
+ for(const r of out.values()){r.qty=r.base===null&&!r.receipt&&!r.merge?null:(r.base||0)+r.receipt+r.merge-r.sales-r.waste-r.auth;if(r.base===null)r.flags.add('noCount');if(r.qty!==null&&r.qty<-1e-6)r.flags.add('negative');r.cost=M.costAt(r.id,date);r.value=r.qty===null||r.cost===null?null:Math.max(0,r.qty)*r.cost;
   const tr=A(M.inv.trackedIngredients).find(x=>x.ingredientId===r.id),i=M.ing.get(r.id);// js/40 reorderPointValue: the item's own reorderPoint wins, then the legacy trackedIngredients value; need = stock ≤ point
   const has=(o,k)=>!!o&&Object.prototype.hasOwnProperty.call(o,k)&&o[k]!==''&&o[k]!==null&&o[k]!==undefined,pt=has(i,'reorderPoint')?Number(i.reorderPoint):has(tr,'reorderPoint')?Number(tr.reorderPoint):null;r.reorderPoint=Number.isFinite(pt)&&pt>=0?pt:0;r.hasReorderPoint=Number.isFinite(pt)&&pt>=0;
   r.target=has(i,'targetStock')?Number(i.targetStock):has(tr,'targetStock')?Number(tr.targetStock):r.reorderPoint*2;r.needOrder=r.hasReorderPoint&&r.qty!==null&&r.qty<=r.reorderPoint;r.supplierId=tr?.supplierId||''}
@@ -201,7 +214,7 @@ function suggestOil(name){if(/سیب زمینی/.test(name))return 0.02;if(/۴|4
 function cashInvoices(M,from,to){const reps=A(M.raw.cashreport?.reports).filter(r=>r.status!=='void'&&D(r.date)>=from&&D(r.date)<=to),days=new Set(reps.map(r=>D(r.date))),total=(CAL.i(to)-CAL.i(from)+1)||1;
  return{hall:reps.reduce((a,r)=>a+N(r.hallReceiptCount),0),all:reps.reduce((a,r)=>a+(N(r.totalReceiptCount)||N(r.receiptCount)),0),days:days.size,coverage:days.size/total}}
 // Actual use of one item in the period from its counts: opening + receipts − waste − staff − closing (null without both counts).
-function usageOf(P,id){const r=P.items.find(x=>x.id===id);if(!r)return null;const actual=r.open!==null&&r.close!==null?r.open+r.receipt-r.waste-r.staff-r.close:null;return{row:r,actual,recipe:r.sales,offRecipe:actual===null?null:actual-r.sales,cost:r.cost}}
+function usageOf(P,id){const r=P.items.find(x=>x.id===id);if(!r)return null;const actual=r.open!==null&&r.close!==null?r.open+r.receipt+(r.merge||0)-r.waste-r.staff-r.close:null;return{row:r,actual,recipe:r.sales,offRecipe:actual===null?null:actual-r.sales,cost:r.cost}}
 // Fryers: 3 × 20 L floor fryers + 2 table-top (4–5 L). Editable in the page; oil density ≈ 0.91 kg/L.
 function fryerDefaults(){return{density:0.91,fryers:[{id:'F1',name:'سرخ‌کن ۱',liters:20},{id:'F2',name:'سرخ‌کن ۲',liters:20},{id:'F3',name:'سرخ‌کن ۳',liters:20},{id:'T1',name:'رومیزی ۱',liters:4.5},{id:'T2',name:'رومیزی ۲',liters:4.5}]}}
 // Relative oil weight of one portion (fries = 1). Only a starting point for splitting the measured oil between recipes.
@@ -212,5 +225,5 @@ function calibrateOil(items,oilKg){const sum=items.reduce((a,x)=>a+x.qty*x.weigh
 /* ---------- Months ---------- */
 function monthKeys(M){const out=[];let d=M.firstDay;const last=CAL.i(CAL.today);while(d<=last){const k=CAL.k(d).slice(0,7);if(!out.includes(k))out.push(k);d+=1}return out}
 
-window.InvEngine={sameUnit,convertQty,prepConvert,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
+window.InvEngine={sameUnit,unitFactor,convertQty,prepConvert,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
 })();

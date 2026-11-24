@@ -6,7 +6,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fa=new Intl.NumberFormat('fa-IR'),T=v=>v==null?'—':RT.money(v)+' تومان',TF=v=>v==null?'—':fa.format(Math.round(v))+' تومان',q=v=>v==null?'—':fa.format(v);
+const fa=new Intl.NumberFormat('fa-IR'),MU=()=>window.P?.mul?.()||1,UN=()=>window.P?.unitName?.()||'تومان',T=v=>v==null?'—':RT.money(v*MU())+' '+UN(),TF=v=>v==null?'—':fa.format(Math.round(v*MU()))+' '+UN(),q=v=>v==null?'—':fa.format(v);
 
 /* ---------- settings (would live in finance.settings.pettyCash) ---------- */
 const CATS=[{id:'produce',name:'میوه و تره‌بار',limit:3000000,monthly:25000000},{id:'dairy',name:'لبنیات و نان',limit:2000000,monthly:15000000},{id:'cleaning',name:'بهداشتی و شوینده',limit:2500000,monthly:6000000},{id:'repair',name:'تعمیرات جزئی',limit:5000000,monthly:12000000},{id:'transport',name:'پیک و حمل',limit:800000,monthly:8000000},{id:'office',name:'لوازم اداری و مصرفی',limit:1500000,monthly:4000000},{id:'other',name:'سایر',limit:1000000,monthly:3000000}];

@@ -20,12 +20,24 @@ P.num=s=>Number(P.en(String(s)).replace(/[^\d.-]/g,''))||0;
 P.d=s=>P.fa(s);                                             // 1405/08/15 → ۱۴۰۵/۰۸/۱۵
 P.dd=s=>{const[,m,d]=s.split('/');return P.fa(+d)+' '+D.MONTHS[+m-1]};   // → ۱۵ آبان
 P.t=v=>RT.n(v);                                             // full number
-P.T=v=>RT.n(v)+' <small class="muted">تومان</small>';
-/* display unit of amounts: «تنظیمات ← عمومی» (cashreport.settings.displayCurrency). Values are toman; inputs stay toman. */
+/* unit of amounts: «تنظیمات ← عمومی» (cashreport.settings.displayCurrency), for every user. Stored values are always
+   toman. Lists, cards and messages show the unit (P.mt number, P.mT number + unit, P.mShort short, P.U unit name); money
+   fields (P.money or any input with data-money) are typed in the same unit but their .value is toman for the code,
+   so no save logic depends on the setting. Excel import columns with money:1 follow the same unit. */
 P.unitName=()=>window.InvControl?.state?.raw?.cashreport?.settings?.displayCurrency==='ریال'?'ریال':'تومان';
-P.mt=toman=>RT.n(Math.round(P.unitName()==='ریال'?Number(toman)*10:Number(toman))||0);      // number in the display unit
+P.U=()=>P.unitName();
+P.mul=()=>P.unitName()==='ریال'?10:1;
+P.mt=toman=>RT.n(Math.round(Number(toman)*P.mul())||0);      // number in the display unit
 P.mT=toman=>P.mt(toman)+` <small class="muted">${P.unitName()}</small>`;
-P.mShort=toman=>RT.money(P.unitName()==='ریال'?Number(toman)*10:Number(toman));
+P.mShort=toman=>RT.money(Number(toman)*P.mul());
+P.T=v=>P.mT(v);
+const VAL=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value'),HASD=/[\d۰-۹٠-٩]/;
+P.rawVal=(el,v)=>v===undefined?VAL.get.call(el):VAL.set.call(el,v);           // what the field shows, without conversion
+// an input with data-money shows the display unit; its .value reads and writes toman (every input, also rows added later)
+Object.defineProperty(HTMLInputElement.prototype,'value',{configurable:true,enumerable:VAL.enumerable,
+  get(){const r=VAL.get.call(this);if(!this.hasAttribute('data-money'))return r;if(!HASD.test(r))return'';return String(P.num(r)/P.mul())},
+  set(v){if(!this.hasAttribute('data-money'))return VAL.set.call(this,v);const s=String(v??'');VAL.set.call(this,HASD.test(s)?P.t(Math.round(P.num(s)*P.mul())):'')}});
+P.moneyAttr=val=>`data-money value="${val===''||val===null||val===undefined?'':P.mt(val)}"`;   // for a hand-made money input
 P.raw=s=>P.en(String(s)).trim();                            // ۱۴۰۵/۰۸/۱۵ → 1405/08/15
 P.dayNo=s=>{const[y,m,d]=s.split('/').map(Number);return y*365+(m<=6?(m-1)*31:186+(m-7)*30)+d};
 P.esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -98,8 +110,9 @@ P.kpi=({label,icon,value,unit='',foot='',tone=''})=>`
     ${foot?`<div class="kpi-foot">${foot}</div>`:''}
   </div>`;
 /* cols: ['عنوان', {t:'مبلغ',n:1}] · rows: [[cells…]] or {c:[…],cls,attr} */
+/* columns: 'title' or {t, n:number, m:money (number in the display unit; the header shows the unit), noSum, noSort, hide, w:wrap} */
 P.table=(cols,rows,{foot,cls='',empty='موردی نیست'}={})=>{
-  const C=cols.map(c=>typeof c==='string'?{t:c}:c);
+  const C=cols.map(c=>typeof c==='string'?{t:c}:c.m?{...c,n:1,t:`${c.t} <small class="muted">(${P.unitName()})</small>`}:c);
   const tr=r=>{const o=Array.isArray(r)?{c:r}:r;return`<tr class="${o.cls||''}" ${o.attr||''}>${o.c.map((v,i)=>`<td class="${C[i]&&C[i].n?'num':''} ${C[i]&&C[i].w?'wrap':''}">${v}</td>`).join('')}</tr>`};
   return`<div class="table-wrap"><table class="table ${cls}">
     <thead><tr>${C.map(c=>`<th class="${c.n?'num':''}"${c.noSum?' data-nosum="1"':''}${c.noSort?' data-nosort="1"':''}${c.hide?' data-hide="1"':''}>${c.t}</th>`).join('')}</tr></thead>
@@ -118,11 +131,11 @@ P.partyOptions=(sel,kinds)=>{
   return Object.keys(g).filter(k=>!kinds||kinds.includes(k)).map(k=>`<optgroup label="${g[k]}">${D.PARTIES.filter(p=>p.kind===k).map(p=>`<option value="${p.id}" ${p.id===sel?'selected':''}>${p.name}</option>`).join('')}</optgroup>`).join('');
 };
 P.field=(label,input,hint)=>`<div class="field"><label>${label}</label>${input}${hint?`<span class="hint">${hint}</span>`:''}</div>`;
-P.money=(name,val='',ph='۰')=>`<div class="input-group"><input class="input num" name="${name}" inputmode="numeric" value="${val===''?'':P.t(val)}" placeholder="${ph}"><span class="suffix">تومان</span></div>`;
-/* live thousand-separator for money inputs */
+P.money=(name,val='',ph='۰')=>`<div class="input-group"><input class="input num" name="${name}" inputmode="numeric" ${P.moneyAttr(val)} placeholder="${ph}"><span class="suffix">${P.unitName()}</span></div>`;
+/* live thousand-separator for money inputs (on what the field shows, so a rial field is not rounded through toman) */
 document.addEventListener('input',e=>{
-  const el=e.target;if(!el.matches('.input-group input.num,input.money'))return;
-  const v=P.num(el.value);el.value=v?P.t(v):'';
+  const el=e.target;if(!el.matches('.input-group input.num,input.money,input[data-money]'))return;
+  const r=P.rawVal(el);if(/^\s*[-−]?\s*$/.test(r))return;const v=P.num(r);P.rawVal(el,v?P.t(v):'');
 });
 
 
@@ -192,7 +205,7 @@ P.modal=({title,body,foot,size='',onMount})=>{
   m.innerHTML=`<div class="modal-head"><h2>${title}</h2><button class="btn btn-ghost btn-sm btn-icon" data-close aria-label="بستن">${P.ic('x')}</button></div>
     <div class="modal-body">${body}</div>
     <div class="modal-foot">${foot||'<button class="btn btn-ghost" data-close>بستن</button>'}</div>`;
-  host.classList.add('open');RT.icons();
+  host.dataset.dirty='';host.classList.add('open');RT.icons();
   onMount&&onMount(m);P.enhanceSelects(m);foldNotes(m);
   return m;
 };
@@ -254,7 +267,7 @@ P.pay=({party,dir='out',docs,title,date,amount,ref,method}={})=>{
     ${P.field('شرح (اختیاری)','<input class="input" name="note" placeholder="مثلاً تسویهٔ فاکتورهای آبان">')}
     <div class="drop">${P.ic('image-plus')}<span>تصویر رسید یا پیامک بانک را اینجا بکشید (اختیاری)</span></div>
     <div id="payWarn"></div>
-    <div class="sum-box"><span>جمع ${dir==='out'?'پرداخت':'دریافت'}</span><b id="paySum">۰ <small class="muted">تومان</small></b></div>`;
+    <div class="sum-box"><span>جمع ${dir==='out'?'پرداخت':'دریافت'}</span><b id="paySum">۰ <small class="muted">${P.unitName()}</small></b></div>`;
   P.modal({title:title||(dir==='out'?'ثبت پرداخت انجام‌شده':'ثبت دریافت'),size:'wide',body,
     foot:`<button class="btn btn-ghost" data-close>انصراف</button><button class="btn btn-primary" id="payOk">${P.ic('check')}ثبت ${dir==='out'?'پرداخت':'دریافت'}</button>`,
     onMount(m){
@@ -270,7 +283,7 @@ P.pay=({party,dir='out',docs,title,date,amount,ref,method}={})=>{
             `${P.b(P.DOCTYPE[d.type][0],'neutral',1)} <small class="muted">${P.fa(d.no)}</small>`,
             `${P.dd(d.date)} <small class="muted">/ ${P.dd(d.due)}</small>`,
             d.title,P.t(P.rem(d)),
-            `<input class="input money num sm" value="${P.t(v||P.rem(d))}">`]}})):
+            `<input class="input money num sm" ${P.moneyAttr(v||P.rem(d))}>`]}})):
           P.note('برای این طرف حساب سند بازی وجود ندارد. پرداخت به‌صورت «علی‌الحساب» ثبت می‌شود و با سند بعدی تسویه می‌شود.<div class="field mt"><label>مبلغ علی‌الحساب</label>'+P.money('free',amount||'')+'</div>','info');
         $$('input',list).forEach(i=>i.addEventListener('input',()=>{sum();reset()}));$$('input[type=checkbox]',list).forEach(i=>i.addEventListener('change',sum));
         sum();
@@ -299,7 +312,7 @@ P.pay=({party,dir='out',docs,title,date,amount,ref,method}={})=>{
           cheque:method==='چک'?{no:$('[name=chq]',m).value||'—',due:'1405/09/05',status:'pending'}:null};
         D.PAYMENTS.unshift(pay);
         const bl=D.BANK_LINES.find(b=>!b.match&&b.dir===dir&&b.amount===total);if(bl)bl.match=pay.id;
-        P.close();P.toast(`${dir==='out'?'پرداخت':'دریافت'} ${P.t(total)} تومان ثبت شد${bl?' و با گردش بانک تطبیق خورد':''} — مانده‌ها به‌روز شد`);P.render();
+        P.close();P.toast(`${dir==='out'?'پرداخت':'دریافت'} ${P.mt(total)} ${P.unitName()} ثبت شد${bl?' و با گردش بانک تطبیق خورد':''} — مانده‌ها به‌روز شد`);P.render();
       };
     }});
 };
@@ -476,23 +489,20 @@ const QUICK=[
   {k:'assetEvent',mod:'finance',need:'edit',icon:'hammer',t:'خرابی / شکستگی وسیله',s:'دارایی‌ها؛ با تعیین مسئولیت'},
   {k:'request',mod:'people',need:'edit',icon:'calendar-plus',t:'مرخصی / مساعده',s:'درخواست پرسنل'}
 ];
-/* live data: the real entry forms; each opens on its own page once that page's data is loaded */
+/* live data: the real entry forms, titles only, in the owner's daily order (BL-083, 1405/09/03); each opens on its own
+   page once that page's data is loaded. Less frequent entries (latest prices, whole count, new item) are made from their own page. */
 const QUICK_LIVE=[
-  {mod:'finance',key:'purchase',icon:'file-plus-2',t:'رسیدن بار / فاکتور خرید',s:'ورود به انبار، قیمت و بدهی در یک ثبت؛ با عکس فاکتور',go:'#/finance/docs',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.detailed()},
-  {mod:'inventory',key:'pricing',icon:'tag',t:'آخرین قیمت خرید',s:'قیمت تازهٔ چند قلم، یا از فایل Excel',go:'#/base/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.pricesForm()},
-  {mod:'inventory',key:'inventory',icon:'package-plus',t:'ورود کالا بدون فاکتور',s:'فقط وقتی فاکتور ندارد؛ فاکتور بعدی به آن وصل می‌شود',go:'#/inventory/receipt',open:()=>InvEntry.receipt()},
-  {mod:'inventory',key:'inventory',icon:'trash-2',t:'ضایعات / مصرف پرسنل',s:'پرتی، مصرف پرسنل یا تست؛ ماده یا آیتم منو طبق رسپی',go:'#/inventory/waste',open:()=>InvEntry.event()},
-  {mod:'inventory',key:'inventory',icon:'clipboard-check',t:'شمارش انبار',s:'شمارش کور پایان روز',go:'#/inventory/count',open:()=>InvEntry.count()},
-  {mod:'inventory',key:'inventory',icon:'cup-soda',t:'شمارش نوشیدنی',s:'شمارش و مغایرت نوشیدنی‌ها',go:'#/inventory/beverage'},
-  {mod:'finance',key:'cash',icon:'banknote',t:'گزارش صندوق روزانه',s:'فروش، دریافتی‌ها و مغایرت',go:'#/finance/cash',ready:()=>!!window.CashReal,open:()=>CashReal.form()},
-  {mod:'finance',key:'financeLedger',icon:'coins',t:'صندوق نقدی',s:'پرداخت هزینه از صندوق؛ شارژ و شمارش در همان صفحه',go:'#/finance/cashbox',ready:()=>!!window.LedgerReal?.ready?.(),open:()=>LedgerReal.cashOut()},
-
-  {mod:'finance',key:'purchase',icon:'send',t:'پرداخت به تأمین‌کننده',s:'روی فاکتور باز یا علی‌الحساب',go:'#/finance/payments',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.payment({})},
-  {mod:'finance',key:['petty','financeLedger'],icon:'wallet',t:'هزینهٔ تنخواه',s:'خرید ریز با کارت تنخواه',go:'#/finance/petty',ready:()=>!!window.ExtrasReal?.mods?.finance?.doc,open:()=>PettyEntry.expense()},
-  {mod:'inventory',key:'pricing',icon:'book-plus',t:'قلم یا کالای جدید',s:'تعریف در کاتالوگ اصلی',go:'#/base/catalog',ready:()=>!!window.CatalogReal,open:()=>CatalogReal.ingredientForm()},
-  {mod:'people',key:'payroll',icon:'hand-coins',t:'ثبت انعام',s:'نوع، مبلغ و افراد',go:'#/people/tips',ready:()=>!!window.PeopleReal?.doc?.(),open:()=>PeopleEntry.tip()},
-  {mod:'people',key:'payroll',icon:'gavel',t:'جریمه / کسر تأخیر / پاداش',s:'برای حقوق همان ماه',go:'#/people/payroll',ready:()=>!!window.PeopleReal?.doc?.(),open:()=>PeopleEntry.penalty()},
-  {mod:'people',key:'payroll',icon:'banknote',t:'پرداخت به پرسنل',s:'مساعده، حقوق، انعام — با مانده و هشدار',go:'#/people/payments',ready:()=>!!window.PeopleReal?.doc?.()&&!!window.PayrollReal,open:()=>PayrollReal.pay()}
+  {mod:'finance',key:'purchase',icon:'file-plus-2',t:'فاکتور خرید',go:'#/finance/docs',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.detailed()},
+  {mod:'finance',key:'cash',icon:'banknote',t:'گزارش صندوق روزانه',go:'#/finance/cash',ready:()=>!!window.CashReal,open:()=>CashReal.form()},
+  {mod:'inventory',key:'inventory',icon:'cup-soda',t:'شمارش نوشیدنی',go:'#/inventory/beverage'},
+  {mod:'finance',key:['petty','financeLedger'],icon:'wallet',t:'تنخواه',go:'#/finance/petty',ready:()=>!!window.ExtrasReal?.mods?.finance?.doc,open:()=>PettyEntry.expense()},
+  {mod:'finance',key:'financeLedger',icon:'coins',t:'صندوق نقدی',go:'#/finance/cashbox',ready:()=>!!window.LedgerReal?.ready?.(),open:()=>LedgerReal.cashOut()},
+  {mod:'inventory',key:'inventory',icon:'trash-2',t:'ضایعات / پرتی',go:'#/inventory/waste',open:()=>InvEntry.event()},
+  {mod:'finance',key:'purchase',icon:'send',t:'پرداخت تأمین‌کننده',go:'#/finance/payments',ready:()=>!!window.FinanceReal?.suppliers?.(),open:()=>PurchaseEntry.payment({})},
+  {mod:'people',key:'payroll',icon:'hand-coins',t:'انعام پرسنل',go:'#/people/tips',ready:()=>!!window.PeopleReal?.doc?.(),open:()=>PeopleEntry.tip()},
+  {mod:'people',key:'payroll',icon:'gavel',t:'جریمه / پاداش',go:'#/people/payroll',ready:()=>!!window.PeopleReal?.doc?.(),open:()=>PeopleEntry.penalty()},
+  {mod:'people',key:'payroll',icon:'banknote',t:'مساعده و حقوق',go:'#/people/payments',ready:()=>!!window.PeopleReal?.doc?.()&&!!window.PayrollReal,open:()=>PayrollReal.pay()},
+  {mod:'inventory',key:'inventory',icon:'package-plus',t:'ورود کالا به انبار بدون فاکتور',go:'#/inventory/receipt',open:()=>InvEntry.receipt()}
 ];
 /* show a printable piece of html in a modal (its own frame, so its css stays apart); «چاپ» prints that frame */
 P.previewDoc=(title,css,body)=>{P.modal({title:P.esc(title),size:'wide',body:'<iframe id="pvFrame" title="پیش‌نمایش" style="width:100%;height:68vh;border:1px solid var(--border);border-radius:8px;background:#fff"></iframe>',foot:`<button class="btn btn-ghost" data-close>بستن</button><button class="btn btn-primary" id="pvPrint">${P.ic('printer')}چاپ / ذخیرهٔ PDF</button>`,
@@ -525,7 +535,7 @@ function buildTopbar(){
   const liveList=()=>QUICK_LIVE.filter(q=>P.can(q.mod)&&(P.owner()||[].concat(q.key).some(k=>AAx().has(k))));
   $('#quickBtn').onclick=e=>{e.stopPropagation();
     const live=P.live(),list=live?liveList():QUICK.filter(q=>P.can(q.mod,q.need));
-    qm.innerHTML=list.length?list.map((q,i)=>`<button data-q="${live?i:q.k}"><span class="thumb kpi-icon">${P.ic(q.icon)}</span><span><b>${q.t}</b><small>${q.s}</small></span></button>`).join(''):'<p class="muted" style="padding:8px">ثبتی برای دسترسی شما تعریف نشده</p>';
+    qm.innerHTML=list.length?list.map((q,i)=>`<button data-q="${live?i:q.k}"><span class="thumb kpi-icon">${P.ic(q.icon)}</span><span><b>${q.t}</b>${q.s?`<small>${q.s}</small>`:''}</span></button>`).join(''):'<p class="muted" style="padding:8px">ثبتی برای دسترسی شما تعریف نشده</p>';
     RT.icons();qm.classList.toggle('open')};
   qm.onclick=e=>{const b=e.target.closest('[data-q]');if(!b)return;qm.classList.remove('open');const k=b.dataset.q;
     if(P.live())return openLive(liveList()[+k]);
@@ -563,7 +573,7 @@ P.excelBook=async(name,sheets)=>{const X=await P.loadXLSX(),wb=X.utils.book_new(
    sheet), then a preview of every row with its error; only valid rows are saved, all in one save. */
 P.readSheets=async file=>{const X=await P.loadXLSX(),wb=X.read(await file.arrayBuffer(),{type:'array',raw:false,cellDates:false});return wb.SheetNames.map(n=>[n,X.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:false,defval:'',blankrows:false})])};
 const hNorm=s=>String(s??'').replace(/[\u200c\s()*:._\-]/g,'').replace(/ي/g,'ی').replace(/ك/g,'ک').replace(/ۀ/g,'ه').toLowerCase();
-P.importer=o=>{const cols=o.columns,guide=[['راهنمای ورود: '+o.title],[''],['ستون','الزامی','قالب و توضیح','نمونه'],...cols.map(c=>[c.h,c.req?'بله':'خیر',c.hint||'',c.ex??'']),[''],['ردیف اول سرستون‌هاست و ترتیب ستون‌ها مهم نیست؛ ستون اضافه خوانده نمی‌شود.'],['تاریخ شمسی به شکل ۱۴۰۵/۰۸/۱۸؛ مبلغ به تومان، با یا بی جداکننده.'],['پیش از ذخیره همهٔ ردیف‌ها با خطای هر ردیف نمایش داده می‌شوند؛ فقط ردیف‌های درست ذخیره می‌شوند.']];
+P.importer=o=>{const UN=P.unitName(),cols=o.columns.map(c=>c.money?{...c,h:c.h.replace('تومان',UN),hint:String(c.hint||'').replace('تومان',UN),alias:[...(c.alias||[]),c.h.replace('تومان','ریال'),c.h.replace('ریال','تومان')]}:c),guide=[['راهنمای ورود: '+o.title],[''],['ستون','الزامی','قالب و توضیح','نمونه'],...cols.map(c=>[c.h,c.req?'بله':'خیر',c.hint||'',c.ex??'']),[''],['ردیف اول سرستون‌هاست و ترتیب ستون‌ها مهم نیست؛ ستون اضافه خوانده نمی‌شود.'],['تاریخ شمسی به شکل ۱۴۰۵/۰۸/۱۸؛ مبلغ به '+UN+'، با یا بی جداکننده.'],['پیش از ذخیره همهٔ ردیف‌ها با خطای هر ردیف نمایش داده می‌شوند؛ فقط ردیف‌های درست ذخیره می‌شوند.']];
  let parsed=[];const IE=window.InvEntry;
  const preview=m=>{const ok=parsed.filter(r=>!r.err).length;P.$('#imP',m).innerHTML=parsed.length?`<p style="margin:8px 0"><b>${P.fa(parsed.length)}</b> ردیف · <span class="pos">${P.fa(ok)} درست</span>${parsed.length-ok?` · <span class="neg">${P.fa(parsed.length-ok)} خطا</span>`:''}</p><div class="table-wrap no-grid" style="max-height:44vh;overflow:auto"><table class="table no-grid"><thead><tr><th>ردیف</th>${cols.map(c=>`<th>${P.esc(c.h)}</th>`).join('')}<th>وضعیت</th></tr></thead><tbody>${parsed.map(r=>`<tr><td>${P.fa(r.n)}</td>${cols.map(c=>`<td>${P.esc(r.obj[c.key]??'')}</td>`).join('')}<td>${r.err?`<span class="neg">${P.esc(r.err)}</span>`:'<span class="pos">درست</span>'}</td></tr>`).join('')}</tbody></table></div>`:''};
  IE.formModal({title:'ورود از Excel — '+o.title,size:'wide',ok:'ذخیرهٔ ردیف‌های درست روی سرور',can:o.can,why:o.why,
@@ -575,7 +585,9 @@ P.importer=o=>{const cols=o.columns,guide=[['راهنمای ورود: '+o.title]
      for(const [name,rows] of sh)for(let r=0;r<Math.min(rows.length,15);r++){const h=rows[r].map(hNorm),map=cols.map(c=>[c.h,...(c.alias||[])].map(hNorm).map(a=>h.indexOf(a)).find(i=>i>=0)??-1),score=map.filter(i=>i>=0).length+cols.filter((c,i)=>c.req&&map[i]>=0).length;if(!best||score>best.score)best={name,rows,r,map,score}}
      const miss=cols.filter((c,i)=>c.req&&best.map[i]<0).map(c=>c.h);if(miss.length)throw Error('این ستون‌های الزامی در فایل نیست: '+miss.join('، '));
      parsed=best.rows.slice(best.r+1).map((row,k)=>{const obj={};cols.forEach((c,i)=>{obj[c.key]=best.map[i]>=0?String(row[best.map[i]]??'').trim():''});return{n:best.r+k+2,obj}}).filter(r=>Object.values(r.obj).some(v=>v!==''));
-     for(const r of parsed){try{r.input=o.toInput(r.obj,r.n);o.check&&o.check(r.input)}catch(x){r.err=x.message||String(x)}}preview(m);const g=P.$('#imG',m);if(g)g.open=false}catch(x){P.toast(x.message||String(x),'alert-triangle')}}},
+     // a money column is read in the unit its header names («(ریال)» / «(تومان)»), otherwise in the display unit
+     const div=cols.map((c,i)=>{if(!c.money||best.map[i]<0)return 1;const t=String(best.rows[best.r][best.map[i]]??'');return /ریال/.test(t)?10:/تومان/.test(t)?1:P.mul()});
+     for(const r of parsed){try{const ob={...r.obj};cols.forEach((c,i)=>{if(div[i]!==1&&HASD.test(ob[c.key]))ob[c.key]=String(P.num(ob[c.key])/div[i])});r.input=o.toInput(ob,r.n);o.check&&o.check(r.input)}catch(x){r.err=x.message||String(x)}}preview(m);const g=P.$('#imG',m);if(g)g.open=false}catch(x){P.toast(x.message||String(x),'alert-triangle')}}},
   onSave:(m,btn)=>{const good=parsed.filter(r=>!r.err);if(!good.length)throw Error(parsed.length?'ردیف درستی برای ذخیره نیست':'اول فایل را انتخاب کنید');o.save(good.map(r=>r.input),btn)}})};
 /* ---------- trend card: monthly lines (last N months) and a donut, same look on every page ----------
    P.trendCard(id,{title, sub, months:['1405/01',…], series:[{name, byMonth:{'1405/08':v}}], donut:{title, data:{name:v}}})
@@ -588,17 +600,30 @@ P.trendCard=(id,o)=>{const tryDraw=(n=0)=>{if(!document.getElementById(id+'L')){
  return `<div class="grid grid-2 mt">${P.card({title:o.title,sub:o.sub||'',body:`<div class="chart" id="${id}L" style="height:250px"></div>`})}${o.donut?P.card({title:o.donut.title,sub:o.donut.sub||'',body:`<div class="chart" id="${id}D" style="height:250px"></div>`}):''}</div>`};
 P.lastMonths=(n=12,to)=>{const E=window.InvEngine,t=(to||E.CAL.today).slice(0,7);let [y,m]=t.split('/').map(Number);const out=[];for(let i=0;i<n;i++){out.unshift(y+'/'+String(m).padStart(2,'0'));if(--m<1){m=12;y--}}return out};
 P.excelDownload=async(name,rows,sheet='Sheet1')=>{const X=await P.loadXLSX(),ws=X.utils.aoa_to_sheet(rows),wb=X.utils.book_new();ws['!cols']=(rows[0]||[]).map((_,i)=>({wch:Math.min(40,Math.max(8,...rows.slice(0,200).map(r=>String(r[i]??'').length+2)))}));X.utils.book_append_sheet(wb,ws,sheet.slice(0,31));wb.Workbook={Views:[{RTL:true}]};X.writeFile(wb,name)};
+/* inventory lists (BL-080): tighter cells and two-line headers, and a money column whose cells read «۱٫۲ میلیارد» gets one
+   scale for the whole column (the scale most of its cells use): the cells keep only the number and the header says
+   «(میلیارد ریال)» under the title. Cells stay plain numbers, so sorting, totals and Excel export still read them. */
+const SCALE={'میلیارد':1e9,'میلیون':1e6,'هزار':1e3},NUM_RE=/[−\-]?[0-9۰-۹][0-9۰-۹٬,٫.]*\s*(?:میلیارد|میلیون|هزار)?/;
+const scaledNum=x=>{const a=Math.abs(x),s=x.toLocaleString('en-US',{maximumFractionDigits:a>=100?0:a>=1?1:a>=0.01?2:3});return P.fa(s).replace(/\./g,'٫').replace(/,/g,'٬').replace(/^-/,'−')};
+function compactInv(tb,head,rows){tb.classList.add('compact','inv-compact');
+ head.forEach((h,i)=>{if(!h.classList.contains('num'))return;const cells=rows.map(r=>r.cells.length===head.length?r.cells[i]:null).filter(Boolean),cnt={};
+  for(const c of cells){const m=c.innerText.match(/میلیارد|میلیون|هزار/);if(m)cnt[m[0]]=(cnt[m[0]]||0)+1}
+  const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];if(!top)return;const name=top[0],f=SCALE[name];
+  for(const c of cells){const v=P.num2(c.innerText);if(v===null)continue;const w=document.createTreeWalker(c,NodeFilter.SHOW_TEXT);let n;while((n=w.nextNode()))if(NUM_RE.test(n.nodeValue)){n.nodeValue=n.nodeValue.replace(NUM_RE,scaledNum(v/f));break}}
+  const U=P.unitName(),sm=h.querySelector('small');if(sm&&/\(.*\)/.test(sm.textContent))sm.textContent=sm.textContent.replace(/\((.*)\)/,`(${name} $1)`);
+  else if(h.innerHTML.includes('('+U+')'))h.innerHTML=h.innerHTML.replace('('+U+')',`<small class="muted">(${name} ${U})</small>`);else h.insertAdjacentHTML('beforeend',` <small class="muted">(${name} ${U})</small>`)})}
 function gridify(tb){if(tb.dataset.grid||tb.classList.contains('no-grid')||tb.closest('.no-grid')||tb.querySelector('input,select,textarea'))return;tb.dataset.grid='1';
  const head=[...(tb.tHead?.rows[0]?.cells||[])];if(!head.length)return;const body=tb.tBodies[0];if(!body)return;
  const all=[...body.rows].filter(r=>!(r.cells.length===1&&r.cells[0].colSpan>1));if(!all.length)return;const orig=all.slice();
  const title=(tb.closest('.card')?.querySelector('.card-head h2,.card-head h3')?.innerText||'').trim(),key='pn_grid|'+location.hash.split('/').slice(0,3).join('/')+'|'+head.map(h=>h.innerText.trim()).join('|');
  let hidden=new Set();try{const sv=localStorage.getItem(key);hidden=new Set(sv?JSON.parse(sv):head.map((h,i)=>h.dataset.hide?i:-1).filter(i=>i>=0))}catch(_){}let size=50,page=0,sortI=-1,dir=1;
  tb.classList.add('grid-cards');if(head.length>4){tb.classList.add('grid-more');body.addEventListener('click',e=>{if(innerWidth>720)return;const tr=e.target.closest('tr');if(tr&&!e.target.closest('button,a,input,select,label'))tr.classList.toggle('open')})}for(const r of all)if(r.cells.length===head.length)for(let i=0;i<r.cells.length;i++)r.cells[i].dataset.th=head[i].innerText.trim();
+ if(/^#\/inventory/.test(location.hash))compactInv(tb,head,all);
  const numCol=head.map(h=>h.classList.contains('num')),hasUnit=head.some(h=>/واحد/.test(h.innerText)),MONEY=/ارزش|مبلغ|بها|تومان|ریال|هزینه|قیمت|پرداخت|خرید|سهم|حقوق|انعام|جریمه|درآمد|مانده|بدهی|طلب/,sumCol=head.map((h,i)=>numCol[i]&&!h.dataset.nosum&&(!hasUnit||MONEY.test(h.innerText)));
  const vis=()=>{head.forEach((h,i)=>{const d=hidden.has(i)?'none':'';h.style.display=d;for(const r of [...body.rows,...(tb.tFoot?[...tb.tFoot.rows]:[])])if(r.cells[i]&&r.cells.length===head.length)r.cells[i].style.display=d})};
  // totals (all rows)
  if(!tb.tFoot&&all.length>1&&sumCol.some(Boolean)){const short=new Set,sums=head.map((_,i)=>{if(!sumCol[i])return null;let s=0,n=0;for(const r of all){const t=String(r.cells[i]?.innerText||'');if(/[٪%]/.test(t))return null;const v=P.num2(t);if(v===null){if(t.trim()&&t.trim()!=='—')return null;continue}if(/میلیارد|میلیون/.test(t))short.add(i);s+=v;n++}return n?s:null});
-  if(sums.some(v=>v!==null)){const f=tb.createTFoot(),tr=f.insertRow();head.forEach((h,i)=>{const td=tr.insertCell();td.className=numCol[i]?'num':'';td.innerHTML=sums[i]!==null&&short.has(i)?`<b>${RT.money(sums[i])}</b>`:sums[i]!==null?`<b>${P.fa(Math.round(sums[i]*100)/100===Math.round(sums[i])?Math.round(sums[i]).toLocaleString('en-US'):(Math.round(sums[i]*100)/100).toLocaleString('en-US'))}</b>`:(i===head.findIndex((_,k)=>!hidden.has(k))?'<b>جمع</b>':'')});tr.className='grid-total'}}
+  if(sums.some(v=>v!==null)){const f=tb.createTFoot(),tr=f.insertRow();head.forEach((h,i)=>{const td=tr.insertCell();td.className=numCol[i]?'num':'';td.innerHTML=sums[i]!==null&&short.has(i)?`<b>${RT.money(sums[i])}</b>`:sums[i]!==null&&tb.classList.contains('inv-compact')?`<b>${scaledNum(sums[i])}</b>`:sums[i]!==null?`<b>${P.fa(Math.round(sums[i]*100)/100===Math.round(sums[i])?Math.round(sums[i]).toLocaleString('en-US'):(Math.round(sums[i]*100)/100).toLocaleString('en-US'))}</b>`:(i===head.findIndex((_,k)=>!hidden.has(k))?'<b>جمع</b>':'')});tr.className='grid-total'}}
  const bar=document.createElement('div');bar.className='grid-bar';const wrap=tb.closest('.table-wrap')||tb;wrap.parentNode.insertBefore(bar,wrap);
  /* long lists on the page scroll inside their frame with the header kept visible (desktop; APP_REVIEW N-14) */if(all.length>15&&!tb.closest('#pnModal')&&wrap.classList.contains('table-wrap'))wrap.classList.add('grid-scroll');
  const draw=()=>{const rows=sortI<0?orig:orig.slice().sort((a,b)=>{const x=a.cells[sortI]?.innerText||'',y=b.cells[sortI]?.innerText||'',nx=P.num2(x),ny=P.num2(y);if(nx!==null&&ny!==null)return(nx-ny)*dir;if(nx!==null)return -1;if(ny!==null)return 1;return P.en(x).localeCompare(P.en(y),'fa')*dir});
@@ -631,5 +656,37 @@ P.start=()=>{
   window.addEventListener('hashchange',()=>{P.render();window.scrollTo(0,0)});
   P.render();
 };
+/* ---------- date picker (BL-082) ----------
+   Every text field that holds a full Jalali date (its value or placeholder looks like ۱۴۰۵/۰۸/۱۷, also «از …»/«تا …») gets,
+   on focus, a small panel: «امروز»، «دیروز»، «پریروز» in one click and day / month / year lists. Typing still works.
+   The pick fires input + change, so filters and forms react as if typed. Opt out with data-nodate; readonly fields are skipped. */
+const DATE_RE=/^(?:از |تا )?[0-9۰-۹]{4}\/[0-9۰-۹]{1,2}\/[0-9۰-۹]{1,2}$/;
+const MONTH_FA=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+const isDateInput=el=>el&&el.tagName==='INPUT'&&(!el.type||el.type==='text'||el.type==='search')&&!el.readOnly&&!el.disabled&&!('nodate' in el.dataset)&&(DATE_RE.test(P.en(el.value||'').trim())||DATE_RE.test(String(el.placeholder||'').trim()));
+const calOf=()=>window.InvEngine?.CAL;
+const dayShift=n=>{const C=calOf();if(!C)return'';const i=C.i(C.today);return i===null?'':C.k(i-n)};
+let dpEl=null,dpFor=null;
+function dpClose(){if(dpEl){dpEl.remove();dpEl=null;dpFor=null}}
+function dpSet(inp,key){if(!key)return;inp.value=P.fa(key);inp.dispatchEvent(new Event('input',{bubbles:true}));inp.dispatchEvent(new Event('change',{bubbles:true}))}
+function dpOpen(inp){const C=calOf();if(!C){return}dpClose();dpFor=inp;
+ const cur=P.en(inp.value||'').replace(/^(از|تا) /,'').trim(),ok=C.i(cur)!==null,[y,m,d]=(ok?cur:C.today).split('/').map(Number),ty=+C.today.slice(0,4);
+ const yrs=[];for(let k=ty+1;k>=ty-4;k--)yrs.push(k);if(!yrs.includes(y))yrs.push(y);
+ const el=document.createElement('div');el.className='dp-pop';el.setAttribute('role','dialog');el.setAttribute('aria-label','انتخاب تاریخ');
+ el.innerHTML=`<div class="dp-quick">${[['امروز',0],['دیروز',1],['پریروز',2]].map(([l,n])=>`<button type="button" class="btn btn-sm ${n===1?'btn-primary':'btn-ghost'}" data-dpn="${n}">${l}</button>`).join('')}</div>
+  <div class="dp-sel"><select class="select" data-dp="d" aria-label="روز"></select><select class="select" data-dp="m" aria-label="ماه">${MONTH_FA.map((t,i)=>`<option value="${i+1}"${i+1===m?' selected':''}>${t}</option>`).join('')}</select><select class="select" data-dp="y" aria-label="سال">${yrs.map(k=>`<option value="${k}"${k===y?' selected':''}>${P.fa(k)}</option>`).join('')}</select></div>`;
+ const sel=k=>el.querySelector(`[data-dp="${k}"]`),pad=n=>String(n).padStart(2,'0'),key=(Y,M,D)=>`${Y}/${pad(M)}/${pad(D)}`;
+ const fillDays=keep=>{const Y=+sel('y').value,M=+sel('m').value;let n=31;while(n>28&&C.i(key(Y,M,n))===null)n--;const v=Math.min(keep,n);sel('d').innerHTML=Array.from({length:n},(_,i)=>`<option value="${i+1}"${i+1===v?' selected':''}>${P.fa(i+1)}</option>`).join('')};
+ fillDays(d);
+ el.addEventListener('mousedown',e=>{if(e.target.tagName!=='SELECT')e.preventDefault()});
+ el.onclick=e=>{const b=e.target.closest('[data-dpn]');if(!b)return;dpSet(inp,dayShift(+b.dataset.dpn));dpClose();inp.focus()};
+ el.onchange=e=>{const k=e.target.dataset.dp;if(k==='m'||k==='y')fillDays(+sel('d').value);const v=key(+sel('y').value,+sel('m').value,+sel('d').value);if(C.i(v)!==null)dpSet(inp,v)};
+ document.body.appendChild(el);dpEl=el;dpPlace()}
+function dpPlace(){if(!dpEl||!dpFor)return;if(!dpFor.isConnected)return dpClose();const r=dpFor.getBoundingClientRect(),w=dpEl.offsetWidth||250,h=dpEl.offsetHeight||90;
+ let top=r.bottom+4;if(top+h>innerHeight-8)top=Math.max(8,r.top-h-4);let left=Math.min(Math.max(8,r.right-w),innerWidth-w-8);dpEl.style.top=top+'px';dpEl.style.left=left+'px'}
+document.addEventListener('focusin',e=>{const t=e.target;if(dpEl&&dpEl.contains(t))return;if(isDateInput(t)){if(dpFor!==t)dpOpen(t)}else dpClose()});
+document.addEventListener('mousedown',e=>{if(dpEl&&!dpEl.contains(e.target)&&e.target!==dpFor)dpClose()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&dpEl){e.stopPropagation();dpClose()}},true);
+window.addEventListener('scroll',dpPlace,true);window.addEventListener('resize',dpPlace);
+P.datePick={open:dpOpen,close:dpClose,isDateInput};
 window.P=P;
 })();

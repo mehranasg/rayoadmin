@@ -181,13 +181,24 @@ RT.tabs=function(root,onChange){
   return show;
 };
 
-/* modals: [data-open="id"] opens, [data-close] / backdrop / Esc closes */
+/* modals: [data-open="id"] opens, [data-close] closes. A click outside closes only a window without fields; a form
+   window shakes instead, so typed data is never lost by a stray click or by a text selection dragged outside. Esc asks
+   before closing a window whose fields were changed. */
+const FIELDS='.modal input:not([type=hidden]):not([readonly]):not([disabled]):not(.pn-sfilter),.modal select:not([disabled]),.modal textarea:not([readonly]):not([disabled])';
+const hasFields=b=>!!b.querySelector(FIELDS);
+let downOnBack=false;
+document.addEventListener('mousedown',e=>{downOnBack=!!e.target.classList?.contains('modal-backdrop')},true);
+document.addEventListener('input',e=>{const b=e.target.closest?.('.modal-backdrop');if(b)b.dataset.dirty='1'},true);
 document.addEventListener('click',e=>{
-  const o=e.target.closest('[data-open]');if(o){document.getElementById(o.dataset.open)?.classList.add('open');return}
+  const o=e.target.closest('[data-open]');if(o){const b=document.getElementById(o.dataset.open);if(b){b.dataset.dirty='';b.classList.add('open')}return}
   const c=e.target.closest('[data-close]');if(c){c.closest('.modal-backdrop')?.classList.remove('open');return}
-  if(e.target.classList.contains('modal-backdrop'))e.target.classList.remove('open');
+  if(e.target.classList.contains('modal-backdrop')){const b=e.target;if(!downOnBack)return;
+    if(hasFields(b)){const m=b.querySelector('.modal');if(m){m.classList.remove('nudge');void m.offsetWidth;m.classList.add('nudge')}return}
+    b.classList.remove('open')}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-backdrop.open').forEach(m=>m.classList.remove('open'))});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;const open=[...document.querySelectorAll('.modal-backdrop.open')];if(!open.length)return;
+  if(open.some(b=>b.dataset.dirty&&hasFields(b))&&!confirm('اطلاعاتی که وارد کرده‌اید ثبت نشده است. پنجره بسته شود؟'))return;
+  open.forEach(m=>m.classList.remove('open'))});
 
 window.RT=RT;
 document.addEventListener('DOMContentLoaded',()=>{buildSidebar();buildTopbar();applyThemeIcon();icons()});

@@ -170,7 +170,14 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:0}]});st=pd.stocktakes.find(s=>s.date===dd);ok(near(st.lines.find(x=>x.ingredientId==='i1').actual,3)&&!st.lines.some(x=>x.ingredientId==='i2'),'zero prepared: ingredient back to its direct count; prepared-only line taken out (js/32)');
  throws(()=>W.addCount(pd,pc(),{date:dd,prepared:[{preparedItemId:it.id,quantity:1.5}]}),/صحیح/,'whole number for «عدد»');
  const wd=JSON.parse(JSON.stringify(doc)),wr=W.addEvent(wd,pc(),{date:D3,eventType:'WASTE',type:'prepared',itemId:it.id,quantity:5,reason:'سس مانده',section:'آشپزخانه'});const grp=wd.wasteRecords.filter(r=>r.preparedGroupId===wr.preparedGroupId);
- ok(wr.count===2&&grp.length===2&&grp.every(r=>r.type==='ingredient'&&r.preparedItemId===it.id&&r.status==='posted')&&near(grp.find(r=>r.itemId==='i1').quantity,5/10*0.6/0.8),'prepared-item waste: one ingredient record per formula ingredient')}
+ ok(wr.count===2&&grp.length===2&&grp.every(r=>r.type==='ingredient'&&r.preparedItemId===it.id&&r.status==='posted')&&near(grp.find(r=>r.itemId==='i1').quantity,5/10*0.6/0.8),'prepared-item waste: one ingredient record per formula ingredient');
+ // delete: with history → archive; in an active recipe → refused; no reference → deleted, id never given again
+ const comp=[{ingredientId:'i2',quantity:1,unit:'کیلوگرم',basis:'gross'}];
+ ok(MW.preparedDeletePlan(pp,pd,it.id).action==='archive','prepared item counted: archive plan');const da=JSON.parse(JSON.stringify(pp));ok(MW.deletePreparedItem(da,ctx(),{id:it.id,inv:pd}).action==='archive'&&da.preparedItems.find(p=>p.id===it.id).isArchived&&da.preparedItems.find(p=>p.id===it.id).status==='غیرفعال','archived, not removed');
+ const dk=JSON.parse(JSON.stringify(pp));dk.menuItems=[{id:'M1',name:'برگر',status:'فعال'}];dk.recipes=[{id:'REC-1',menuItemId:'M1',preparedItemId:it.id,quantity:1}];throws(()=>MW.deletePreparedItem(dk,ctx(),{id:it.id,inv:{}}),/آیتم فعال/,'used in an active recipe: refused');
+ const dx=JSON.parse(JSON.stringify(pp)),n2=MW.savePreparedItem(dx,pc(),{name:'سس',countUnit:'عدد',baseOutputQuantity:1,components:comp}),c2=ctx(),r2=MW.deletePreparedItem(dx,c2,{id:n2.id,inv:pd});
+ ok(r2.action==='delete'&&!dx.preparedItems.some(p=>p.id===n2.id)&&c2.auditExtra.deleted.id===n2.id&&dx.settings.retiredPreparedIds.includes(n2.id),'no reference: deleted, copy in audit');
+ ok(MW.savePreparedItem(dx,pc(),{name:'سس ۲',countUnit:'عدد',baseOutputQuantity:1,components:comp}).id!==n2.id,'deleted id not given again')}
 
 // 6c. zero for uncounted items; rollback; beverage items
 {const pz={...pricing,ingredients:[...pricing.ingredients,{id:'i4',code:'104',name:'قلم شمرده‌نشده',status:'فعال',itemType:'MENU_INGREDIENT',recipeUnit:'عدد'},{id:'i5',code:'105',name:'کنارگذاشته',status:'فعال',itemType:'MENU_INGREDIENT',recipeUnit:'عدد'}]};
@@ -263,5 +270,19 @@ throws(()=>W.voidReceipt(linked,ctx(),{id:'R-INV',reason:'x'}),/فاکتور/,'i
  {const d=baseDoc(),c={...ctx(),staff:{personnelId:'EMP-9',name:'پریسا'}};const w=W.addEvent(d,c,{date:D3,eventType:'WASTE',type:'ingredient',itemId:'i1',quantity:1,reason:'افتاد',section:'بار'});
   ok(w.status==='posted'&&w.reviewStatus==='در انتظار بررسی'&&w.reportedByPersonnelId==='EMP-9'&&w.reportedByName==='پریسا'&&w.registeredByType==='staff'&&!w.reviewedBy,'staff waste: posted, waiting for review, names the person');
   ok(d.inventoryMovements.some(m=>m.sourceKey&&m.sourceKey.includes(w.id)||m.referenceId===w.id),'staff waste moves stock like any waste')}
+ // standard units come from any weight / volume unit the item has, and cross with the density
+ {const us=W.unitsOf({recipeUnit:'عدد',purchaseUnit:'عدد',packageQuantity:1,countingUnits:[{name:'گرم',factor:1/900}]}),f=n=>us.find(u=>u.name===n)?.factor;
+  ok(near(f('گرم'),1/900)&&near(f('کیلوگرم'),1000/900)&&!f('لیتر'),'jar item: گرم row brings کیلوگرم, no volume without density');
+  const ud=W.unitsOf({recipeUnit:'عدد',countingUnits:[{name:'گرم',factor:1/900}],densityKgPerLiter:1.4}),g=n=>ud.find(u=>u.name===n);
+  ok(near(g('لیتر').factor,1400/900)&&near(g('میلی‌لیتر').factor,1.4/900)&&g('لیتر').cross,'density: لیتر and میلی‌لیتر from the weight units');
+  ok(W.smallestUnit({recipeUnit:'عدد',countingUnits:[{name:'گرم',factor:1/900}],densityKgPerLiter:1.4}).name==='گرم','count remainder stays in the weight unit, not a density unit');
+  const kg=W.unitsOf({recipeUnit:'کیلوگرم',densityKgPerLiter:0.92}),h=n=>kg.find(u=>u.name===n)?.factor;ok(near(h('گرم'),0.001)&&near(h('لیتر'),0.92)&&near(h('میلی‌لیتر'),0.00092),'kg item with density: گرم, لیتر, میلی‌لیتر');
+  ok(W.unitsOf({recipeUnit:'کیلوگرم'}).map(u=>u.name).join()==='کیلوگرم,گرم','kg item without density: only گرم added (unchanged)');}
+ // prepared-item formula (InvEngine.convertQty): an item's own units convert too, not only کیلو/گرم/لیتر
+ {const oil={recipeUnit:'عدد',purchaseUnit:'عدد',packageQuantity:1,countingUnits:[{name:'کیلوگرم',factor:1/0.9}]},cv=(i,q,a,b)=>E.convertQty(i,q,a,b).value;
+  ok(near(cv(oil,10,'گرم','عدد'),10/900)&&near(cv(oil,0.9,'کیلوگرم','عدد'),1),'bottle oil: گرم and کیلوگرم → عدد through «۱ عدد = ۹۰۰ گرم»');
+  const dl={recipeUnit:'بسته',purchaseUnit:'کارتن',packageQuantity:12,countingUnits:[{name:'لیتر',factor:1}]};ok(near(cv(dl,60,'میلی‌لیتر','بسته'),0.06)&&near(cv(dl,1,'کارتن','بسته'),12),'pack item: میلی‌لیتر and کارتن → بسته');
+  ok(E.convertQty({recipeUnit:'عدد'},5,'گرم','عدد').value===null&&/تبدیل واحد/.test(E.convertQty({recipeUnit:'عدد'},5,'گرم','عدد').reason),'unknown unit refused with a hint');
+  ok(near(cv({recipeUnit:'کیلوگرم'},250,'گرم','کیلوگرم'),0.25),'kg ↔ g unchanged');}
  console.log(`qa_template_inventory_write: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);
 })();

@@ -21,6 +21,15 @@
 .quick-menu button{display:flex;align-items:center;gap:var(--s3);width:100%;padding:9px var(--s3);border:0;background:none;border-radius:10px;cursor:pointer;text-align:start;font-size:13px}
 .quick-menu button:hover{background:var(--surface-3)}
 .quick-menu button small{display:block;color:var(--text-3);font-size:11.5px}
+/* date picker under a date field (BL-082): one-click today / yesterday and day-month-year lists */
+.dp-pop{position:fixed;z-index:110;width:250px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:var(--s2);display:flex;flex-direction:column;gap:6px;animation:pop .12s var(--ease)}
+.dp-pop .dp-quick{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.dp-pop .dp-quick .btn{justify-content:center}
+.dp-pop .dp-sel{display:grid;grid-template-columns:62px 1fr 74px;gap:4px}
+.dp-pop .dp-sel .select{padding-inline:6px;min-width:0}
+/* «اصلاح نام واحد پایه» in the item form: a distinct owner tool, so it is seen (BL-074) */
+.btn-unit-fix{background:var(--warning-soft);color:var(--warning);border:1px solid var(--warning)}
+.btn-unit-fix:hover{filter:brightness(.97)}
 .quick-menu .thumb{width:30px;height:30px;border-radius:9px}
 
 /* the hidden attribute always hides (classes such as .btn or .field set display and used to override it) */
@@ -281,6 +290,11 @@ tfoot tr.grid-total td{background:var(--surface-2);border-top:2px solid var(--bo
 .cu-row .cu-say{grid-column:2/-1;margin-top:-2px}.cu-row .cu-say:empty{display:none}
 @media (max-width:560px){.cu-row{grid-template-columns:auto minmax(0,1fr) auto minmax(60px,1fr);}.cu-row .select,.cu-row label,.cu-row [data-cudel]{grid-row:2}}
 .table.compact td:last-child{white-space:normal;min-width:170px}
+/* inventory lists (BL-080): the unit or scale of a column sits under its title, not beside every number */
+.table.inv-compact th small{display:block;font-weight:400;font-size:11px;white-space:nowrap}
+.table.inv-compact td.num{white-space:nowrap}
+.table.inv-compact td:first-child,.table.inv-compact td.wrap{white-space:normal}
+.table.inv-compact td:last-child{min-width:0}
 /* modal sizes: lg (most edit forms) was not defined in the app (fell back to 520px); on desktop the form grids of lg and
    wide modals use three columns so edit forms need less vertical scroll */
 .modal.lg{width:min(900px,100%)}
@@ -302,6 +316,11 @@ tr.sel>td{background:color-mix(in srgb,var(--primary) 8%,transparent)}
 .table.cols-center .cell-main{text-align:start}
 .table.cols-center .input{text-align:center}
 .wk-table.cols-center th:first-child,.wk-table.cols-center td:first-child{text-align:start}
+/* one person's month (payroll): fine / reward / payment / contract always at hand; on a phone two big buttons per row */
+.pd-acts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:var(--s3)}
+.wk-table .wk-pm,.wk-table .wk-pr{padding-inline:6px;min-height:32px}
+.wk-table .wk-pr{line-height:1.3;font-weight:inherit}
+@media (max-width:720px){.pd-acts{display:grid;grid-template-columns:1fr 1fr}.pd-acts .btn{min-height:44px;justify-content:center}}
 /* payroll settings: the hint under «روش تازه» */
 .ps-add{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin-top:var(--s3)}
 .ps-add .hint{font-size:12px;color:var(--text-3);line-height:1.6}

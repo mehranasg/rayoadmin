@@ -45,16 +45,22 @@ const unitName=i=>S(i?.recipeUnit||i?.unit||i?.stockUnit||'واحد');
 // entry units of an item, all as a factor of the base (stock) unit: the base unit, the purchase unit when it is a different
 // unit with a package size, the item's other active units (pricing.ingredients[].countingUnits {name, factor}, e.g. بسته ۳۵۰
 // گرمی = ۳۵۰ گرم) and, automatically, the standard unit of the same kind (کیلوگرم ↔ گرم, لیتر ↔ میلی‌لیتر) so nobody
-// converts by hand. Stock, cost and every saved quantity stay in the base unit; the entered unit is kept beside it.
-const AUTO_UNITS={kg:[['گرم',0.001]],g:[['کیلوگرم',1000]],l:[['میلی‌لیتر',0.001]],ml:[['لیتر',1000]]};
+// converts by hand. Once any weight unit is known (base, purchase or another unit, e.g. «۱ عدد = ۹۰۰ گرم») گرم and کیلوگرم
+// both come; the same for میلی‌لیتر / لیتر; with the item's density (densityKgPerLiter) weight and volume convert to each
+// other (cross). Stock, cost and every saved quantity stay in the base unit; the entered unit is kept beside it.
+const STD_UNITS=[['کیلوگرم','m',1],['گرم','m',0.001],['لیتر','v',1],['میلی‌لیتر','v',0.001]],STD_KIND={kg:['m',1],g:['m',0.001],l:['v',1],ml:['v',0.001]};
+function stdUnits(out,density){const has=n=>out.some(u=>E().UK(u.name)===E().UK(n)),per={};
+ for(const u of out){const k=STD_KIND[E().UK(u.name)];if(k&&!per[k[0]])per[k[0]]=u.factor/k[1]}
+ const d=Number(density),cross={};if(d>0){if(per.m&&!per.v){per.v=per.m*d;cross.v=1}else if(per.v&&!per.m){per.m=per.v/d;cross.m=1}}
+ for(const [n,k,s] of STD_UNITS)if(per[k]&&!has(n))out.push({name:n,factor:per[k]*s,auto:true,...(cross[k]?{cross:true}:{})});return out}
 function unitsOf(i){const out=[{name:unitName(i),factor:1}],pk=Number(i?.packageQuantity),has=n=>out.some(u=>E().UK(u.name)===E().UK(n));if(S(i?.purchaseUnit)&&pk>0&&!has(i.purchaseUnit))out.push({name:S(i.purchaseUnit),factor:pk,purchase:true});
  for(const u of A(i?.countingUnits)){const n=S(u?.name),f=Number(u?.factor);if(u&&u.active!==false&&n&&f>0&&!has(n))out.push({name:n,factor:f})}
- for(const [n,f] of AUTO_UNITS[E().UK(unitName(i))]||[])if(!has(n))out.push({name:n,factor:f,auto:true});return out}
+ return stdUnits(out,i?.densityKgPerLiter)}
 // the unit a recipe line / waste starts in (pricing.ingredients[].useUnit; otherwise گرم for a کیلوگرم item, میلی‌لیتر for لیتر)
 function useUnitOf(i){const us=unitsOf(i),pick=n=>us.find(u=>E().UK(u.name)===E().UK(n));return pick(S(i?.useUnit))||pick(({kg:'گرم',l:'میلی‌لیتر'})[E().UK(unitName(i))])||us[0]}
 // the unit a count starts in (pricing.ingredients[].countUnit, else the base unit); the open remainder goes in the smallest unit
 function countUnitOf(i){const us=unitsOf(i);return us.find(u=>E().UK(u.name)===E().UK(S(i?.countUnit)))||us[0]}
-const smallestUnit=i=>unitsOf(i).reduce((m,u)=>u.factor<m.factor?u:m);
+const smallestUnit=i=>unitsOf(i).filter(u=>!u.cross).reduce((m,u)=>u.factor<m.factor?u:m);
 // quantity in a unit of the item → base unit (null when the unit is not one of the item's units)
 function toBase(i,qty,unit){const u=unitsOf(i).find(x=>x.name===S(unit))||(S(unit)?null:unitsOf(i)[0]);return u?{value:Number(qty)*u.factor,unit:u}:null}
 // purchase units of an item for invoice / order rows: the default purchase unit first (its package size), then the other units
@@ -167,7 +173,14 @@ function addOilChange(doc,ctx,input){const s=oilSettings(doc,ctx.pricing),f=s.fr
 function countInfo(doc,date){date=D(date);const later=A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&rank(s)>`${date}|1`),same=A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&rank(s)===`${date}|1`);return{later,same,counted:new Map(same.flatMap(s=>A(s.lines).map(l=>[l.ingredientId,{st:s,line:l}])))}}
 function addCount(doc,ctx,{date,entries,prepared,note,allowEarlier}){date=D(date);checkDate(doc,date,'تاریخ شمارش');const ing=ingredients(ctx.pricing),info=countInfo(doc,date);
  if(info.later.length&&!allowEarlier)throw Error(`بعد از ${date} شمارش کل ثبت شده است (${[...new Set(info.later.map(s=>s.date))].sort().pop()}); برای ثبت با تاریخ قبلی تأیید لازم است.`);
- const rows=A(entries).map(x=>{const i=ing.get(S(x.itemId));if(!stockItem(i))throw Error('قلم شمارش معتبر نیست');const u=unitsOf(i).find(u=>u.name===S(x.unit))||unitsOf(i)[0],q=S(x.quantity)===''&&S(x.rest)!==''?0:N(x.quantity);if(!(q>=0))throw Error(`مقدار شمارش «${i.name}» باید عدد نامنفی باشد`);
+ /* several counts of one item (BL-078): parts [{place, quantity, unit}], each in any unit of the item, added up in the base
+    unit; the line keeps them as countParts [{place, quantity, unit, factor, base}]. mergePlaces: a part replaces only the
+    part of the same place already counted that day (another person counting another fridge later); other places stay. */
+ const partsRow=(i,x)=>{const ps=A(x.parts).map(p=>{const u=unitsOf(i).find(u=>u.name===S(p.unit))||unitsOf(i)[0],q=N(p.quantity);if(S(p.quantity)===''||!(q>=0))throw Error(`مقدار شمارش «${i.name}»${S(p.place)?' در '+S(p.place):''} باید عدد نامنفی باشد`);return{place:S(p.place),quantity:q,unit:u.name,factor:u.factor,base:r3(q*u.factor)}});
+  if(!ps.length)throw Error(`برای «${i.name}» مقداری وارد نشده است`);const old=info.counted.get(i.id)?.line,keep=x.mergePlaces&&old?A(old.countParts).filter(p=>!ps.some(n=>n.place===S(p.place))):[],all=[...keep,...ps];
+  const one=all.length===1&&all[0].factor!==1?{entryQuantity:all[0].quantity,entryUnit:all[0].unit,entryUnitFactor:all[0].factor}:{};
+  return{i,actual:r3(all.reduce((a,p)=>a+p.base,0)),entry:{countParts:all,...one}}};
+ const rows=A(entries).map(x=>{const i=ing.get(S(x.itemId));if(!stockItem(i))throw Error('قلم شمارش معتبر نیست');if(Array.isArray(x.parts))return partsRow(i,x);const u=unitsOf(i).find(u=>u.name===S(x.unit))||unitsOf(i)[0],q=S(x.quantity)===''&&S(x.rest)!==''?0:N(x.quantity);if(!(q>=0))throw Error(`مقدار شمارش «${i.name}» باید عدد نامنفی باشد`);
   /* «۵ بسته + ۱۰۰ گرم»: the open remainder is entered in the item's smallest unit and added */
   const su=smallestUnit(i),rest=S(x.rest)===''?0:N(x.rest);if(!(rest>=0))throw Error(`باقی‌ماندهٔ «${i.name}» باید عدد نامنفی باشد`);const restOn=rest>0&&su.name!==u.name;
   return{i,actual:r3(q*u.factor+(restOn?rest*su.factor:0)),entry:u.factor!==1||restOn?{entryQuantity:q,entryUnit:u.name,entryUnitFactor:u.factor,...(restOn?{entryRestQuantity:rest,entryRestUnit:su.name,entryRestFactor:su.factor}:{})}:null}});
@@ -192,7 +205,7 @@ function addCount(doc,ctx,{date,entries,prepared,note,allowEarlier}){date=D(date
  const share=new Map;if(prepIn.length)for(const st of info.same.map(s=>byId.get(s.id)).concat(created?[target]:[]))for(const pl of A(st.preparedLines))for(const c of A(pl.contributions)){const o=share.get(c.ingredientId)||{qty:0,contributions:[]};o.qty+=N(c.quantity);o.contributions.push({preparedLineId:pl.id,preparedItemId:pl.preparedItemId,preparedItemNameSnapshot:pl.preparedItemNameSnapshot,quantity:c.quantity,unit:c.unit,componentQuantity:c.componentQuantity,componentUnit:c.componentUnit,basis:c.basis});share.set(c.ingredientId,o)}
  const direct=new Map(rows.map(r=>[r.i.id,r])),ids=new Set(direct.keys());if(prepIn.length){for(const id of share.keys())ids.add(id);for(const [id,h] of info.counted)if(A(h.line.preparedContributions).length)ids.add(id)}
  for(const id of ids){const h=info.counted.get(id),old=h?.line,d=direct.get(id),sh=share.get(id),i=ing.get(id);
-  const dir=d?d.actual:old?(A(old.preparedContributions).length?(old.directlyCounted?N(old.directActual):null):N(old.actual)):null,entry=d?d.entry:(old&&!A(old.preparedContributions).length&&old.entryUnit?{entryQuantity:old.entryQuantity,entryUnit:old.entryUnit,entryUnitFactor:old.entryUnitFactor}:null);
+  const dir=d?d.actual:old?(A(old.preparedContributions).length?(old.directlyCounted?N(old.directActual):null):N(old.actual)):null,entry=d?d.entry:(old&&(!A(old.preparedContributions).length||old.directlyCounted)&&(old.entryUnit||A(old.countParts).length)?{...(old.entryUnit?{entryQuantity:old.entryQuantity,entryUnit:old.entryUnit,entryUnitFactor:old.entryUnitFactor}:{}),...(A(old.countParts).length?{countParts:old.countParts}:{})}:null);
   const s=h?byId.get(h.st.id):target;s.lines=A(s.lines);const k=s.lines.findIndex(l=>l.ingredientId===id),r=rev(s);
   if(dir===null&&!(sh&&sh.qty>0)){if(k>=0){r.removed.push(clone(s.lines[k]));s.lines.splice(k,1)}continue}
   if(!stockItem(i))throw Error(`مادهٔ «${i?.name||id}» در فرمول قلم آماده، کالای انبار فعال نیست`);
@@ -295,6 +308,11 @@ function saveReorderPoints(pr,ctx,{rows}){const ing=new Map(A(pr.ingredients).ma
    daily use × order-cycle days, rounded up to 2 decimals of the base unit. */
 const CYCLE_DEF={a:2,b:7,c:30,aShare:80,bShare:95,lead:2,safety:2,cycle:7};
 function cycleSettings(doc){const c=doc?.settings?.cycleCount||{},o={};for(const k of Object.keys(CYCLE_DEF)){const v=Number(c[k]);o[k]=Number.isFinite(v)&&v>0?v:CYCLE_DEF[k]}return o}
+/* places where one item is counted separately (BL-078): inventory.settings.countPlaces, defaults until saved */
+const COUNT_PLACES=['انبار اصلی','یخچال آشپزخانه','یخچال بار'];
+function countPlaces(doc){const l=A(doc?.settings?.countPlaces).map(S).filter(Boolean);return l.length?l:COUNT_PLACES.slice()}
+function saveCountPlaces(doc,ctx,{places}){const out=[];for(const p0 of A(places)){const p=S(p0).replace(/\s+/g,' ');if(!p)continue;if(p.length>40)throw Error('نام محل بیش از حد بلند است');if(!out.includes(p))out.push(p)}if(!out.length)throw Error('دست‌کم یک محل لازم است');
+ doc.settings=doc.settings||{};const before=A(doc.settings.countPlaces).slice();if(JSON.stringify(before)===JSON.stringify(out))throw Error('تغییری نیست');doc.settings.countPlaces=out;ctx.auditExtra={before,after:out};return{places:out}}
 function saveCycleSettings(doc,ctx,input){const next={};for(const k of Object.keys(CYCLE_DEF)){const v=N(input[k]);if(!(v>0))throw Error('همهٔ مقادیر شمارش چرخه‌ای باید عدد مثبت باشند');next[k]=v}
  if(!(next.aShare<next.bShare&&next.bShare<=100))throw Error('سهم A باید کمتر از سهم A+B و حداکثر ۱۰۰ باشد');if(!(next.a<=next.b&&next.b<=next.c))throw Error('فاصلهٔ شمارش A ≤ B ≤ C باشد');
  doc.settings=doc.settings||{};const before=cycleSettings(doc);if(JSON.stringify(before)===JSON.stringify(next))throw Error('تغییری داده نشده است');doc.settings.cycleCount=next;ctx.auditExtra={before,after:next};return next}
@@ -385,6 +403,20 @@ function closeCount(doc,ctx,{date,note}){date=D(date);const lines=countLinesOf(d
 function reopenCount(doc,ctx,{id,reason}){reason=S(reason);if(!reason)throw Error('علت بازگشایی لازم است');const c=A(doc.periodClosures).find(x=>x.id===id);if(!c||c.status!=='closed')throw Error('دورهٔ بسته پیدا نشد');
  const last=lastClosure(doc);if(last&&last.id!==c.id)throw Error(`فقط آخرین دورهٔ بسته (تا ${last.to}) باز می‌شود`);
  Object.assign(c,{status:'reopened',reopenedAt:ctx.at,reopenedBy:ctx.actor,reopenReason:reason});ctx.auditExtra={entityId:c.id,reason};return c}
-window.InvWrite={CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+/* ---------- item merge (catalog «ادغام اقلام») ----------
+   The on-hand of each merged item moves to the kept item as a pair of ITEM_MERGE movements dated today: out of the
+   merged item (fromLocationId) and into the kept item (toLocationId, quantity × unit factor). Nothing is deleted; a
+   void movement pair would undo it. The beverage-control list swaps the merged id for the kept one. The catalog side
+   (recipes, archive) is MenuWrite.mergeIngredients on pricing. */
+function mergeStock(doc,ctx,{toId,toName,moves,bevIds}){const date=E().CAL.today,c=closedPeriod(doc,date);if(c)throw Error(`دورهٔ ${c.from||''} تا ${c.to} بسته است؛ انتقال موجودی ممکن نیست`);
+ const loc=S(doc.settings?.mainLocationId)||'LOC-MAIN',out={moved:0,bev:0};doc.inventoryMovements=A(doc.inventoryMovements);
+ for(const m of A(moves)){const q=Number(m.qty),tq=Number(m.toQty);if(!(q>0)||!(tq>0))continue;if(!S(m.fromId)||S(m.fromId)===S(toId))throw Error('قلم ادغام نامعتبر است');
+  const key=`merge:${m.fromId}:${toId}:${ctx.reqId}`,note=`ادغام «${S(m.fromName)}» در «${S(toName)}»`,base={date,time:'',movementType:'ITEM_MERGE',reasonCode:'ITEM_MERGE',referenceType:'itemMerge',referenceId:ctx.reqId,status:'posted',notes:note,createdAt:ctx.at,createdBy:ctx.actor};
+  doc.inventoryMovements.push({id:uid('MOV',doc.inventoryMovements),...base,ingredientId:m.fromId,quantity:r3x(q),fromLocationId:loc,toLocationId:'',sourceKey:key+':out',mergedIntoId:toId});
+  doc.inventoryMovements.push({id:uid('MOV',doc.inventoryMovements),...base,ingredientId:toId,quantity:r3x(tq),fromLocationId:'',toLocationId:loc,sourceKey:key+':in',mergedFromId:m.fromId,unitFactor:Number(m.factor)||1});out.moved++}
+ const bc=doc.settings?.beverageControl,set=new Set(A(bevIds));if(bc&&Array.isArray(bc.itemIds)&&bc.itemIds.some(id=>set.has(id))){const next=[];for(const id of bc.itemIds){const v=set.has(id)?toId:id;if(!next.includes(v))next.push(v)}bc.itemIds=next;out.bev=1}
+ if(!out.moved&&!out.bev)throw Error('موجودی‌ای برای انتقال نیست');ctx.auditExtra={toId,moves:clone(A(moves)),beverage:out.bev};return out}
+const r3x=x=>Math.round(x*1e6)/1e6;
+window.InvWrite={COUNT_PLACES,countPlaces,saveCountPlaces,mergeStock,stdUnits,CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();

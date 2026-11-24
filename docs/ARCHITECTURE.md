@@ -31,6 +31,7 @@ app/
 - **نوار تب:** `TAB_GROUPS` در `shell.js` تب‌های هر بخش را گروه می‌کند (حداکثر شش گروه، تب‌های گروه باز در ردیف دوم `.page-subtabs`). تب تازه اگر در هیچ گروهی نباشد گروه جدای خودش را می‌گیرد؛ پس تب تازه را در گروه درستش اضافه کنید. `TAB_LABELS` واژه‌نامهٔ نام تب‌ها روی دادهٔ زنده است و بر نام تعریف‌شده در فایل صفحه غلبه می‌کند. نشان قرمز (`badge`) فقط برای کار امروز است.
 - **میز کار** (`dashboard-real.js`): کارها از `tasks()`، روزها از `DAY` (هر ردیف به یک ردیف `DAILY` برای فرم و دسترسی وصل است)، اعتماد ماه از `monthTrust`. علامت روز با `InvWrite.saveDayCheck` در `inventory.dayChecks` ذخیره می‌شود (بدون بازمحاسبهٔ شمارش). ثبت روزانهٔ تازه را هم در `DAILY` و هم در `DAY` اضافه کنید.
 - **تکمیل رسپی‌ها:** تب `menu/campaign` در `menu-real.js` (`campData`، `copyFromForm`، `directForm`، `approxForm`)؛ منطق مشترک در `menu-write.js` (`similarItems`، `copyLines`، `directCandidates`، `setApproxCost`). فرم رسپی (`MenuEntry.recipe(id,pre)`) با `pre.lines` از پیش پر می‌شود. probe: `tools/probes/recipe-campaign.js`.
+- **پروندهٔ ماه هر نفر (حقوق):** `detail(pid,y,m)` در `payroll-real.js` از «حقوق ماه» و «کارکرد ماه» (`data-pmd`) باز می‌شود. فرم‌هایی که از آن باز می‌شوند گزینهٔ `then` (بعد از ذخیره، از راه `then` در `InvEntry.run`) و `back` (دکمهٔ «بازگشت» با `PeopleEntry.addBack`) می‌گیرند: `PeopleEntry.penalty({personnelId,kind,year,month,then,back})`، `PeopleEntry.penaltyStatus(id,{then,back})`، `PayrollReal.pay({…,then,back})`، `PeopleHR.salaryForm(id,{eff,then,back})`. probe: `tools/probes/payroll-penalty-jump.js` (با عرض ۳۹۰).
 - **اپ پرسنل:** `staff.html` پیش از اسکریپت‌ها `window.RAYO_STAFF_APP=1` می‌گذارد. ورود با `AdminAccess.verifyStaff/signInStaff` (نقش `staff`؛ کلیدهای دسترسی پرسنل در `STAFF_PERMS` به بخش‌ها نگاشت می‌شوند؛ بیرون از اپ پرسنل این نشست `null` است). `AdminAccess.staff()` شخص را می‌دهد و `InvWrite.edit` و `cash-real` آن را در `ctx.staff` می‌گذارند؛ نویسنده‌ها (`CashWrite.buildReport`، `InvWrite.addEvent`) با آن نام و شناسهٔ شخص را روی رکورد می‌نویسند. فرم‌ها همان فرم‌های پنل‌اند (`CashReal.form`، `InvEntry.event`، `InvEntry.bevCfg({staff})`) و با `AdminAccess.staff()` رفتار پرسنلی می‌گیرند. صفحهٔ تازه: یک ردیف در `PAGES` و یک تابع در `VIEWS` در `staff-real.js`. probe: `PAGE=staff.html NOSESSION=1 node tools/smoke.cjs tools/probes/staff-app.js 300 390`.
 - **راهنما:** `app/js/help.js` (`RayoHelp.pages['بخش/تب']`، `glossary`)؛ دکمهٔ «؟» نوار بالا `P.help()` را باز می‌کند. صفحهٔ تازه را در `help.js` هم اضافه کنید.
 - **جدول یکپارچه** (`gridify`): هر خانه `data-th` (نام ستون) می‌گیرد تا در موبایل کارت شود (`grid-cards`، با بیش از ۴ ستون `grid-more`)؛ فهرست بیش از ۱۵ ردیف بیرون از پنجره `grid-scroll` می‌گیرد (اسکرول در قاب با سرستون ثابت). یادداشت‌های توضیحی طولانی پنجره‌ها با `foldNotes` (در `P.modal`) یک‌خطی می‌شوند.
@@ -40,6 +41,7 @@ app/
 - **ویژگی `hidden`** همیشه پنهان می‌کند (`[hidden]{display:none!important}` در `panel.css`)؛ برای نمایش شرطی به‌جای `style.display` از آن استفاده کنید.
 - **ابزار رابط:**
   - `P.card`، `P.table`، `P.kpi`، `P.field`، `P.note`، `P.b` (نشان)، `P.modal`، `P.toast`؛
+  - **مبلغ:** `P.mt(تومان)` عدد به واحد مبالغ، `P.mT` با نام واحد، `P.mShort` کوتاه (میلیون)، `P.U()` نام واحد، `P.mul()` ضریب (۱ یا ۱۰). فیلد مبلغ با `P.money(name,تومان)` یا هر input با `data-money` (مقدار اولیه با `P.moneyAttr(تومان)`): به واحد مبالغ نمایش داده و تایپ می‌شود ولی `.value` آن برای کد همیشه تومان است (getter/setter روی `HTMLInputElement.prototype.value` فقط برای `data-money`؛ `P.rawVal(el)` همان متن نمایش). ستون مبلغ در `P.table` با `{t:'مبلغ',m:1}` (عددی + «(ریال)» در سرستون). ستون Excel مبلغ در `P.importer` با `money:1`. در هسته (`core/js`) از `window.P?.mul` استفاده شود تا آزمون‌های Node بی‌پنل کار کنند؛
   - فرم ثبت: `InvEntry.formModal` (که `IE.formModal` هم صدا زده می‌شود)؛
   - ثبت سریع از هر صفحه: `P.openLive({go, ready, open})`.
 
@@ -112,8 +114,14 @@ app/
 - **پنهان پیش‌فرض:** ستونی با `hide:1` در `P.table` (یا `data-hide="1"` روی th) تا وقتی کاربر انتخاب ستون‌ها را برای آن فهرست ذخیره نکرده پنهان است.
 - **جدول پرستون:** کلاس `table compact` فاصله‌ها و قلم را کوچک می‌کند، سر ستون‌ها دوخطی و ستون اول و آخر چندخطی می‌شوند (گردش مواد).
 - **کنار گذاشتن:** جدول دارای ورودی (`input`/`select`) یا با `cls:'no-grid'` کنار گذاشته می‌شود. ردیف خالی (`colspan`) و `tfoot` موجود حفظ می‌شوند.
+## انتخاب تاریخ (`P.datePick` در `shell.js`)هر `input` متنی که مقدار یا `placeholder`ش تاریخ کامل شمسی است (`۱۴۰۵/۰۸/۱۷`، با «از »/«تا » هم) با `focusin` پنجرهٔ `.dp-pop` می‌گیرد: «امروز»، «دیروز»، «پریروز» و فهرست روز/ماه/سال (روزهای هر ماه از `InvEngine.CAL`). انتخاب، `input` و `change` می‌فرستد، پس فیلترها و فرم‌ها کار اضافه نمی‌خواهند. فیلد تازهٔ تاریخ کافی است مقدار یا نمونهٔ تاریخ داشته باشد. `data-nodate` آن را کنار می‌گذارد. فیلد `readonly` و ماه تنها (`۱۴۰۵/۰۸`) پنجره نمی‌گیرند.
+
+## فهرست‌های انبار (`compactInv` در `shell.js`)
+در مسیرهای `#/inventory/…` هر جدولی که `P.grid` می‌گیرد کلاس `compact inv-compact` می‌گیرد (فاصلهٔ کم، سرستون دوخطی، `small` سرستون در خط دوم). ستون عددی‌ای که خانه‌هایش «… میلیارد/میلیون/هزار» دارند (`P.mShort`) یک مقیاس می‌گیرد (همان که بیشتر خانه‌ها دارند): خانه‌ها فقط عدد (`٫` و `٬`) و سرستون «(میلیارد ریال)». جمع ستون با همان قالب. برای ستونی که نباید مقیاس بگیرد، مبلغ کامل (`P.mt`) بدهید.
 
 ## اندازهٔ مودال
+کلیک بیرون پنجره (`.modal-backdrop`) فقط پنجرهٔ بدون فیلد را می‌بندد؛ پنجرهٔ فرم‌دار کلاس `nudge` (تکان) می‌گیرد. کلیک فقط وقتی حساب است که mousedown هم روی پس‌زمینه بوده. Esc وقتی فیلدی تغییر کرده (`data-dirty` روی پس‌زمینه، با هر `P.modal` پاک می‌شود) تأیید می‌خواهد (`core/js/app.js`).
+
 `size:'lg'` (۹۰۰px) و `size:'wide'` (۱۰۰۰px)؛ در دسکتاپ `form-grid` داخل این دو سه‌ستونه است (مگر `grid-template-columns` در خود عنصر). فرم ویرایش تازه را با یکی از این دو بسازید تا اسکرول عمودی کم باشد.
 
 ## ورود از Excel و کارت روند (`shell.js`)
