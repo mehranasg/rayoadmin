@@ -120,6 +120,10 @@ P.table=(cols,rows,{foot,cls='',empty='موردی نیست'}={})=>{
     ${foot?`<tfoot><tr>${foot.map((v,i)=>`<td class="${C[i]&&C[i].n?'num':''}">${v}</td>`).join('')}</tr></tfoot>`:''}
   </table></div>`;
 };
+/* «پرداخت‌کننده» (BL-076): who handed the money, e.g. from the cash box; names of active admin users and staff are offered,
+   any name can be typed; blank = the user who records it. Saved as paidByName on the record. */
+P.payerField=(val='',name='payer')=>{const pd=window.PeopleReal?.doc?.(),n=[...(pd?.settings?.adminUsers||[]).filter(u=>u.status!=='غیرفعال').map(u=>String(u.displayName||u.username||'').trim()),...(pd?.personnel||[]).filter(p=>p.status!=='غیرفعال'&&!p.isArchived).map(p=>String(p.name||'').trim())].filter(Boolean);
+ return P.field('پرداخت‌کننده',`<input class="input" name="${name}" list="pnPayers" value="${P.esc(val||'')}" placeholder="خالی = خود شما"><datalist id="pnPayers">${[...new Set(n)].map(x=>`<option value="${P.esc(x)}"></option>`).join('')}</datalist>`,'کسی که پول را داد (مثلاً از صندوق نقدی)')};
 P.note=(html,icon='info')=>`<div class="note">${P.ic(icon)}<div>${html}</div></div>`;
 P.cellMain=(title,sub,icon,avatar)=>`<div class="cell-main">${avatar?`<div class="avatar">${P.initials(title)}</div>`:icon?`<div class="thumb">${P.ic(icon)}</div>`:''}<div><b>${title}</b>${sub?`<small>${sub}</small>`:''}</div></div>`;
 P.chips=(name,list,active)=>`<div class="row" style="flex-wrap:wrap" data-chips="${name}">${list.map(([k,l,c])=>`<button class="chip ${k===active?'active':''}" data-k="${k}">${l}${c!=null?` <span class="count">${P.fa(c)}</span>`:''}</button>`).join('')}</div>`;

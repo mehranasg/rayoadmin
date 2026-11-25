@@ -101,6 +101,7 @@ const a=PC.archive(hr);ok(a.tipShares.length===1&&a.tipShares[0].amount===900000
  c=PC.checkPayment(q,{...base,reason:'مساعده',method:'چک'},T);ok(c.errors.some(e=>/روش/.test(e)),'method outside the settings refused');
  q.settings.paymentReasons=[...PC.config(q).reasons,{title:'وام',kind:'other',active:true}];c=PC.checkPayment(q,{...base,reason:'وام'},T);ok(c.errors.some(e=>/توضیح/.test(e)),'payment outside payroll needs a note');
  const made=PC.addPayments(q,ctx(),[{...base,reason:'تسویه حقوق',year:1405,month:7,amount:3000000,tracking:'۱۲۳'}],T)[0];
+ok(!('paidByName' in made),'staff payment: no payer field when blank');{const q2=JSON.parse(JSON.stringify(q));q2.payments=q2.payments.filter(p=>p.id!==made.id);const m2=PC.addPayments(q2,ctx(),[{...base,reason:'تسویه حقوق',year:1405,month:7,amount:1000,tracking:'۹۹۹',paidByName:'سارا'}],T)[0];ok(m2.paidByName==='سارا','staff payment keeps «پرداخت‌کننده» (BL-076)')}
  ok(made.id==='PAY-00006'&&made.salaryYear===1405&&made.salaryMonth===7&&made.reasonKind==='salary'&&made.registeredBy==='qa'&&made.tracking==='۱۲۳'&&PC.calc(q,p('F'),1405,7).paid===23000000,'salary payment recorded (numeric salary month, actor) and counted in the month');
  throws(()=>PC.addPayments(q,ctx(),[{...base,reason:'تسویه حقوق',year:1405,month:7,tracking:'۱۲۳'}],T),/پیگیری/,'duplicate tracking number refused');
  ok(PC.checkPayment(q,{...base,reason:'تسویه حقوق',year:1405,month:7,amount:3000000},T).warnings.some(w=>/همین روز/.test(w)),'same person, amount, reason and day: warning');
