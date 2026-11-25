@@ -39,4 +39,18 @@ ok(C.report({...P,days:3},null).rows.every(r=>r.status==='na')&&C.report({...P,d
 const doc={settings:{consumptionAlerts:{custom:'keep',wasteWarn:3}}},ctx={at:'2026-11-09T10:00:00Z',actor:'qa',pricing:{ingredients:[{id:'i1',category:'لبنیات'}]}};
 const out=C.save(doc,ctx,{...base,wasteWarn:'۲'});ok(doc.settings.consumptionAlerts.custom==='keep'&&doc.settings.consumptionAlerts.wasteWarn===2&&doc.settings.consumptionAlerts.updatedBy==='qa'&&ctx.auditExtra.before.wasteWarn===3&&out.wasteWarn===2,'save merges, stamps and audits');
 let threw=false;try{C.save(doc,ctx,{...base,wasteWarn:99})}catch(e){threw=/نباید/.test(e.message)}ok(threw,'save validates');
+// 4. items without a recipe (BL-010): usage per sales receipt vs the median of earlier count-to-count intervals
+{window.InvEngine={CAL:{k:i=>String(i)},cashInvoices:(M,a,b)=>({all:(Number(b)-Number(a)+1)*100,hall:0})};// 100 receipts a day
+ // counts every 7 days (index = day): 7 earlier intervals using 7 kg a week (10 g per receipt), the current week 14 kg (+100%)
+ const pts=[],rec=[],ws=[];let q=20;for(let w=0;w<=8;w++){pts.push({at:w*7,qty:q});if(w<8){const use=w===7?14:7;rec.push({item:'X',day:w*7+1,qty:use});q=q+use-use}}
+ ws.push({item:'X',auth:true,day:3,qty:0.5});// staff use in the first interval is not «usage»
+ const M={points:new Map([['X',pts]]),receipts:rec,merges:[],wastes:ws};
+ const r={id:'X',name:'دستمال',category:'مصرفی',unit:'بسته',open:20,openPt:pts[7],closePt:pts[8],salesV:0,wasteV:0,staffV:0,varianceV:0};
+ const R=C.report({days:7,salesAmount:1,items:[r]},{},{M}),x=R.rows[0];
+ ok(x.nonRecipe&&near(x.nonRecipe.current,0.02)&&near(x.nonRecipe.median,0.01)&&near(x.nonRecipe.dev,100),'current 20 g per receipt vs median 10 g: +100%');
+ ok(x.nonRecipe.level==='critical'&&x.status==='critical'&&x.nonRecipe.validCount===7,'above the critical limit (25%) → critical');
+ ok(x.nonRecipe.intervals.length===7&&near(x.nonRecipe.intervals[6].used,6.5),'staff use is taken out of the interval');
+ const few=C.report({days:7,salesAmount:1,items:[{...r,openPt:pts[2],closePt:pts[3]}]},{},{M}).rows[0];ok(few.nonRecipe.median===null&&few.nonRecipe.level==='na'&&/داده کافی نیست/.test(few.nonRecipe.note),'fewer than 4 valid intervals: no alert');
+ const withRecipe=C.report({days:7,salesAmount:1,items:[{...r,salesV:1000}]},{},{M}).rows[0];ok(withRecipe.nonRecipe===null,'items with a recipe are not checked');
+ const noM=C.report({days:7,salesAmount:1,items:[r]},{}).rows[0];ok(noM.nonRecipe===null,'without the model nothing changes');delete window.InvEngine}
 console.log(`qa_template_consumption_alerts: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

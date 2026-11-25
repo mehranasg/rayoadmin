@@ -54,14 +54,29 @@ function validate(input,{ingredientIds=null,categories=null}={}){const src=input
 function thresholdsFor(s,item){const pick=(scope,key)=>A(s?.overrides).find(o=>o.scope===scope&&o.key===key)||null,own=pick('ingredient',S(item?.id)),cat=pick('category',S(item?.category)),out={source:own?'ingredient':cat?'category':'global'};
  for(const k of OVERRIDE_KEYS)out[k]=own?.[k]??cat?.[k]??s?.[k]??DEFAULTS[k];return out}
 
+/* items without a recipe (BL-010, js/32 «nonRecipe»): usage per sales receipt in the period against the median of the
+   item's earlier count-to-count intervals (up to historyPeriods, at least minValidPeriods valid ones). Usage = opening count
+   + receipts (and merges) − authorized/staff use − closing count; waste counts as usage. An interval is not valid when its
+   usage is negative (count above expected) or it has no cash-report receipts. Level from (current ÷ median − 1) × 100
+   against nonRecipeWarn / nonRecipeCritical; a zero median with any use now is a warning. Needs the model M (receipts,
+   waste, merges, counts) and the cash reports (InvEngine.cashInvoices). */
+function nonRecipe(M,r,s,th){const E=window.InvEngine,pts=M&&M.points?A(M.points.get(r.id)):[],op=r.openPt,cl=r.closePt;if(!E||!op||!cl||!pts.length)return null;
+ const k=E.CAL.k,inv=(a,b)=>{if(b<=a)return 0;const c=E.cashInvoices(M,k(a),k(b-1));return c.all||c.hall||0};
+ const used=(a,b)=>{let u=a.qty-b.qty;for(const x of A(M.receipts))if(x.item===r.id&&x.day>=a.at&&x.day<b.at)u+=x.qty;for(const x of A(M.merges))if(x.item===r.id&&x.day>=a.at&&x.day<b.at)u+=x.qty;for(const x of A(M.wastes))if(x.item===r.id&&x.auth&&x.day>=a.at&&x.day<b.at)u-=x.qty;return Math.round(u*1e6)/1e6};
+ const curUsed=used(op,cl),curInv=inv(op.at,cl.at),current=curInv>0&&curUsed>=0?curUsed/curInv:null,intervals=[];
+ const before=pts.filter(x=>x.at<=op.at);for(let j=before.length-1;j>0&&intervals.length<s.historyPeriods;j--){const a=before[j-1],b=before[j],u=used(a,b),n=inv(a.at,b.at),why=u<0?'شمارش بیشتر از انتظار':!(n>0)?'گزارش صندوق ثبت نشده':'';intervals.push({from:k(a.at),to:k(b.at-1),used:u,invoices:n,perInvoice:why?null:u/n,valid:!why,why})}
+ const valid=intervals.filter(x=>x.valid).map(x=>x.perInvoice).sort((a,b)=>a-b),median=valid.length>=s.minValidPeriods?(valid.length%2?valid[(valid.length-1)/2]:(valid[valid.length/2-1]+valid[valid.length/2])/2):null;
+ const dev=median>0&&current!==null?(current/median-1)*100:null,lv=median===null||current===null?'na':median===0?(current>0?'warning':'ok'):level(dev,th.nonRecipeWarn,th.nonRecipeCritical);
+ return{current,median,dev,level:lv,validCount:valid.length,intervals,note:median===null?`داده کافی نیست (${fa(valid.length)} از ${fa(s.minValidPeriods)} بازهٔ معتبر)`:median===0?'مبنای قبلی صفر بوده است':''}}
+
 /* one period of InvEngine.analyze → item rows with levels, totals and menu impact */
-function report(P,settings,{levelOf=()=>'LIGHT'}={}){const s=normalize(settings),alertWindow=Number(P?.days)>=s.minDays,rows=[];
+function report(P,settings,{levelOf=()=>'LIGHT',M=null}={}){const s=normalize(settings),alertWindow=Number(P?.days)>=s.minDays,rows=[];
  for(const r of A(P?.items)){const counted=r.varianceV!==null&&r.varianceV!==undefined,shortage=counted&&r.varianceV<0?-r.varianceV:0,surplus=counted&&r.varianceV>0?r.varianceV:0;
   const actual=counted?(r.salesV||0)+(r.wasteV||0)+(r.staffV||0)-r.varianceV:null,hasRecipe=(r.salesV||0)>0,th=thresholdsFor(s,r),ctl=levelOf(r.id);
   const wastePct=pct(r.wasteV||0,actual),variancePct=hasRecipe&&counted?pct(shortage,r.salesV):null,reasons=[];
   if(!counted)reasons.push('شمارش پایان دوره ندارد');if(r.open===null)reasons.push('شمارش ابتدای دوره ندارد');if(!alertWindow)reasons.push(`دوره کوتاه‌تر از ${fa(s.minDays)} روز است`);if(ctl==='PARKED')reasons.push('کنارگذاشته');
-  const wl=level(wastePct,th.wasteWarn,th.wasteCritical),vl=level(variancePct,th.varianceWarn,th.varianceCritical),status=!counted||!alertWindow||ctl==='PARKED'?'na':worst([wl,vl]);
-  rows.push({id:r.id,name:r.name,code:r.code||'',unit:r.unit,category:r.category||'',control:ctl,hasRecipe,counted,theoretical:r.salesV||0,waste:r.wasteV||0,staff:r.staffV||0,shortage,surplus,actual,wastePct,variancePct,wasteLevel:wl,varianceLevel:vl,status,thresholds:th,reasons,flags:A(r.dataFlags)})}
+  const wl=level(wastePct,th.wasteWarn,th.wasteCritical),vl=level(variancePct,th.varianceWarn,th.varianceCritical),nr=!hasRecipe&&counted&&M?nonRecipe(M,r,s,th):null,nl=nr?nr.level:'na',status=!counted||!alertWindow||ctl==='PARKED'?'na':worst([wl,vl,nl]);
+  rows.push({id:r.id,name:r.name,code:r.code||'',unit:r.unit,category:r.category||'',control:ctl,hasRecipe,counted,theoretical:r.salesV||0,waste:r.wasteV||0,staff:r.staffV||0,shortage,surplus,actual,wastePct,variancePct,wasteLevel:wl,varianceLevel:vl,nonRecipe:nr,nonRecipeLevel:nl,status,thresholds:th,reasons,flags:A(r.dataFlags)})}
  const waste=rows.reduce((a,r)=>a+r.waste,0),shortage=rows.reduce((a,r)=>a+r.shortage,0),sales=Number(P?.salesAmount)||0,lossPct=pct(waste+shortage,sales);
  const totals={sales,theoretical:rows.reduce((a,r)=>a+r.theoretical,0),waste,shortage,surplus:rows.reduce((a,r)=>a+r.surplus,0),loss:waste+shortage,wasteSalesPct:pct(waste,sales),varianceSalesPct:pct(shortage,sales),lossSalesPct:lossPct,level:alertWindow?level(lossPct,s.lossSalesWarn,s.lossSalesCritical):'na',
   counts:{ok:rows.filter(r=>r.status==='ok').length,warning:rows.filter(r=>r.status==='warning').length,critical:rows.filter(r=>r.status==='critical').length,na:rows.filter(r=>r.status==='na').length}};

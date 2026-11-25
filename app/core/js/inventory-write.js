@@ -333,6 +333,56 @@ function saveDayCheck(doc,ctx,{date,closed,none,note}){date=D(date);if(!validDat
  if(!row){row={id:`DAY-${date.split("/").join("")}`,date,history:[]};doc.dayChecks.push(row)}else row.history=[...A(row.history),{...prev,by:row.by,at:row.at}];
  Object.assign(row,next,{by:ctx.actor,at:ctx.at});ctx.auditExtra={entityId:row.id,before:prev,after:next};return row}
 
+/* ---------- setup tools (BL-011, same records as js/32 so either panel can roll the other back) ----------
+   Explicit owner operations with preview, a downloaded backup, a reason and a confirmation; nothing is deleted.
+   startFresh (js/32 «شروع دوباره انبارداری از یک تاریخ»): every active inventory record dated before the cutoff is voided
+   (voidedByOperation = the operation id); catalog last purchase prices dated before it are cleared and the price history
+   before it voided (pricing save, same operation id). Lists, recipes, invoices and payments stay. Audit rows
+   INVENTORY_START_FROM_DATE {operationId, cutoff, reason, changes [{collection, rows [[index, id, status]]}]} and
+   PRICES_RESET_FOR_INVENTORY_START {operationId, ingredients [{id, before}], history [[index, id, isVoided]]}.
+   Rollback: the last not-reverted operation; a record changed since (not void by this operation any more, or a price
+   entered since) is left as it is. resetCounts: every active count and opening balance voided (INVENTORY_COUNTS_RESET,
+   with operationId so it can be rolled back too). */
+const FRESH_COLLECTIONS=[['stocktakes','شمارش‌ها و انبارگردانی‌ها'],['openingBalances','موجودی‌های اولیه'],['stockReceipts','ورود به انبار'],['inventoryMovements','گردش‌های انبار'],['wasteRecords','پرتی و ضایعات'],['consumptionRecords','مصرف پرسنلی و مجاز'],['salesPeriods','فروش ثبت‌شده'],['spotCounts','شمارش هفتگی مصرفی‌ها'],['beverageDailyControls','کنترل روزانه نوشیدنی']];
+const PRICE_FIELDS=['lastPurchasePriceToman','lastPurchaseDate','lastPurchaseSource','lastPurchaseInvoiceId'],VOID_KEYS=['voidReason','voidedAt','voidedBy','voidedByOperation'];
+const freshDate=(c,r)=>c==='salesPeriods'?D(r.to||r.date||r.from):D(r.date);
+const freshRec=(arr,index,id)=>{const r=A(arr)[index];return r&&(r.id??null)===id?r:id?A(arr).find(x=>x.id===id):null};
+function startFreshPlan(inv,pricing,cutoff){cutoff=D(cutoff);if(!validDate(cutoff))throw Error('تاریخ شروع معتبر نیست');if(cutoff>E().CAL.today)throw Error('تاریخ شروع بعد از امروز است');
+ const inventory=[],straddle=[];let undated=0;
+ for(const [collection,label] of FRESH_COLLECTIONS){const rows=[];A(inv?.[collection]).forEach((r,index)=>{if(!r||r.status==='void')return;const d=freshDate(collection,r);if(!validDate(d)){undated++;return}if(d>=cutoff){if(collection==='salesPeriods'&&validDate(D(r.from))&&D(r.from)<cutoff)straddle.push(r.id||String(index));return}rows.push([index,r.id??null,r.status??null])});inventory.push({collection,label,rows})}
+ const keeps=i=>validDate(D(i.lastPurchaseDate))&&D(i.lastPurchaseDate)>=cutoff;
+ const ingredients=A(pricing?.ingredients).filter(i=>!keeps(i)&&(N(i.lastPurchasePriceToman)>0||S(i.lastPurchaseDate)||S(i.lastPurchaseInvoiceId))).map(i=>({id:i.id,before:Object.fromEntries(PRICE_FIELDS.map(k=>[k,i[k]??null]))}));
+ const history=[];A(pricing?.ingredientPriceHistory).forEach((h,index)=>{if(!h||h.isVoided===true)return;const d=D(h.date);if(validDate(d)&&d>=cutoff)return;history.push([index,h.id??null,h.isVoided??null])});
+ return{cutoff,inventory,straddle,undated,ingredients,history,keptPrices:A(pricing?.ingredients).filter(i=>keeps(i)&&N(i.lastPurchasePriceToman)>0).length,closed:A(inv?.periodClosures).filter(c=>c.status==='closed'&&D(c.from)<cutoff).length,total:inventory.reduce((a,g)=>a+g.rows.length,0)}}
+// inventory part (inside InvWrite.edit, action INVENTORY_START_FROM_DATE); the plan is made again on the fresh document
+function startFresh(doc,ctx,{cutoff,reason,operationId}){reason=S(reason);if(!reason)throw Error('علت را بنویسید');if(!S(operationId))throw Error('شناسهٔ عملیات لازم است');
+ const plan=startFreshPlan(doc,ctx.pricing,cutoff);if(!plan.total&&!plan.ingredients.length&&!plan.history.length)throw Error('سابقهٔ فعال یا قیمتی قبل از این تاریخ وجود ندارد');
+ for(const g of plan.inventory)for(const [index,id] of g.rows){const r=freshRec(doc[g.collection],index,id);Object.assign(r,{status:'void',voidReason:reason,voidedAt:ctx.at,voidedBy:ctx.actor,voidedByOperation:operationId})}
+ ctx.auditExtra={operationId,cutoff:plan.cutoff,reason,changes:plan.inventory.filter(g=>g.rows.length).map(g=>({collection:g.collection,rows:g.rows})),pricingIngredients:plan.ingredients.length,pricingHistory:plan.history.length};return plan}
+// pricing part (InvWrite.edit with module pricing, action PRICES_RESET_FOR_INVENTORY_START)
+function startFreshPrices(pdoc,ctx,{cutoff,reason,operationId}){const plan=startFreshPlan({},pdoc,cutoff);
+ for(const x of plan.ingredients){const i=A(pdoc.ingredients).find(v=>v.id===x.id);Object.assign(i,{lastPurchasePriceToman:0,lastPurchaseDate:'',lastPurchaseSource:'',lastPurchaseInvoiceId:''})}
+ for(const [index,id] of plan.history){const h=freshRec(pdoc.ingredientPriceHistory,index,id);Object.assign(h,{isVoided:true,voidReason:S(reason),voidedAt:ctx.at,voidedBy:ctx.actor,voidedByOperation:operationId})}
+ ctx.auditExtra={operationId,cutoff:plan.cutoff,reason:S(reason),ingredients:plan.ingredients,history:plan.history};return{ingredients:plan.ingredients.length,history:plan.history.length}}
+const lastOp=(doc,action)=>A(doc?.changeLog).filter(e=>e.action===action&&!e.revertedAt&&S(e.operationId)).at(-1)||null;
+function startFreshRollbackPlan(inv,pricing){const entry=lastOp(inv,'INVENTORY_START_FROM_DATE');if(!entry)return null;const op=entry.operationId,priceEntry=A(pricing?.changeLog).filter(e=>e.action==='PRICES_RESET_FOR_INVENTORY_START'&&e.operationId===op&&!e.revertedAt).at(-1)||null;
+ const records=A(entry.changes).reduce((a,g)=>a+A(g.rows).filter(([index,id])=>freshRec(inv[g.collection],index,id)?.voidedByOperation===op).length,0);return{entry,priceEntry,records,prices:A(priceEntry?.ingredients).length}}
+function rollbackStartFresh(doc,ctx){const entry=lastOp(doc,'INVENTORY_START_FROM_DATE');if(!entry)throw Error('شروع دوباره‌ای برای بازگردانی نیست');const op=entry.operationId;let restored=0,skipped=0;
+ for(const g of A(entry.changes))for(const [index,id,status] of A(g.rows)){const r=freshRec(doc[g.collection],index,id);if(!r||r.voidedByOperation!==op||r.status!=='void'){skipped++;continue}if(status===null)delete r.status;else r.status=status;for(const k of VOID_KEYS)delete r[k];restored++}
+ doc.changeLog.find(e=>e.id===entry.id).revertedAt=ctx.at;ctx.auditExtra={operationId:op,restored,skipped};return{operationId:op,restored,skipped}}
+function rollbackStartFreshPrices(pdoc,ctx,{operationId}){const pe=A(pdoc.changeLog).filter(e=>e.action==='PRICES_RESET_FOR_INVENTORY_START'&&e.operationId===operationId&&!e.revertedAt).at(-1);if(!pe)return{restored:0,skipped:0};let restored=0,skipped=0;
+ for(const x of A(pe.ingredients)){const i=A(pdoc.ingredients).find(v=>v.id===x.id);if(!i||N(i.lastPurchasePriceToman)!==0||S(i.lastPurchaseDate)){skipped++;continue}for(const k of PRICE_FIELDS){if(x.before[k]===null)delete i[k];else i[k]=x.before[k]}restored++}
+ for(const [index,id,prev] of A(pe.history)){const h=freshRec(pdoc.ingredientPriceHistory,index,id);if(!h||h.voidedByOperation!==operationId)continue;if(prev===null)delete h.isVoided;else h.isVoided=prev;for(const k of VOID_KEYS)delete h[k]}
+ pdoc.changeLog.find(e=>e.id===pe.id).revertedAt=ctx.at;ctx.auditExtra={operationId,restored,skipped};return{restored,skipped}}
+// reset counts (js/32 «بازنشانی شمارش‌ها»)
+function resetCountsPlan(inv){return{stocktakes:A(inv?.stocktakes).filter(x=>x&&x.status!=='void').length,openings:A(inv?.openingBalances).filter(x=>x&&x.status!=='void').length}}
+function resetCounts(doc,ctx,{reason,operationId}){reason=S(reason);if(!reason)throw Error('علت بازنشانی را بنویسید');let n=0;const rows=[];
+ for(const c of ['stocktakes','openingBalances'])A(doc[c]).forEach((r,index)=>{if(!r||r.status==='void')return;rows.push([c,index,r.id??null,r.status??null]);Object.assign(r,{status:'void',voidReason:reason,voidedAt:ctx.at,voidedBy:ctx.actor,voidedByOperation:operationId});n++});
+ if(!n)throw Error('شمارش یا افتتاحیهٔ فعالی برای بازنشانی وجود ندارد');ctx.auditExtra={reason,count:n,operationId,rows};return{count:n}}
+function rollbackResetCounts(doc,ctx){const e=lastOp(doc,'INVENTORY_COUNTS_RESET');if(!e||!A(e.rows).length)throw Error('بازنشانی شمارشِ قابل بازگردانی نیست');let restored=0,skipped=0;
+ for(const [c,index,id,status] of e.rows){const r=freshRec(doc[c],index,id);if(!r||r.voidedByOperation!==e.operationId||r.status!=='void'){skipped++;continue}if(status===null)delete r.status;else r.status=status;for(const k of VOID_KEYS)delete r[k];restored++}
+ doc.changeLog.find(x=>x.id===e.id).revertedAt=ctx.at;ctx.auditExtra={operationId:e.operationId,restored,skipped};return{restored,skipped}}
+
 /* ---------- protected save ---------- */
 const state={busy:false,uncertain:false};
 function validDoc(doc){return !!doc&&typeof doc==='object'&&Array.isArray(doc.stocktakes)&&Array.isArray(doc.inventoryMovements)}
@@ -417,6 +467,6 @@ function mergeStock(doc,ctx,{toId,toName,moves,bevIds}){const date=E().CAL.today
  const bc=doc.settings?.beverageControl,set=new Set(A(bevIds));if(bc&&Array.isArray(bc.itemIds)&&bc.itemIds.some(id=>set.has(id))){const next=[];for(const id of bc.itemIds){const v=set.has(id)?toId:id;if(!next.includes(v))next.push(v)}bc.itemIds=next;out.bev=1}
  if(!out.moved&&!out.bev)throw Error('موجودی‌ای برای انتقال نیست');ctx.auditExtra={toId,moves:clone(A(moves)),beverage:out.bev};return out}
 const r3x=x=>Math.round(x*1e6)/1e6;
-window.InvWrite={COUNT_PLACES,countPlaces,saveCountPlaces,mergeStock,stdUnits,CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+window.InvWrite={startFreshPlan,startFresh,startFreshPrices,startFreshRollbackPlan,rollbackStartFresh,rollbackStartFreshPrices,resetCountsPlan,resetCounts,rollbackResetCounts,lastSetupOp:lastOp,COUNT_PLACES,countPlaces,saveCountPlaces,mergeStock,stdUnits,CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();

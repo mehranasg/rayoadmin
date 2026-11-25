@@ -211,6 +211,27 @@ function beverageDaily(M){const recs=A(M.inv.beverageDailyControls).filter(r=>r.
   d.sales+=N(l.sales);if(daily>0)d.short+=daily;else d.surplus-=daily;if(overnight!==null&&overnight<0)d.night-=overnight;d.lines.push({id:l.ingredientId,name:S(l.itemNameSnapshot)||M.ing.get(l.ingredientId)?.name,morning,night,inflow:N(l.inflow),sales:N(l.sales),nonSale:N(l.nonSale),daily,overnight,prevDate:p?p.date:'',note:S(l.varianceNote),by:S(l.updatedByName||l.updatedBy||l.createdByName||l.createdBy),cost:M.costAt(l.ingredientId,D(r.date))})}days.push(d)}return days}
 
 /* ---------- Oil ---------- */
+/* fryer oil by change cycle (BL-016): per fryer, a cycle runs from one full oil change to the next full change of the same
+   fryer. Oil of a cycle = the full fill + the top-ups of that fryer in it (kg, FRYER_OIL_CHANGE records); fried items = the
+   items sold in it whose recipe has the fryer oil or whose name is a fried item (sales periods spread evenly over their days).
+   The pattern of a fryer = the median «oil per 100 fried items» of its earlier finished cycles (at least minCycles, up to
+   history); the last finished cycle is compared with it: (value ÷ median − 1) × 100 against warn / critical (%). The running
+   cycle shows its days and items so far against the median length. Fryers share the work the same way every week, so each
+   fryer is compared only with itself. */
+function oilCycles(M,{oilId='',warn=15,critical=25,minCycles=3,history=8,today=CAL.today}={}){const oil=oilId?M.ing.get(oilId):[...M.ing.values()].find(i=>FRYER_OIL_RE.test(S(i.name)));if(!oil)return null;
+ const withOil=new Set(A(M.pr.recipes).filter(x=>x.ingredientId===oil.id).map(x=>x.menuItemId)),fried=id=>{const m=M.menu.get(id);return!!m&&(withOil.has(id)||FRIED_RE.test(S(m.name)))};
+ const perDay=new Map;for(const sp of A(M.sales)){const n=sp.b-sp.a+1;if(!(n>0))continue;for(const l of A(sp.lines)){if(!fried(l.menuItemId))continue;const q=N(l.quantity)/n;for(let d=sp.a;d<=sp.b;d++)perDay.set(d,(perDay.get(d)||0)+q)}}
+ const friedIn=(a,b)=>{let t=0;for(let d=a;d<b;d++)t+=perDay.get(d)||0;return t},lastSale=Math.max(-1,...A(M.sales).map(x=>x.b));
+ const recs=A(M.raw.inventory?.consumptionRecords).filter(r=>r&&r.eventType==='FRYER_OIL_CHANGE'&&r.status!=='void'&&!r.isArchived).map(r=>({day:CAL.i(r.date),date:D(r.date),fryer:S(r.fryerId)||'—',name:S(r.fryerName)||S(r.fryerId)||'سرخ‌کن',kind:S(r.oilChangeKind)==='TOP_UP'?'TOP_UP':'FULL',kg:N(r.quantity)})).filter(r=>r.day!==null).sort((a,b)=>a.day-b.day);
+ const fryers=[];for(const id of [...new Set(recs.map(r=>r.fryer))]){const rs=recs.filter(r=>r.fryer===id),fulls=rs.filter(r=>r.kind==='FULL'),cycles=[];
+  for(let k=0;k<fulls.length;k++){const a=fulls[k],b=fulls[k+1]||null,end=b?b.day:CAL.i(today)+1,tops=rs.filter(r=>r.kind==='TOP_UP'&&r.day>=a.day&&r.day<end),kg=a.kg+tops.reduce((t,r)=>t+r.kg,0),items=friedIn(a.day,end),salesKnown=lastSale>=end-1;
+   cycles.push({from:a.date,to:b?CAL.k(b.day-1):'',open:!b,days:end-a.day,kg,topUps:tops.length,topUpKg:tops.reduce((t,r)=>t+r.kg,0),items,salesKnown,per100:!b||!salesKnown||!(items>0)?null:kg/items*100})}
+  const done=cycles.filter(c=>!c.open&&c.per100!==null),last=done[done.length-1]||null,prev=done.slice(0,-1).slice(-history),med=v=>{const x=v.slice().sort((a,b)=>a-b),n=x.length;return n?(n%2?x[(n-1)/2]:(x[n/2-1]+x[n/2])/2):null};
+  const median=prev.length>=minCycles?med(prev.map(c=>c.per100)):null,medDays=prev.length>=minCycles?med(prev.map(c=>c.days)):null,dev=median>0&&last?(last.per100/median-1)*100:null;
+  const level=dev===null?'na':dev>critical?'critical':dev>warn?'warning':'ok',run=cycles.find(c=>c.open)||null;
+  fryers.push({id,name:rs[rs.length-1].name,cycles,last,median,medDays,dev,level,running:run,note:median===null?`الگو با دست‌کم ${minCycles} دورهٔ کامل قبلی ساخته می‌شود (${prev.length} دوره)`:''})}
+ return{oil,fryers,warn,critical}}
+
 function oilAnalysis(M,period){const oil=[...M.ing.values()].find(i=>FRYER_OIL_RE.test(S(i.name)));if(!oil)return null;const r=period.items.find(x=>x.id===oil.id)||null;
  const withOil=new Set(A(M.pr.recipes).filter(x=>x.ingredientId===oil.id).map(x=>x.menuItemId));const fried=[];
  for(const [mid,q] of period.menuSold){const m=M.menu.get(mid);if(!m)continue;const has=withOil.has(mid);if(!has&&!FRIED_RE.test(m.name))continue;const line=A(M.pr.recipes).find(x=>x.menuItemId===mid&&x.ingredientId===oil.id);fried.push({id:mid,name:m.name,code:m.code,qty:q,perPortion:line?N(line.quantity):null,suggest:suggestOil(m.name)})}
@@ -235,5 +256,5 @@ function calibrateOil(items,oilKg){const sum=items.reduce((a,x)=>a+x.qty*x.weigh
 /* ---------- Months ---------- */
 function monthKeys(M){const out=[];let d=M.firstDay;const last=CAL.i(CAL.today);while(d<=last){const k=CAL.k(d).slice(0,7);if(!out.includes(k))out.push(k);d+=1}return out}
 
-window.InvEngine={sameUnit,unitFactor,convertQty,prepConvert,prepAt,prepVersionsOf,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
+window.InvEngine={oilCycles,sameUnit,unitFactor,convertQty,prepConvert,prepAt,prepVersionsOf,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
 })();

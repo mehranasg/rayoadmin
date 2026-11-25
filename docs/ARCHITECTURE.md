@@ -119,6 +119,11 @@ app/
 
 ## انتخاب تاریخ (`P.datePick` در `shell.js`)هر `input` متنی که مقدار یا `placeholder`ش تاریخ کامل شمسی است (`۱۴۰۵/۰۸/۱۷`، با «از »/«تا » هم) با `focusin` پنجرهٔ `.dp-pop` می‌گیرد: «امروز»، «دیروز»، «پریروز» و فهرست روز/ماه/سال (روزهای هر ماه از `InvEngine.CAL`). انتخاب، `input` و `change` می‌فرستد، پس فیلترها و فرم‌ها کار اضافه نمی‌خواهند. فیلد تازهٔ تاریخ کافی است مقدار یا نمونهٔ تاریخ داشته باشد. `data-nodate` آن را کنار می‌گذارد. فیلد `readonly` و ماه تنها (`۱۴۰۵/۰۸`) پنجره نمی‌گیرند.
 
+## ابزارهای راه‌اندازی، مصرف بی‌رسپی و روغن (BL-011، BL-010، BL-016)
+- `InvWrite.startFreshPlan / startFresh / startFreshPrices / rollbackStartFresh / rollbackStartFreshPrices / resetCountsPlan / resetCounts / rollbackResetCounts`: دو ذخیره (انبار، بعد قیمت‌گذاری) با یک `operationId`؛ کارت «ابزارهای راه‌اندازی» در «انبار ← تنظیمات» (`setupCard`، فقط مالک).
+- `ConsumptionAlerts.report(P, settings, {levelOf, M})`: با مدل `M` (نقاط شمارش، ورود، ادغام، مصرف، گزارش صندوق) ردیف‌ها `nonRecipe` و `nonRecipeLevel` می‌گیرند.
+- `InvEngine.oilCycles(M, {oilId, warn, critical})`: دوره‌های هر سرخ‌کن از رکوردهای `FRYER_OIL_CHANGE`؛ کارت «دوره‌های تعویض روغن» در «مدیریت مصرف ← روغن و اقلام سر میز».
+
 ## نسخهٔ فرمول اقلام آماده (BL-015)
 `InvEngine.prepAt(pricing,id,date)` فرمول نافذ یک تاریخ را برمی‌گرداند (قلم با `components`، `countUnit`، `baseOutputQuantity`، `version` و `versionId` همان نسخه). `build()` همین را در `recipeAt(mid,date)` به کار می‌برد (حافظهٔ موقت بر اساس سطرهای رسپی و شناسهٔ نسخه‌ها). `prepConvert(…,{history:true})` برای تاریخ‌های گذشته وضعیت «غیرفعال» را نادیده می‌گیرد. نوشتن: `MenuWrite.recordPrepVersion` (از `savePreparedItem` و `mergeIngredients`)؛ خواندن برای فرم: `MenuWrite.prepVersions`.
 
