@@ -81,5 +81,27 @@ function payrollForecast(PC,hr,y,m){const first=`${y}/${pad(m)}/01`,rows=A(hr?.p
  const sum=t=>rows.filter(r=>r.type===t).reduce((s,r)=>s+r.amount,0),groups=new Map;for(const r of rows)groups.set(r.group,(groups.get(r.group)||0)+r.amount);
  return{rows,total:rows.reduce((s,r)=>s+r.amount,0),hourly:sum('hourly'),fixed:sum('fixed'),nHourly:rows.filter(r=>r.type==='hourly').length,nFixed:rows.filter(r=>r.type==='fixed').length,noContract:rows.filter(r=>r.type==='none').length,noHours:rows.filter(r=>r.type==='hourly'&&!r.hours).length,groups:[...groups].map(([name,amount])=>({name,amount})).sort((a,b)=>b.amount-a.amount)}}
 
-window.ReportCore={prevKey,nextKey,span,growth,sumPnl,salesMonths,GROUPS,groupOf,salesSummary,entitySeries,payrollPeriod,payrollForecast,groupName};
+/* ---------- BL-035: same period last year, cost targets, weekly cash plan of next month ---------- */
+// the same months one year earlier: 1405/08 → 1404/08
+const yoyKeys=keys=>A(keys).map(k=>{const [y,m]=S(k).split('/');return`${Number(y)-1}/${m}`});
+/* cost targets (finance.settings.costTargets, % of net sales): materials, payroll and total cost. Level per value:
+   ok ≤ target; warning up to target + tolerance (the larger of 2 points and 10% of the target); over beyond it. */
+const COST_TARGETS={materials:35,payroll:25,total:90},TARGET_LABELS={materials:'بهای مواد',payroll:'حقوق و دستمزد',total:'کل هزینه'};
+function costTargets(fin){const t=fin?.settings?.costTargets||{},out={};for(const k of Object.keys(COST_TARGETS)){const v=Number(t[k]);out[k]=Number.isFinite(v)&&v>0&&v<=100?v:COST_TARGETS[k]}out.saved=!!fin?.settings?.costTargets;return out}
+function targetLevel(pct,target){if(pct===null||pct===undefined||!Number.isFinite(pct))return'na';const tol=Math.max(2,target*0.1);return pct<=target?'ok':pct<=target+tol?'warning':'over'}
+function targetCheck(c,targets){const val={materials:c.materials,payroll:c.payroll,total:c.totalCost};return Object.keys(COST_TARGETS).map(k=>{const pct=c.sales?val[k]/c.sales*100:null;return{key:k,label:TARGET_LABELS[k],value:val[k],pct,target:targets[k],level:targetLevel(pct,targets[k]),gap:pct===null?null:pct-targets[k]}})}
+/* weekly cash plan. Days are CAL indices; weeks run Saturday to Friday (index 0 = 2020/03/01 = Sunday, so Saturday-based
+   weekday = (i+1) % 7). Rows: «تا پایان این ماه» (tomorrow → end of this month, items already overdue go here too), then each
+   week of next month. dated: [{date, amount, dir 'in'|'out', kind, label}] at their day (before the plan → first row,
+   after it → left out); spread: [{amount, dir, kind, label, from, to}] estimates shared per day over [from, to] by day count.
+   Each row: known in/out, estimated in/out, net and the balance at its end, starting from the cash balance today. */
+function cashPlan({CAL,today,start=0,dated=[],spread=[]}){const t=CAL.i(today),[y,m]=today.slice(0,7).split('/').map(Number),nk=nextKey(today.slice(0,7)),nf=CAL.i(nk+'/01'),after=nextKey(nk),nt=CAL.i(after+'/01')-1;
+ const rows=[{key:'rest',label:'تا پایان این ماه',a:t+1,b:nf-1}];for(let d=nf;d<=nt;){const dow=(d+1)%7,e=Math.min(nt,d+(6-dow));rows.push({key:'w'+rows.length,label:'هفتهٔ '+rows.length,a:d,b:e});d=e+1}
+ for(const r of rows)Object.assign(r,{from:CAL.k(r.a),to:CAL.k(r.b),in:0,out:0,estIn:0,estOut:0,items:[]});
+ const rowOf=i=>i<=rows[0].b?rows[0]:rows.find(r=>i>=r.a&&i<=r.b)||null;let outside=0;
+ for(const x of A(dated)){const i=CAL.i(x.date),r=i===null?null:rowOf(i);if(!r){outside++;continue}const v=Math.max(0,N(x.amount));if(x.dir==='in')r.in+=v;else r.out+=v;r.items.push({...x,amount:v})}
+ for(const x of A(spread)){const a=Math.max(t+1,CAL.i(x.from)??t+1),b=Math.min(nt,CAL.i(x.to)??nt),days=b-a+1;if(!(days>0))continue;const per=Math.max(0,N(x.amount))/days;for(const r of rows){const n=Math.max(0,Math.min(r.b,b)-Math.max(r.a,a)+1);if(!n)continue;if(x.dir==='in')r.estIn+=per*n;else r.estOut+=per*n}}
+ let bal=N(start);for(const r of rows){r.net=r.in+r.estIn-r.out-r.estOut;r.open=bal;bal+=r.net;r.end=bal;r.negative=r.end<0}
+ return{rows,start:N(start),end:bal,month:nk,outside,firstNegative:rows.find(r=>r.negative)||null}}
+window.ReportCore={yoyKeys,COST_TARGETS,costTargets,targetLevel,targetCheck,cashPlan,prevKey,nextKey,span,growth,sumPnl,salesMonths,GROUPS,groupOf,salesSummary,entitySeries,payrollPeriod,payrollForecast,groupName};
 })();

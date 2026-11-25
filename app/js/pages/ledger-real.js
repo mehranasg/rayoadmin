@@ -348,5 +348,9 @@ const si=fin.tabs.findIndex(t=>t.id==='settings');
 fin.tabs.splice(si<0?fin.tabs.length:si,0,{id:'finset',label:'تنظیمات مالی',icon:'settings-2',liveOnly:true,desc:'دسته‌های هزینه، درآمد و بدهی؛ ارزش افزوده و ذخیرهٔ مالیات عملکرد',render:gate(setView),mount:root=>{if(FD())setMount(root)}});
 /* «ثبت جدید ← صندوق نقدی»: an expense paid from the cash box account (same form as the cash box tab) */
 const cashOut=()=>entryForm('expense',{acc:FW.cashBoxKey(ledgerSrc())||''});
-window.LedgerReal={accounts,accName,st,monthPnl,planData,ledgerSrc,cashOut,ready:()=>!!FD()};
+/* cost targets of the owner report (BL-035): % of net sales for materials, payroll and total cost (finance.settings.costTargets) */
+function costTargetsForm(){const t=window.ReportCore.costTargets(FD()),f=(k,l,h)=>P.field(l,`<div class="input-group"><input class="input num" name="${k}" value="${fa(t[k])}"><span class="suffix">٪ فروش</span></div>`,h);
+ form({title:'هدف درصد هزینه‌ها',ok:'ذخیره روی سرور',body:`<div class="form-grid">${f('materials','بهای مواد','رستوران‌ها معمولاً ۲۸ تا ۳۵')}${f('payroll','حقوق و دستمزد','معمولاً ۲۰ تا ۳۰')}${f('total','کل هزینه','زیر ۱۰۰ یعنی سود؛ مثلاً ۹۰ = ۱۰٪ سود')}</div>${P.note('اگر درصد هر دوره یا ماه از هدف بالاتر برود، در «گزارش‌ها ← خلاصهٔ مالک» هشدار (زرد) و با فاصلهٔ بیشتر «بالاتر از هدف» (قرمز) نشان داده می‌شود.','info')}`,
+  onSave:(m,btn)=>{const x={materials:v(m,'materials'),payroll:v(m,'payroll'),total:v(m,'total')};save(btn,{action:'COST_TARGETS_SAVED',details:x,mutate:(d,c)=>FW.saveCostTargets(d,c,x),done:()=>'هدف درصد هزینه‌ها ذخیره شد'})}})}
+window.LedgerReal={costTargetsForm,accounts,accName,st,monthPnl,planData,ledgerSrc,cashOut,ready:()=>!!FD()};
 })();
