@@ -37,5 +37,9 @@ const by=id=>mv.find(m=>m.ref===id)?.by;
 ok(by('FIN-1')==='ali','expense: recorder');
 ok(by('FIN-2')==='سارا','expense: named payer before recorder');
 ok(by('PAY-1')==='mina','staff payment: recorder');
+// the expense form's «پرداخت‌کننده» is stored and shown; blank = the recorder
+{const f2={settings:{},entries:[]};const e1=FW.addEntry(f2,{actor:'ali',at:'x'},{type:'expense',date:T,category:'سایر',amountToman:100,accountKey:'payment:L1',paidByName:' سارا '}),e2=FW.addEntry(f2,{actor:'ali',at:'x'},{type:'expense',date:T,category:'سایر',amountToman:50,accountKey:'payment:L1',paidByName:''});
+ ok(e1.paidByName==='سارا'&&!('paidByName' in e2),'paidByName stored trimmed, absent when blank');
+ const mv2=FW.accountMoves({fin:f2,hr:{},cash:{},inv:{}});ok(mv2.find(m=>m.ref===e1.id).by==='سارا'&&mv2.find(m=>m.ref===e2.id).by==='ali','moves: named payer, else recorder');}
 
 console.log(`qa_template_units_ux: ${pass} passed, ${fail} failed`);process.exit(fail?1:0);

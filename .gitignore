@@ -32,3 +32,9 @@ coverage/
 
 # کپی محلی دادهٔ زنده برای آزمون (tools/fetch-live-data.cjs) — هرگز ثبت نشود
 .local-data/
+
+# فایل‌های شخصی مالک در docs (فاکتور واقعی، Excel رسپی، عکس صفحهٔ پنل زنده) — قاعدهٔ CLAUDE.md
+docs/invoices/
+docs/recepies/
+docs/*.png
+~$*

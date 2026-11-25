@@ -74,7 +74,7 @@ function addEntry(fin,ctx,x,{accountName=''}={}){ensure(fin);const cfg=config(fi
  if(!(amount>0))throw Error('مبلغ باید بیشتر از صفر باشد');if(!category)throw Error('دسته را انتخاب کنید');if(today()&&date>today())throw Error('تاریخ بعد از امروز است');
  const listKey=type==='income'?'incomeCategories':'expenseCategories';if(!A(fin.settings[listKey]).includes(category))fin.settings[listKey]=[...new Set([...cfg[listKey],category])];
  const unpaid=type==='expense'&&x.paid===false;if(!unpaid&&!S(x.accountKey))throw Error(type==='income'?'حسابی را که پول به آن رسیده انتخاب کنید':'حساب پرداخت را انتخاب کنید؛ اگر هنوز پرداخت نشده «بعداً پرداخت می‌شود» را بزنید');
- const e={id:uid('FIN',fin.entries),date,type,category,amountToman:amount,title:S(x.title),notes:S(x.notes),status:'active',createdAt:ctx.at,createdBy:ctx.actor};
+ const e={id:uid('FIN',fin.entries),date,type,category,amountToman:amount,title:S(x.title),notes:S(x.notes),status:'active',createdAt:ctx.at,createdBy:ctx.actor,...(S(x.paidByName)?{paidByName:S(x.paidByName).slice(0,60)}:{})};
  if(type==='expense'){const em=YM(x.expenseMonth)||date.slice(0,7),n=Math.round(N(x.spreadMonths))||1;if(n<1||n>60)throw Error('تقسیم روی ۱ تا ۶۰ ماه');Object.assign(e,{expenseMonth:em,spreadMonths:n,paymentStatus:unpaid?'unpaid':'paid'})}
  if(!unpaid){const k=S(x.accountKey);Object.assign(e,{accountKey:k,accountId:k.startsWith('account:')?k.slice(8):'',cashRecipientId:k.startsWith('cash:')?k.slice(5):'',accountNameSnapshot:S(accountName),cashRecipientNameSnapshot:k.startsWith('cash:')?S(accountName):''})}
  fin.entries.push(e);

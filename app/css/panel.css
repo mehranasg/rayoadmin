@@ -489,3 +489,8 @@ html:has(#pnModal.open),html:has(#pnModal.open) body{overflow:hidden}
 .modal-body{overscroll-behavior:contain}
 /* long text in a list cell (e.g. the sections of an admin user) wraps in a fixed width instead of widening the table */
 .table td .wrap{display:block;white-space:normal;min-width:180px;max-width:320px}
+/* count form on a phone (BL-078, staff app): one item per block — name on top, then count, unit, open remainder and place */
+@media (max-width:640px){.iw-count thead{display:none}.iw-count,.iw-count tbody{display:block}
+ .iw-count tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 8px;padding:10px 0;border-bottom:1px solid var(--border)}
+ .iw-count td{display:block;border:0!important;padding:0!important;min-width:0}.iw-count td:first-child{grid-column:1/-1}.iw-count td:nth-child(2){display:none}
+ .iw-count td:last-child{grid-column:1/-1}.iw-count input.input,.iw-count select.select{width:100%!important}.iw-count tr.iw-sub{padding-top:0;border-bottom-style:dashed}}
