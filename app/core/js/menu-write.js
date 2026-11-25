@@ -212,11 +212,11 @@ function mergeIngredients(doc,ctx,{toId,fromIds,factors={},newName='',note=''}){
    const o={ingredientId:ingId,quantity:Math.round(q*1e6)/1e6,notes:r.notes||''};if(!moved&&r.entryUnit){o.entryUnit=r.entryUnit;o.entryQuantity=r.entryQuantity}byIng.set(ingId,o);lines.push(o)}
   const m=A(doc.menuItems).find(x=>x.id===mid);try{saveRecipe(doc,ctx,{menuId:mid,lines,effectiveFrom:today,note:why})}catch(e){throw Error(`رسپی «${m?.name||mid}»: ${e.message}`)}recipes.push(m?.name||mid)}
  // prepared items: same family unit stays as is; a component in the merged item's own unit is converted by the factor
- const prepared=[];for(const pi of A(doc.preparedItems)){let hit=false;for(const c of A(pi.components)){if(!fromSet.has(c.ingredientId))continue;const from=p.rows.find(r=>r.id===c.ingredientId).item,f=fac.get(c.ingredientId),cu=S(c.unit)||S(from.recipeUnit);
+ const prepared=[];for(const pi of A(doc.preparedItems)){let hit=false;const pb=clone(pi);for(const c of A(pi.components)){if(!fromSet.has(c.ingredientId))continue;const from=p.rows.find(r=>r.id===c.ingredientId).item,f=fac.get(c.ingredientId),cu=S(c.unit)||S(from.recipeUnit);
    const sameFam=E().UK(cu)===E().UK(to.recipeUnit)||(MUF[E().UK(cu)]&&MUF[E().UK(to.recipeUnit)]&&MUF[E().UK(cu)][0]===MUF[E().UK(to.recipeUnit)][0]);
    if(!sameFam){if(E().UK(cu)!==E().UK(from.recipeUnit))throw Error(`قلم آماده «${pi.name}»: واحد «${cu}» برای «${to.name}» قابل تبدیل نیست؛ اول جزء را اصلاح کنید`);c.quantity=Math.round(Z(c.quantity)*f*1e6)/1e6;c.unit=to.recipeUnit}
    c.ingredientId=to.id;hit=true}
-  if(hit){pi.version=(Number(pi.version)||0)+1;pi.updatedAt=ctx.at;pi.updatedBy=ctx.actor;prepared.push(pi.name)}}
+  if(hit){pi.version=(Number(pi.version)||0)+1;pi.updatedAt=ctx.at;pi.updatedBy=ctx.actor;recordPrepVersion(doc,ctx,pi,pb,{effectiveFrom:today,note:why,source:'merge'});prepared.push(pi.name)}}
  // the merged items: archived with a pointer; the kept item lists them and may get the general name
  for(const r of p.rows){Object.assign(r.item,{status:'غیرفعال',isArchived:true,archivedAt:ctx.at,archivedBy:ctx.actor,archiveReason:`ادغام در «${nn||to.name}» (${to.code||to.id})`,mergedInto:to.id,mergedAt:ctx.at,updatedAt:ctx.at})}
  to.mergedFrom=[...A(to.mergedFrom),...p.rows.map(r=>({id:r.id,code:r.item.code||'',name:before.from.find(x=>x.id===r.id).name,factor:r.factor,at:ctx.at,by:ctx.actor}))];
@@ -389,6 +389,21 @@ function removeMenuItem(doc,ctx,{id,salesCount}){const m=A(doc.menuItems).find(x
    formula changes (unit, base quantity or components), so a count keeps the formula it was converted with. */
 const PREP_UNITS=['عدد','کیلوگرم','گرم','لیتر','میلی‌لیتر','بسته'];
 const convertQty=(...a)=>E().convertQty(...a);
+/* ---------- prepared-item formula versions (BL-015) ----------
+   A formula change (count unit, base quantity or components) is a dated version in pricing.preparedItemVersions, like menu
+   recipe versions: sales, menu-item waste, counts and prepared waste of a date use the formula in effect that day
+   (InvEngine.prepAt). The first change of an item also stores the formula it had until then as the baseline «from the
+   beginning», so past dates keep it. A second change with the same date supersedes the first (kept, not used). The item
+   itself always carries the formula in effect today. Nothing is deleted. */
+const prepFormula=p=>({countUnit:S(p?.countUnit),baseOutputQuantity:N(p?.baseOutputQuantity),components:clone(A(p?.components))});
+function recordPrepVersion(doc,ctx,item,before,{effectiveFrom,note='',source='form'}={}){doc.preparedItemVersions=A(doc.preparedItemVersions);const today=E().CAL.today,eff=E().D(effectiveFrom)||today;
+ if(eff>today)throw Error('تاریخ اثر فرمول بعد از امروز است');const uid=()=>pcUid('PIV',doc.preparedItemVersions),live=v=>v.preparedItemId===item.id&&v.status!=='superseded';
+ if(!doc.preparedItemVersions.some(live))doc.preparedItemVersions.push({id:uid(),preparedItemId:item.id,version:before.version||1,effectiveFrom:'0000/00/00',...prepFormula(before),status:'active',source:'baseline',note:'فرمول پیش از اولین تغییر',createdAt:ctx.at,createdBy:ctx.actor});
+ for(const v of doc.preparedItemVersions)if(live(v)&&v.source!=='baseline'&&E().D(v.effectiveFrom)===eff)Object.assign(v,{status:'superseded',supersededAt:ctx.at,supersededBy:ctx.actor});
+ const v={id:uid(),preparedItemId:item.id,version:item.version||1,effectiveFrom:eff,...prepFormula(item),status:'active',source,note:S(note),createdAt:ctx.at,createdBy:ctx.actor};doc.preparedItemVersions.push(v);
+ const now=E().prepAt(doc,item.id,today);if(now&&now.versionId!==v.id)Object.assign(item,{...prepFormula(now),version:now.version});return v}
+// versions of one item for the form (newest first, superseded ones too)
+const prepVersions=(doc,id)=>A(doc?.preparedItemVersions).filter(v=>v.preparedItemId===id).sort((a,b)=>S(b.effectiveFrom).localeCompare(S(a.effectiveFrom))||S(b.createdAt).localeCompare(S(a.createdAt)));
 const preparedItemConversion=(...a)=>E().prepConvert(...a);
 function savePreparedItem(doc,ctx,x){doc.preparedItems=A(doc.preparedItems);const ings=A(doc.ingredients),name=S(x.name);if(!name)throw Error('نام قلم آماده‌سازی الزامی است');
  if(!PREP_UNITS.includes(S(x.countUnit)))throw Error('واحد شمارش معتبر انتخاب کنید');const base=N(x.baseOutputQuantity);if(!(base>0))throw Error('مقدار مبنای فرمول باید عدد مثبت باشد');
@@ -400,7 +415,8 @@ function savePreparedItem(doc,ctx,x){doc.preparedItems=A(doc.preparedItems);cons
  const w=S(x.standardUnitWeight)===''?null:N(x.standardUnitWeight);if(w!==null&&!(w>0))throw Error('وزن استاندارد هر عدد باید مثبت یا خالی باشد');
  const formula=c=>JSON.stringify({u:c?.countUnit,b:N(c?.baseOutputQuantity),c:A(c?.components).map(z=>[z.ingredientId,N(z.quantity),z.unit,z.basis])});
  const o={name,status:S(x.status)==='غیرفعال'?'غیرفعال':'فعال',countUnit:S(x.countUnit),baseOutputQuantity:base,standardUnitWeight:w,stateNote:S(x.stateNote),notes:S(x.notes),components:comps,updatedAt:ctx.at,updatedBy:ctx.actor};
- if(cur){const before=clone(cur);if(formula(cur)!==formula(o))o.version=(cur.version||1)+1;Object.assign(cur,o);ctx.auditExtra={entityId:cur.id,before};return cur}
+ if(S(x.effectiveFrom)){const e=E().D(x.effectiveFrom);if(!e||E().CAL.i(e)===null)throw Error('تاریخ اثر فرمول معتبر نیست');if(e>E().CAL.today)throw Error('تاریخ اثر فرمول بعد از امروز است')}
+ if(cur){const before=clone(cur),changed=formula(cur)!==formula(o);if(changed)o.version=(cur.version||1)+1;Object.assign(cur,o);let ver=null;if(changed)ver=recordPrepVersion(doc,ctx,cur,before,{effectiveFrom:x.effectiveFrom,note:x.versionNote,source:'form'});ctx.auditExtra={entityId:cur.id,before,...(ver?{versionId:ver.id,effectiveFrom:ver.effectiveFrom}:{})};return cur}
  const it={id:pcUid('PREP',[...doc.preparedItems,...A(doc.settings?.retiredPreparedIds).map(id=>({id}))]),version:1,createdAt:ctx.at,createdBy:ctx.actor,...o};doc.preparedItems.push(it);ctx.auditExtra={entityId:it.id};return it}
 
 /* delete a prepared item from the list: refused while an active menu item's recipe uses it; archived (inactive + isArchived,
@@ -508,5 +524,5 @@ function setApproxCost(doc,ctx,{menuId,cost,note}){const m=A(doc.menuItems).find
  if(v>0&&Z(m.currentPriceToman)>0&&v>Z(m.currentPriceToman)*1.5)throw Error('بهای تقریبی بیش از ۱٫۵ برابر قیمت فروش است؛ عدد را بررسی کنید');
  const before={manualCostToman:Z(m.manualCostToman),manualCostEnabled:m.manualCostEnabled===true};if(before.manualCostToman===v&&before.manualCostEnabled===(v>0))throw Error('تغییری داده نشده است');
  Object.assign(m,{manualCostToman:v,manualCostEnabled:v>0});ctx.auditExtra={entityId:menuId,before,after:{manualCostToman:v},...(S(note)?{note:S(note)}:{})};return{menuId,cost:v,hasRecipe:recipeLines(doc,menuId).length>0}}
-window.MenuWrite={mergedTarget,mergePrice,DENSITY_STD,densityList,densityFor,saveDensityList,mergeFactor,mergePlan,mergeIngredients,preparedDeletePlan,deletePreparedItem,similarItems,copyLines,directCandidates,setApproxCost,nameWords,unitUsage,unitList,saveUnitList,renameTargets,renameBaseUnitPlan,renameBaseUnit,onlinePricePlan,applyOnlinePrices,bulkIngredients,TYPE_STD,typeLabels,groupType,CATALOG_STD,classifyItem,catalogPlan,applyCatalogStructure,saveTypeSettings,saveIngredientGroups,groupCounts,ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+window.MenuWrite={recordPrepVersion,prepVersions,mergedTarget,mergePrice,DENSITY_STD,densityList,densityFor,saveDensityList,mergeFactor,mergePlan,mergeIngredients,preparedDeletePlan,deletePreparedItem,similarItems,copyLines,directCandidates,setApproxCost,nameWords,unitUsage,unitList,saveUnitList,renameTargets,renameBaseUnitPlan,renameBaseUnit,onlinePricePlan,applyOnlinePrices,bulkIngredients,TYPE_STD,typeLabels,groupType,CATALOG_STD,classifyItem,catalogPlan,applyCatalogStructure,saveTypeSettings,saveIngredientGroups,groupCounts,ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();

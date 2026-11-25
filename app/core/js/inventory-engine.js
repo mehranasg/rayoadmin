@@ -50,16 +50,24 @@ function convertQty(i,qty,from,to){const U=UK;if(oldBase(i,from))from=i.recipeUn
  const toB=(q,u)=>u==='g'||u==='ml'?q/1000:q,fromB=(q,u)=>u==='g'||u==='ml'?q*1000:q;if(ff===ft)return{value:fromB(toB(qty,f),t),reason:''};
  const d=Number(i?.densityKgPerLiter);if(!(d>0)){const x=unitFactor(i,from),y=unitFactor(i,to);return x&&y?{value:qty*x/y,reason:''}:{value:null,reason:'چگالی این ماده تعریف نشده است؛ تبدیل حجم و وزن ممکن نیست'}}
  return ff==='volume'?{value:fromB(toB(qty,f)*d,t),reason:''}:{value:fromB(toB(qty,f)/d,t),reason:''}}
-function prepConvert(pricing,item,countedQuantity,countedUnit){const qty=NN(countedQuantity),bad=reason=>({complete:false,reason,contributions:[]});
- if(!item)return bad('قلم آماده‌سازی تعریف نشده است');if(item.status==='غیرفعال')return bad(`قلم آماده‌سازی «${item.name}» غیرفعال است`);if(!(qty>=0))return bad(`مقدار شمارش «${item.name}» نامعتبر است`);
+function prepConvert(pricing,item,countedQuantity,countedUnit,opts={}){const hist=!!opts.history;const qty=NN(countedQuantity),bad=reason=>({complete:false,reason,contributions:[]});
+ if(!item)return bad('قلم آماده‌سازی تعریف نشده است');if(!hist&&item.status==='غیرفعال')return bad(`قلم آماده‌سازی «${item.name}» غیرفعال است`);if(!(qty>=0))return bad(`مقدار شمارش «${item.name}» نامعتبر است`);
  const base=NN(item.baseOutputQuantity);if(!(base>0))return bad(`مقدار مبنای فرمول «${item.name}» نامعتبر است`);if(UK(countedUnit||item.countUnit)!==UK(item.countUnit))return bad(`واحد شمارش «${item.name}» با واحد فرمول متفاوت است`);
  const comps=A(item.components);if(!comps.length)return bad(`فرمول «${item.name}» ماده‌ای ندارد`);const scale=qty/base,out=[];
- for(const c of comps){const i=A(pricing?.ingredients).find(x=>x.id===c.ingredientId);if(!i)return bad(`ماده‌ای در فرمول «${item.name}» در کاتالوگ نیست`);if(i.status==='غیرفعال')return bad(`مادهٔ «${i.name}» در فرمول «${item.name}» غیرفعال است`);
+ for(const c of comps){const i=A(pricing?.ingredients).find(x=>x.id===c.ingredientId);if(!i)return bad(`ماده‌ای در فرمول «${item.name}» در کاتالوگ نیست`);if(!hist&&i.status==='غیرفعال')return bad(`مادهٔ «${i.name}» در فرمول «${item.name}» غیرفعال است`);
   const cq=NN(c.quantity);if(!(cq>0))return bad(`مقدار «${i.name}» در فرمول «${item.name}» نامعتبر است`);if(c.basis!=='gross'&&c.basis!=='net')return bad(`مبنای مقدار «${i.name}» در فرمول «${item.name}» تعیین نشده است`);
   const cv=convertQty(i,cq*scale,c.unit,i.recipeUnit);if(cv.value===null)return bad(`تبدیل واحد «${i.name}»: ${cv.reason}`);let g=cv.value,yf=null;
   if(c.basis==='net'){const wp=Number(i.wastePercent)||0;if(!(wp>=0&&wp<100))return bad(`درصد افت «${i.name}» معتبر نیست`);yf=1-wp/100;g=g/yf}
   out.push({ingredientId:i.id,ingredientNameSnapshot:i.name,ingredientCodeSnapshot:i.code||'',unit:i.recipeUnit,quantity:g,componentQuantity:cq,componentUnit:c.unit,basis:c.basis,yieldFactorApplied:yf})}
- return{complete:true,reason:'',scale,contributions:out,preparedItemId:item.id,preparedItemNameSnapshot:item.name,preparedItemVersion:item.version||1,baseOutputQuantitySnapshot:base,countUnitSnapshot:item.countUnit}}
+ return{complete:true,reason:'',scale,contributions:out,preparedItemId:item.id,preparedItemNameSnapshot:item.name,preparedItemVersion:item.version||1,...(item.versionId?{preparedVersionId:item.versionId}:{}),baseOutputQuantitySnapshot:base,countUnitSnapshot:item.countUnit}}
+/* prepared-item formula at a date (BL-015). pricing.preparedItemVersions [{id PIV-####, preparedItemId, version, effectiveFrom,
+   countUnit, baseOutputQuantity, components, status, note, createdAt, createdBy}]: the newest version effective on or before
+   the date (a superseded one, replaced the same day, is skipped). No version yet → the item as it is now: its formula was
+   never changed since versions began, so it is the formula of every date. The result is the item with that formula. */
+const effKey=v=>S(v?.effectiveFrom)==='0000/00/00'?'0000/00/00':(D(v?.effectiveFrom)||'0000/00/00');
+function prepVersionsOf(pricing,id){return A(pricing?.preparedItemVersions).filter(v=>v&&v.preparedItemId===id&&v.status!=='superseded').sort((a,b)=>effKey(b).localeCompare(effKey(a))||S(b.createdAt).localeCompare(S(a.createdAt)))}
+const prepWith=(p,v)=>v?{...p,countUnit:v.countUnit,baseOutputQuantity:v.baseOutputQuantity,components:A(v.components),version:v.version,versionId:v.id,effectiveFrom:v.effectiveFrom}:p;
+function prepAt(pricing,id,date){const p=A(pricing?.preparedItems).find(x=>x.id===id);if(!p)return null;const d=D(date)||CAL.today;return prepWith(p,prepVersionsOf(pricing,id).find(v=>effKey(v)<=d))}
 
 /* ---------- Model ---------- */
 function build(raw){
@@ -67,14 +75,16 @@ function build(raw){
  const versionsBy=new Map;for(const v of A(pr.recipeVersions)){if(!versionsBy.has(v.menuItemId))versionsBy.set(v.menuItemId,[]);versionsBy.get(v.menuItemId).push(v)}
  for(const l of versionsBy.values())l.sort((a,b)=>D(b.effectiveFrom||'0000/00/00').localeCompare(D(a.effectiveFrom||'0000/00/00'))||S(b.createdAt).localeCompare(S(a.createdAt)));
  const recipesBy=new Map;for(const r of A(pr.recipes)){if(!recipesBy.has(r.menuItemId))recipesBy.set(r.menuItemId,[]);recipesBy.get(r.menuItemId).push(r)}
- const prepBy=new Map(A(pr.preparedItems).map(p=>[p.id,p])),expanded=new Map;
+ const prepBy=new Map(A(pr.preparedItems).map(p=>[p.id,p])),expanded=new Map,prepVers=new Map;for(const p of prepBy.values())prepVers.set(p.id,prepVersionsOf(pr,p.id));
+ const prepOn=(id,date)=>{const p=prepBy.get(id);if(!p)return null;return prepWith(p,A(prepVers.get(id)).find(v=>effKey(v)<=date))};
  // a recipe line may name a prepared item (sub-recipe, e.g. 60 g of Caesar sauce): it becomes its ingredients, gross in their
  // recipe unit (wastePercent 0, already applied by the formula); a formula that cannot convert gives a line without an
  // ingredient, so the item shows as an incomplete recipe instead of a wrong deduction
- const expand=lines=>{if(expanded.has(lines))return expanded.get(lines);const out=[];for(const l of A(lines)){if(!l||!l.preparedItemId){out.push(l);continue}const p=prepBy.get(l.preparedItemId),cv=prepConvert(pr,p,NN(l.quantity),l.unit||p?.countUnit);
-  if(!cv.complete){out.push({ingredientId:'',preparedItemId:l.preparedItemId,quantity:l.quantity,invalid:cv.reason});continue}for(const c of cv.contributions)out.push({ingredientId:c.ingredientId,quantity:c.quantity,recipeUnit:ing.get(c.ingredientId)?.recipeUnit,wastePercent:0,fromPreparedId:l.preparedItemId,fromPreparedName:p.name})}
-  expanded.set(lines,out);return out};
- const recipeAt=(mid,date)=>{const v=A(versionsBy.get(mid)).find(v=>(D(v.effectiveFrom)||'0000/00/00')<=date);return expand(v?A(v.lines):A(recipesBy.get(mid)))};
+ const expand=(lines,date)=>{const ps=A(lines).filter(l=>l&&l.preparedItemId).map(l=>prepOn(l.preparedItemId,date)),key=ps.map(p=>p?(p.versionId||'cur'):'-').join('|');let byK=expanded.get(lines);if(!byK){byK=new Map;expanded.set(lines,byK)}if(byK.has(key))return byK.get(key);const out=[];let k=0;
+  for(const l of A(lines)){if(!l||!l.preparedItemId){out.push(l);continue}const p=ps[k++],cv=prepConvert(pr,p,NN(l.quantity),l.unit||p?.countUnit,{history:true});
+  if(!cv.complete){out.push({ingredientId:'',preparedItemId:l.preparedItemId,quantity:l.quantity,invalid:cv.reason});continue}for(const c of cv.contributions)out.push({ingredientId:c.ingredientId,quantity:c.quantity,recipeUnit:ing.get(c.ingredientId)?.recipeUnit,wastePercent:0,fromPreparedId:l.preparedItemId,fromPreparedName:p.name,fromPreparedVersion:p.version||1})}
+  byK.set(key,out);return out};
+ const recipeAt=(mid,date)=>{const v=A(versionsBy.get(mid)).find(v=>(D(v.effectiveFrom)||'0000/00/00')<=date);return expand(v?A(v.lines):A(recipesBy.get(mid)),date)};
  // price per recipe unit at a date: purchase history (same recipe unit) → latest catalog price
  const priceBy=new Map;for(const h of A(pr.ingredientPriceHistory)){if(h.isVoided)continue;const i=ing.get(h.ingredientId);if(!i)continue;if(h.recipeUnit&&!sameUnit(i,h.recipeUnit))continue;const d=D(h.date);if(!d)continue;const per=N(h.priceToman)/(N(h.packageQuantity)||N(i.packageQuantity)||1);if(!(per>0))continue;if(!priceBy.has(i.id))priceBy.set(i.id,[]);priceBy.get(i.id).push({d,per,at:S(h.createdAt)})}
  // same-day corrections: the last created entry wins
@@ -225,5 +235,5 @@ function calibrateOil(items,oilKg){const sum=items.reduce((a,x)=>a+x.qty*x.weigh
 /* ---------- Months ---------- */
 function monthKeys(M){const out=[];let d=M.firstDay;const last=CAL.i(CAL.today);while(d<=last){const k=CAL.k(d).slice(0,7);if(!out.includes(k))out.push(k);d+=1}return out}
 
-window.InvEngine={sameUnit,unitFactor,convertQty,prepConvert,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
+window.InvEngine={sameUnit,unitFactor,convertQty,prepConvert,prepAt,prepVersionsOf,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
 })();
