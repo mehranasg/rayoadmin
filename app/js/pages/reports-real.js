@@ -63,7 +63,7 @@ const gateFin=fn=>r=>{if(!X||!LR()?.monthPnl||!FW)return srcLine()+P.note('بخ�
 const pnlOf=keys=>keys.map(k=>({k,r:LR().monthPnl(k)}));
 function pnlData(p){const rows=pnlOf(p.keys),cur=RC.sumPnl(rows),prev=p.hasPrev?RC.sumPnl(pnlOf(p.prev)):null,base=prev&&prev.withSales===st.n?prev:null;return{rows,cur,prev:base,hrLoading:rows.some(o=>o.r.hrLoading)}}
 function pnlKpis(d){const {cur,prev}=d,dp=prev?cur.profit-prev.profit:null,gs=prev?RC.growth(cur.sales,prev.sales):null;
- return`<div class="grid grid-4">${P.kpi({label:'فروش خالص',icon:'receipt',value:cur.sales?SH(cur.sales):'—',unit:cur.sales?P.unitName():'',foot:prev?`<span class="delta ${tone(gs)}">${sg(gs)}</span><span>نسبت به دورهٔ قبل</span>`:'بدون ارزش افزوده'})}
+ return`<div class="grid grid-4">${P.kpi({label:'فروش خالص (بدون مالیات)',icon:'receipt',value:cur.sales?SH(cur.sales):'—',unit:cur.sales?P.unitName():'',foot:prev?`<span class="delta ${tone(gs)}">${sg(gs)}</span><span>نسبت به دورهٔ قبل</span>`:'بدون ارزش افزوده'})}
  ${P.kpi({label:'کل هزینه',icon:'wallet',value:SH(cur.totalCost),unit:P.unitName(),foot:cur.sales?`${pc(cur.pct(cur.totalCost))} از فروش خالص`:''})}
  ${P.kpi({label:cur.profit<0?'زیان خالص':'سود خالص',icon:'piggy-bank',value:SH(cur.profit),unit:P.unitName(),tone:cur.profit<0?'danger':'success',foot:cur.sales?`حاشیهٔ سود ${pc(cur.pct(cur.profit))}`:''})}
  ${P.kpi({label:'تغییر سود نسبت به دورهٔ قبل',icon:dp!==null&&dp<0?'trending-down':'trending-up',value:dp===null?'—':(dp>0?'+':'')+SH(dp),unit:dp===null?'':P.unitName(),tone:dp!==null&&dp<0?'danger':'',foot:dp===null?'دورهٔ هم‌طول قبلی داده ندارد':`سود دورهٔ قبل ${SH(prev.profit)}`})}</div>`}

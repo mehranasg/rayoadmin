@@ -194,7 +194,7 @@ function homeReal(){if(!window.PeopleReal?.doc?.()&&!window.PeopleReal?.state?.e
  let health='',card='';
  if(full){const ms=months(),cur=ms.find(m=>m.k===today.slice(0,7)),sd=supplierDebt(),inv=R().inventory;
   if(cur){const tr=monthTrust(cur),noPay=!A(inv.supplierPayments).some(p=>p.status!=='void')&&A(inv.purchaseInvoices).some(PW.isFinal);
-   health=`<div class="grid grid-4">${P.kpi({label:'فروش '+cur.label,icon:'trending-up',value:cur.sales?P.mShort(cur.sales):'—',unit:cur.sales?P.U():'',foot:`${trust(tr.sales,tr.L.cash.v+' گزارش صندوق')} ${tr.L.cash.v}`})}
+   health=`<div class="grid grid-4">${P.kpi({label:'فروش '+cur.label+' (بدون مالیات)',icon:'trending-up',value:cur.sales?P.mShort(cur.sales):'—',unit:cur.sales?P.U():'',foot:`${trust(tr.sales,tr.L.cash.v+' گزارش صندوق')} ${tr.L.cash.v}`})}
     ${P.kpi({label:'٪ بهای مواد',icon:'chef-hat',value:cur.sales&&cur.std?pct(cur.std/cur.sales*100):'—',foot:`${trust(tr.mat,tr.why.join('؛ '))} ${esc([tr.L.sep.t!=='g'&&'سپیدز '+tr.L.sep.v,tr.L.recipe.t!=='g'&&'رسپی '+tr.L.recipe.v].filter(Boolean).join(' · ')||'فروش و رسپی کامل')}`})}
     ${P.kpi({label:'مغایرت انبار',icon:'scale',value:cur.coverage>0&&cur.variance!==null&&tr.variance!=='r'?P.mShort(cur.variance):'—',unit:P.U(),tone:cur.variance<0?'danger':'',foot:`${trust(tr.variance,tr.why.join('؛ '))} شمارش: ${tr.L.count.v}`})}
     ${P.kpi({label:'بدهی به تأمین‌کنندگان',icon:'wallet',value:sd.n?P.mShort(sd.debt):'—',unit:sd.n?P.U():'',foot:`${trust(noPay?'r':'g',noPay?'هیچ پرداختی به تأمین‌کننده ثبت نشده؛ بدهی واقعی کمتر است':'')} ${noPay?'پرداختی ثبت نشده':`${fa(sd.n)} طرف حساب`}`})}</div>`}
