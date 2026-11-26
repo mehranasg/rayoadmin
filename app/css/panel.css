@@ -494,3 +494,9 @@ html:has(#pnModal.open),html:has(#pnModal.open) body{overflow:hidden}
  .iw-count tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 8px;padding:10px 0;border-bottom:1px solid var(--border)}
  .iw-count td{display:block;border:0!important;padding:0!important;min-width:0}.iw-count td:first-child{grid-column:1/-1}.iw-count td:nth-child(2){display:none}
  .iw-count td:last-child{grid-column:1/-1}.iw-count input.input,.iw-count select.select{width:100%!important}.iw-count tr.iw-sub{padding-top:0;border-bottom-style:dashed}}
+/* table column options (P.table): tc = centred, nar = narrow text that wraps instead of widening the table */
+.table th.tc,.table td.tc{text-align:center}
+.table th.nar,.table td.nar{white-space:normal;max-width:130px;min-width:70px;font-size:12.5px;line-height:1.35}
+/* catalog list: count buttons (invoices, recipes) as small as their number */
+#catTable [data-invs],#catTable [data-recs]{padding:2px 6px;min-height:0;gap:3px}
+#catTable td.nar{font-size:12px}

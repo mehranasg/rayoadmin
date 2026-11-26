@@ -165,6 +165,24 @@ function nightModal(){const t=E.CAL.today,y=yesterday(),d0=reports().some(r=>E.D
 
 /* ---------- the page ---------- */
 let showAll=false;
+/* ---------- desk: beverage shortage and the daily cash reports at hand ---------- */
+const RCx=()=>window.ReportCore;
+// beverage shortage: the last 14 days (bars of value per day), this week against the week before, top beverages of 30 days
+function bevHome(){if(!P.can('inventory'))return'';let days=[];try{days=E.beverageDaily(M())}catch(e){return''}const C=RCx();if(!C||!days.length)return'';
+ const y=E.CAL.i(yesterday()),k=n=>E.CAL.k(y-n),w1=C.bevShort(days,k(6),k(0)),w0=C.bevShort(days,k(13),k(7)),top=C.bevItems(days,k(29),k(0)).slice(0,5),ch=w0.value?(w1.value/w0.value-1)*100:null;
+ const tm=v=>P.mShort(Math.round(v))+' '+P.U();
+ return P.card({title:'کسری نوشیدنی',sub:'کسری روزانه + کسری شب تا صبح، به ارزش خرید',actions:'<a class="btn btn-ghost btn-sm" href="#/reports/bevtrend">روند</a>',
+  body:`<div class="minis"><div class="mini"><small>۷ روز اخیر</small><b class="${w1.value>0?'down':''}">${tm(w1.value)}</b><small>${fa(Math.round(w1.units))} عدد${ch!==null?` · ${ch>0?'+':''}${fa(Math.round(ch))}٪ نسبت به هفتهٔ قبل`:''}</small></div><div class="mini"><small>۷ روز قبل از آن</small><b>${tm(w0.value)}</b><small>${fa(Math.round(w0.units))} عدد</small></div></div>
+  <div class="chart" id="hmBev" style="height:150px;margin-top:8px"></div>
+  ${top.length?`<div class="side-list" style="margin-top:6px">${top.map(x=>`<div class="row" style="justify-content:space-between;padding:4px 0"><span>${esc(x.name||x.id)}</span><span class="muted">${fa(Math.round(x.units))} عدد · <b>${tm(x.value)}</b></span></div>`).join('')}<small class="muted">بیشترین کسری ۳۰ روز اخیر</small></div>`:'<p class="muted" style="font-size:13px">در ۳۰ روز اخیر کسری ثبت نشده است.</p>'}`})}
+function bevHomeMount(){if(!document.getElementById('hmBev'))return;let days=[];try{days=E.beverageDaily(M())}catch(e){return}const C=RCx(),y=E.CAL.i(yesterday()),ds=[];for(let n=13;n>=0;n--){const d=E.CAL.k(y-n);ds.push({d,v:C.bevShort(days,d,d)})}
+ RT.chart('hmBev',t=>({...RT.base(t),grid:{left:4,right:4,top:8,bottom:4,containLabel:true},tooltip:{...RT.base(t).tooltip,trigger:'axis',valueFormatter:v=>RT.money(v)},xAxis:{type:'category',data:ds.map(x=>P.fa(x.d.slice(5))),...RT.axis(t)},yAxis:{type:'value',...RT.axis(t,{axisLabel:{color:t.text3,formatter:v=>RT.short(v)}})},series:[{type:'bar',barMaxWidth:18,data:ds.map(x=>Math.round(x.v.value*P.mul())),itemStyle:{color:t.danger}}]}))}
+// daily cash reports of the last 7 days (sales, card, cash, variance)
+function cashHome(){if(!P.can('finance'))return'';const rs=reports();if(!rs.length)return'';const y=E.CAL.i(yesterday()),rows=[];
+ for(let n=0;n<7;n++){const d=E.CAL.k(y-n),r=rs.filter(x=>E.D(x.date)===d);rows.push({d,has:r.length>0,sale:r.reduce((s,x)=>s+cashSales(x),0),vr:r.reduce((s,x)=>s+Z(x.finalVariance),0)/10})}
+ const tm=v=>P.mt(Math.round(v));
+ return P.card({title:'گزارش صندوق روزانه',sub:'۷ روز اخیر · فروش بدون مالیات',flush:1,actions:'<a class="btn btn-ghost btn-sm" href="#/finance/cash">همه</a>',
+  body:P.table(['روز',{t:'فروش',m:1},{t:'مغایرت',m:1,noSum:1}],rows.map(r=>[`${WD[wdOf(r.d)]} <small class="muted">${fa(r.d.slice(5))}</small>`,r.has?tm(r.sale):'<span class="muted">ثبت نشده</span>',r.has?`<span class="${r.vr<0?'down':r.vr>0?'up':''}">${tm(r.vr)}</span>`:'—']),{cls:'no-grid'})})}
 function homeReal(){if(!window.PeopleReal?.doc?.()&&!window.PeopleReal?.state?.err)window.PeopleReal?.load?.();if(!window.FinanceReal?.suppliers?.()&&!window.FinanceReal?.supState?.err)window.FinanceReal?.loadSuppliers?.();if(dailyOk(daily('petty'))&&!window.ExtrasReal?.mods?.finance?.doc&&!window.ExtrasReal?.mods?.finance?.err)window.ExtrasReal?.loadModule?.('finance');
  const full=homeFull(),y=yesterday(),ys=dayStatus(y),ym=k=>ys.miss.some(m=>m.x.k===k),ts=myTasks().filter(t=>!(ym('cash')&&/گزارش صندوق دیروز/.test(t.text))&&!(ym('bev')&&/کنترل روزانهٔ نوشیدنی از/.test(t.text)));
  if(ys.miss.length&&!ys.closed)ts.unshift({tone:'danger',text:`دیروز (${fa(y)}) کامل نیست: ${ys.miss.map(m=>m.x.t).join('، ')}`,href:'#/home',icon:'calendar-x',day:y});
@@ -182,8 +200,8 @@ function homeReal(){if(!window.PeopleReal?.doc?.()&&!window.PeopleReal?.state?.e
     ${P.kpi({label:'بدهی به تأمین‌کنندگان',icon:'wallet',value:sd.n?P.mShort(sd.debt):'—',unit:sd.n?P.U():'',foot:`${trust(noPay?'r':'g',noPay?'هیچ پرداختی به تأمین‌کننده ثبت نشده؛ بدهی واقعی کمتر است':'')} ${noPay?'پرداختی ثبت نشده':`${fa(sd.n)} طرف حساب`}`})}</div>`}
   card=P.card({title:'کارنامهٔ ماه‌ها',sub:'کدام حلقهٔ زنجیرهٔ داده در هر ماه کامل است؛ تا همه سبز نشده‌اند، درصد بهای مواد و مغایرت تخمینی‌اند',flush:1,actions:'<a class="btn btn-ghost btn-sm" href="#/reports/monthly">ماه به ماه</a>',body:monthCard(months().slice(-3))})}
  return`<div id="hmRoot"><div class="page-head"><div><div class="crumbs">${P.ic('layout-dashboard')}${roleTitle()}</div><h1>${WD[wdOf(today)]} ${fa(today)}</h1><p>${full?'کارهای امروز، سلامت کسب‌وکار و کامل بودن روزها':'کارهای امروز و روزهای ناقص بخش‌های شما'}</p></div><div class="actions">${full?`<button class="btn" id="hmNight">${P.ic('moon')}گزارش شب</button>`:''}</div></div>
- ${srcLine()}${health}<div class="grid grid-2 mt">${todo}${calendar()}</div>${shortcuts?`<div class="mt">${shortcuts}</div>`:''}${card?`<div class="mt">${card}</div>`:''}</div>`}
-function homeMount(){const v=document.getElementById('hmRoot');if(!v)return;const all=P.$('#hmAll',v);if(all)all.onclick=()=>{showAll=!showAll;P.render()};
+ ${srcLine()}${health}<div class="grid grid-2 mt">${todo}${calendar()}</div>${(()=>{const b=bevHome(),c=cashHome();return b||c?`<div class="grid grid-2 mt">${c}${b}</div>`:''})()}${shortcuts?`<div class="mt">${shortcuts}</div>`:''}${card?`<div class="mt">${card}</div>`:''}</div>`}
+function homeMount(){const v=document.getElementById('hmRoot');if(!v)return;bevHomeMount();const all=P.$('#hmAll',v);if(all)all.onclick=()=>{showAll=!showAll;P.render()};
  const nb=P.$('#hmNight',v);if(nb)nb.onclick=nightModal;const cm=P.$('#hmCalM',v);if(cm)cm.onchange=()=>{calMonth=cm.value;P.render()};
  v.onclick=e=>{const day=e.target.closest('[data-day]');if(day){e.preventDefault();dayModal(day.dataset.day);return}
   const b=e.target.closest('[data-daily]');if(b){const x=daily(b.dataset.daily);P.openLive({go:x.go,ready:x.ready,open:x.open?()=>x.open(E.CAL.today):null})}}}

@@ -113,9 +113,10 @@ P.kpi=({label,icon,value,unit='',foot='',tone=''})=>`
 /* columns: 'title' or {t, n:number, m:money (number in the display unit; the header shows the unit), noSum, noSort, hide, w:wrap} */
 P.table=(cols,rows,{foot,cls='',empty='موردی نیست'}={})=>{
   const C=cols.map(c=>typeof c==='string'?{t:c}:c.m?{...c,n:1,t:`${c.t} <small class="muted">(${P.unitName()})</small>`}:c);
-  const tr=r=>{const o=Array.isArray(r)?{c:r}:r;return`<tr class="${o.cls||''}" ${o.attr||''}>${o.c.map((v,i)=>`<td class="${C[i]&&C[i].n?'num':''} ${C[i]&&C[i].w?'wrap':''}">${v}</td>`).join('')}</tr>`};
+  const cc=c=>[c&&c.n?'num':'',c&&c.w?'wrap':'',c&&c.tc?'tc':'',c&&c.nar?'nar':''].filter(Boolean).join(' ');// tc: centred, nar: narrow and wrapping (BL catalog UI)
+  const tr=r=>{const o=Array.isArray(r)?{c:r}:r;return`<tr class="${o.cls||''}" ${o.attr||''}>${o.c.map((v,i)=>`<td class="${cc(C[i])}">${v}</td>`).join('')}</tr>`};
   return`<div class="table-wrap"><table class="table ${cls}">
-    <thead><tr>${C.map(c=>`<th class="${c.n?'num':''}"${c.noSum?' data-nosum="1"':''}${c.noSort?' data-nosort="1"':''}${c.hide?' data-hide="1"':''}>${c.t}</th>`).join('')}</tr></thead>
+    <thead><tr>${C.map(c=>`<th class="${[c.n?'num':'',c.tc?'tc':'',c.nar?'nar':''].filter(Boolean).join(' ')}"${c.noSum?' data-nosum="1"':''}${c.noSort?' data-nosort="1"':''}${c.hide?' data-hide="1"':''}>${c.t}</th>`).join('')}</tr></thead>
     <tbody>${rows.length?rows.map(tr).join(''):`<tr><td colspan="${C.length}"><div class="empty"><h3>${empty}</h3></div></td></tr>`}</tbody>
     ${foot?`<tfoot><tr>${foot.map((v,i)=>`<td class="${C[i]&&C[i].n?'num':''}">${v}</td>`).join('')}</tr></tfoot>`:''}
   </table></div>`;

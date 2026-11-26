@@ -240,6 +240,24 @@ function staffMount(root){bindBar(root);const p=period();if(!p||!PR()?.doc?.()||
  if(document.getElementById('rpSm')){const ms=d.months,of=(m,g)=>g.name==='سایر'?Object.entries(m.groups).filter(([n])=>SGI(n)===4).reduce((s,[,v])=>s+v,0):Z(m.groups[g.name]);
   RT.chart('rpSm',t=>({...RT.base(t),legend:leg(t),grid:{left:8,right:8,top:36,bottom:4,containLabel:true},tooltip:tipAxis(t,v=>RT.money(v)+' '+P.unitName()),xAxis:catAxis(t,ms.map(m=>ML(m.k))),yAxis:moneyAxis(t),series:groups.map(g=>({name:g.name,type:'bar',stack:'s',barMaxWidth:44,data:ms.map(m=>V(of(m,g))),itemStyle:{color:t.palette[g.ci],borderColor:t.surface,borderWidth:1}}))}))}}
 
+/* ---------- beverage shortage trend (ReportCore.bev*): is it going down or up? ---------- */
+st.bb=st.bb||'week';
+function bevData(p){let days=[];try{days=E.beverageDaily(IC.state.M)}catch(e){}const to=p.to,from=p.from,pf=E.monthRange(p.prev[0]).from,pt=E.CAL.k(E.CAL.i(from)-1);
+ const bk=RC.bevBuckets(days,{CAL:E.CAL,from,to,by:st.bb}),cur=RC.bevShort(days,from,to),prev=p.hasPrev?RC.bevShort(days,pf,pt):null,tr=RC.trendOf(bk.filter(b=>b.days).map(b=>b.value));
+ const now=RC.bevItems(days,from,to),old=new Map((p.hasPrev?RC.bevItems(days,pf,pt):[]).map(x=>[x.id,x]));return{days,bk,cur,prev,tr,items:now.map(x=>({...x,prev:old.get(x.id)||null})),any:days.length>0}}
+const TRL={up:['danger','رو به افزایش'],down:['success','رو به کاهش'],steady:['neutral','تقریباً ثابت'],na:['neutral','دادهٔ کافی نیست']};
+function bevTrendView(){const p=period();if(!p)return srcLine()+P.note('داده‌ای برای گزارش نیست.','info');const d=bevData(p);if(!d.any)return bar(p,'روند کسری نوشیدنی —')+P.note('کنترل روزانهٔ نوشیدنی ثبت نشده است.','info');
+ const c=d.cur,pv=d.prev,g=pv&&pv.value?RC.growth(c.value,pv.value):null,un=x=>fa(Math.round(x));
+ return bar(p,'روند کسری نوشیدنی —',segBtn('bb',[['week','هفتگی'],['month','ماهانه']]))+`<div class="grid grid-4 mt">${P.kpi({label:'کسری دوره',icon:'cup-soda',value:SH(c.value),unit:P.unitName(),tone:c.value>0?'danger':'',foot:`${un(c.units)} عدد در ${fa(c.days)} روز ثبت‌شده`})}
+ ${P.kpi({label:'نسبت به دورهٔ قبل',icon:g!==null&&g>0?'trending-up':'trending-down',value:g===null?'—':sg(g),tone:g!==null&&g>0?'danger':g!==null&&g<0?'success':'',foot:pv?`دورهٔ قبل ${SH(pv.value)}`:'دورهٔ هم‌طول قبلی داده ندارد'})}
+ ${P.kpi({label:'جهت روند',icon:'activity',value:P.b(TRL[d.tr.dir][1],TRL[d.tr.dir][0],1),foot:d.tr.pct===null?'دست‌کم سه '+(st.bb==='week'?'هفته':'ماه')+' با ثبت لازم است':`شیب ${d.tr.pct>0?'+':''}${fa(Math.round(d.tr.pct))}٪ در هر ${st.bb==='week'?'هفته':'ماه'}`})}
+ ${P.kpi({label:'کسری شب تا صبح',icon:'moon',value:un(c.overnight)+' عدد',foot:`کسری روزانه ${un(c.daily)} عدد${c.unpriced?` · ${fa(c.unpriced)} ردیف بی‌قیمت`:''}`})}</div>
+ <div class="mt">${P.card({title:st.bb==='week'?'کسری هر هفته':'کسری هر ماه',sub:'ارزش (ستون) و تعداد (خط)؛ کسری = کسری روزانه + کسری شب تا صبح',flush:1,body:`<div style="padding:0 var(--s5)"><div class="chart" id="rpBev" style="height:260px"></div></div>`+P.table([st.bb==='week'?'هفته':'ماه',{t:'روز ثبت‌شده',n:1,noSum:1},{t:'کسری روزانه',n:1},{t:'کسری شب',n:1},{t:'جمع (عدد)',n:1},{t:'ارزش',m:1}],d.bk.slice().reverse().map(b=>[st.bb==='week'?`${fa(b.from)} تا ${fa(b.to)}`:esc(ML(b.key)),fa(b.days),un(b.daily),un(b.overnight),un(b.units),T(b.value)]))})}</div>
+ <div class="mt">${P.card({title:'نوشیدنی‌ها',sub:'کسری هر نوشیدنی در این دوره و دورهٔ قبل',flush:1,body:P.table(['نوشیدنی',{t:'روز با کسری',n:1,noSum:1},{t:'عدد',n:1},{t:'ارزش',m:1},{t:'دورهٔ قبل',m:1},{t:'تغییر',noSum:1}],d.items.map(x=>{const gg=x.prev&&x.prev.value?RC.growth(x.value,x.prev.value):null;return[esc(x.name||x.id),fa(x.days),un(x.units),T(x.value),x.prev?T(x.prev.value):'—',gg===null?'—':`<span class="delta ${tone(-gg)}">${sg(gg)}</span>`]}),{empty:'در این دوره کسری ثبت نشده است'})})}</div>`}
+function bevTrendMount(root){bindBar(root);const p=period();if(!p||!document.getElementById('rpBev'))return;const d=bevData(p),bk=d.bk;
+ RT.chart('rpBev',t=>({...RT.base(t),legend:leg(t),grid:{left:8,right:8,top:36,bottom:4,containLabel:true},tooltip:{...RT.base(t).tooltip,trigger:'axis'},xAxis:catAxis(t,bk.map(b=>st.bb==='week'?P.fa(b.from.slice(5)):ML(b.key))),yAxis:[moneyAxis(t),{type:'value',...RT.axis(t,{axisLabel:{color:t.text3}}),splitLine:{show:false}}],
+  series:[{name:'ارزش کسری',type:'bar',barMaxWidth:28,data:bk.map(b=>V(b.value)),itemStyle:{color:t.danger}},{name:'تعداد',type:'line',yAxisIndex:1,smooth:true,data:bk.map(b=>Math.round(b.units)),itemStyle:{color:t.palette[0]}}]}))}
+
 /* ---------- wiring: the five tabs come first in «گزارش‌ها» ---------- */
 const hrGate=fn=>r=>!PC||!PR()?.gate?P.note('بخش پرسنل در این نسخه در دسترس نیست.','info'):PR().gate(fn)(r);
 rep.tabs.unshift(
@@ -247,6 +265,7 @@ rep.tabs.unshift(
  {id:'pnlp',label:'سود و زیان دوره',icon:'chart-column',liveOnly:true,title:'گزارش تفصیلی سود و زیان',desc:'از فروش خالص تا سود خالص، ماه به ماه و جمع دوره، با کیفیت دادهٔ هر ماه',render:gateFin(pnlView),mount:pnlMount},
  {id:'salesvol',label:'آمار فروش',icon:'shopping-basket',liveOnly:true,title:'آمار فروش',desc:'تعداد و مبلغ اقلام فروخته‌شده به تفکیک گروه، دسته و آیتم (از فایل‌های فروش)',render:salesView,mount:salesMount},
  {id:'products',label:'روند محصولات',icon:'trending-up',liveOnly:true,title:'روند فروش و رشد محصولات',desc:'روند ماهانهٔ تعداد، مبلغ و سود ناخالص مواد برای گروه، دسته یا آیتم؛ رشد و افت نسبت به ماه قبل',render:trendView,mount:trendMount},
+ {id:'bevtrend',label:'روند کسری نوشیدنی',icon:'cup-soda',liveOnly:true,title:'روند کسری نوشیدنی',desc:'کسری روزانه و شب تا صبح نوشیدنی‌ها، هفته به هفته یا ماه به ماه؛ رو به افزایش یا کاهش، و سهم هر نوشیدنی',render:bevTrendView,mount:bevTrendMount},
  {id:'staffcost',label:'حقوق و پرسنل',icon:'users',liveOnly:true,title:'گزارش حقوق و پرسنل',desc:'هزینهٔ حقوق دوره، ترکیب آن، سهم هر گروه و پیش‌بینی حقوق ماه بعد',render:hrGate(staffView),mount:staffMount});
 window.ReportsReal={st,period};
 })();

@@ -354,13 +354,17 @@ const requireSalesCode=doc=>doc?.settings?.requireMenuSalesCode!==false;
 function setRequireSalesCode(doc,ctx,{value}){doc.settings=doc.settings&&typeof doc.settings==='object'?doc.settings:{};const before=requireSalesCode(doc);if(before===!!value)throw Error('تغییری داده نشده است');doc.settings.requireMenuSalesCode=!!value;ctx.auditExtra={before,after:!!value};return !!value}
 const codeKey=c=>NORM(c).replace(/\s/g,'');
 function menuNameDuplicate(doc,{id,name,category}){return A(doc.menuItems).find(m=>m.id!==id&&NORM(m.name)===NORM(name)&&S(m.category)===S(category))||null}
+/* a code that is not a Sepidz code yet: empty, or the ITEM-#### placeholder given to an item saved without one */
+const placeholderCode=c=>!S(c)||/^ITEM-\d+$/i.test(S(c));
 function saveMenuItem(doc,ctx,x){
  const items=A(doc.menuItems),old=x.id?items.find(m=>m.id===x.id):null;if(x.id&&!old)throw Error('آیتم منو پیدا نشد');
  const name=S(x.name);if(!name)throw Error('نام آیتم الزامی است');
- if(old&&S(x.code)&&S(x.code)!==S(old.code))throw Error('کد آیتم ثبت‌شده (کد سپیدز) تغییر نمی‌کند');
- const code=old?S(old.code):S(x.code).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
+ // a registered code never changes; an item saved without one (code optional) gets its code once, later (owner 1405/09/05)
+ const given=S(x.code).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)),firstCode=!!old&&placeholderCode(old.code)&&!!given&&given!==S(old.code);
+ if(old&&!placeholderCode(old.code)&&given&&given!==S(old.code))throw Error('کد آیتم ثبت‌شده (کد سپیدز) تغییر نمی‌کند');
+ const code=old&&!firstCode?S(old.code):given;
  if(!old&&!code&&requireSalesCode(doc))throw Error('کد سپیدز آیتم الزامی است؛ بدون آن فروش این آیتم از فایل سپیدز وارد نمی‌شود');
- if(!old&&code&&items.some(m=>codeKey(m.code)===codeKey(code)))throw Error('این کد برای آیتم دیگری ثبت شده است');
+ if((!old||firstCode)&&code&&items.some(m=>m.id!==old?.id&&codeKey(m.code)===codeKey(code)))throw Error('این کد برای آیتم دیگری ثبت شده است');
  const status=x.status==='غیرفعال'?'غیرفعال':'فعال',siteStatus=x.siteStatus==='فعال'?'فعال':'غیرفعال';if(status==='غیرفعال'&&siteStatus==='فعال')throw Error('آیتم غیرفعال نمی‌تواند در سایت نمایش داده شود');
  const cats=A(doc.lists?.menuCategories),category=S(x.category)||'سایر';
  const target=S(x.customTargetCostPercent)===''?0:N(x.customTargetCostPercent);if(!(target>=0&&target<=100))throw Error('سقف اختصاصی باید بین ۰ و ۱۰۰ باشد');
@@ -371,9 +375,9 @@ function saveMenuItem(doc,ctx,x){
  const before=old?clone(old):null;let id;
  // an edited item's sale price goes through changePrice (price history row with cost and target), same as «تغییر قیمت»
  let priceRow=null;if(old&&S(x.price)!==''&&N(x.price)!==Z(old.currentPriceToman))priceRow=changePrice(doc,ctx,{menuId:old.id,price:x.price,note:x.priceNote||'تغییر قیمت از فرم آیتم'});
- if(old){Object.assign(old,o);id=old.id}
+ if(old){Object.assign(old,o);if(firstCode){old.codeBefore=S(old.code);old.code=code;old.codeSetAt=ctx.at;old.codeSetBy=ctx.actor}id=old.id}
  else{const p=S(x.price)===''?0:N(x.price);if(!(p>=0))throw Error('قیمت فروش معتبر نیست');if(p%1000)throw Error(`قیمت باید مضرب ${AMT(1000)} باشد`);id=pcUid('MENU',items);doc.menuItems=[...items,{id,code:code||pcUid('ITEM',items),...o,currentPriceToman:p,lastPriceChangeAt:p>0?ctx.at:null}]}
- ctx.auditExtra={entityId:id,before,...(priceRow?{price:{from:priceRow.oldPriceToman,to:priceRow.newPriceToman}}:{})};return{id,created:!before,priceRow}}
+ ctx.auditExtra={entityId:id,before,...(firstCode?{codeSet:{from:old.codeBefore,to:code}}:{}),...(priceRow?{price:{from:priceRow.oldPriceToman,to:priceRow.newPriceToman}}:{})};return{id,created:!before,priceRow}}
 // js/45 deleteMenu: an item with sales lines or recipe versions is deactivated (and hidden on the site), otherwise removed with its current recipe
 function removeMenuItem(doc,ctx,{id,salesCount}){const m=A(doc.menuItems).find(x=>x.id===id);if(!m)throw Error('آیتم منو پیدا نشد');const versions=A(doc.recipeVersions).filter(v=>v.menuItemId===id).length;ctx.auditExtra={entityId:id,before:clone(m)};
  if(salesCount||versions){Object.assign(m,{status:'غیرفعال',siteStatus:'غیرفعال',archivedAt:ctx.at,archivedBy:ctx.actor,archiveReason:salesCount?`دارای ${salesCount} ردیف فروش ثبت‌شده`:'دارای نسخه تاریخ‌دار رسپی'});return'deactivated'}
@@ -524,5 +528,5 @@ function setApproxCost(doc,ctx,{menuId,cost,note}){const m=A(doc.menuItems).find
  if(v>0&&Z(m.currentPriceToman)>0&&v>Z(m.currentPriceToman)*1.5)throw Error('بهای تقریبی بیش از ۱٫۵ برابر قیمت فروش است؛ عدد را بررسی کنید');
  const before={manualCostToman:Z(m.manualCostToman),manualCostEnabled:m.manualCostEnabled===true};if(before.manualCostToman===v&&before.manualCostEnabled===(v>0))throw Error('تغییری داده نشده است');
  Object.assign(m,{manualCostToman:v,manualCostEnabled:v>0});ctx.auditExtra={entityId:menuId,before,after:{manualCostToman:v},...(S(note)?{note:S(note)}:{})};return{menuId,cost:v,hasRecipe:recipeLines(doc,menuId).length>0}}
-window.MenuWrite={recordPrepVersion,prepVersions,mergedTarget,mergePrice,DENSITY_STD,densityList,densityFor,saveDensityList,mergeFactor,mergePlan,mergeIngredients,preparedDeletePlan,deletePreparedItem,similarItems,copyLines,directCandidates,setApproxCost,nameWords,unitUsage,unitList,saveUnitList,renameTargets,renameBaseUnitPlan,renameBaseUnit,onlinePricePlan,applyOnlinePrices,bulkIngredients,TYPE_STD,typeLabels,groupType,CATALOG_STD,classifyItem,catalogPlan,applyCatalogStructure,saveTypeSettings,saveIngredientGroups,groupCounts,ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+window.MenuWrite={placeholderCode,recordPrepVersion,prepVersions,mergedTarget,mergePrice,DENSITY_STD,densityList,densityFor,saveDensityList,mergeFactor,mergePlan,mergeIngredients,preparedDeletePlan,deletePreparedItem,similarItems,copyLines,directCandidates,setApproxCost,nameWords,unitUsage,unitList,saveUnitList,renameTargets,renameBaseUnitPlan,renameBaseUnit,onlinePricePlan,applyOnlinePrices,bulkIngredients,TYPE_STD,typeLabels,groupType,CATALOG_STD,classifyItem,catalogPlan,applyCatalogStructure,saveTypeSettings,saveIngredientGroups,groupCounts,ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();

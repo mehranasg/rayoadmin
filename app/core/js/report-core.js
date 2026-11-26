@@ -103,5 +103,19 @@ function cashPlan({CAL,today,start=0,dated=[],spread=[]}){const t=CAL.i(today),[
  for(const x of A(spread)){const a=Math.max(t+1,CAL.i(x.from)??t+1),b=Math.min(nt,CAL.i(x.to)??nt),days=b-a+1;if(!(days>0))continue;const per=Math.max(0,N(x.amount))/days;for(const r of rows){const n=Math.max(0,Math.min(r.b,b)-Math.max(r.a,a)+1);if(!n)continue;if(x.dir==='in')r.estIn+=per*n;else r.estOut+=per*n}}
  let bal=N(start);for(const r of rows){r.net=r.in+r.estIn-r.out-r.estOut;r.open=bal;bal+=r.net;r.end=bal;r.negative=r.end<0}
  return{rows,start:N(start),end:bal,month:nk,outside,firstNegative:rows.find(r=>r.negative)||null}}
-window.ReportCore={yoyKeys,COST_TARGETS,costTargets,targetLevel,targetCheck,cashPlan,prevKey,nextKey,span,growth,sumPnl,salesMonths,GROUPS,groupOf,salesSummary,entitySeries,payrollPeriod,payrollForecast,groupName};
+/* ---------- beverage shortage (InvEngine.beverageDaily days) ----------
+   Shortage of a line = its daily shortage (expected − night count, when positive) + its overnight shortage (this morning's
+   count below last night's); value = units × the item's cost that day. bevShort sums days in [from, to]; bevBuckets groups
+   them by week (Saturday–Friday) or month; bevItems ranks the beverages; trendOf gives the direction of the last buckets
+   (least-squares slope as % of their average per bucket: rising > 5, falling < −5, else steady). */
+function bevLine(l){const d=N(l.daily)>0?N(l.daily):0,o=l.overnight!==null&&l.overnight!==undefined&&N(l.overnight)<0?-N(l.overnight):0,c=Number.isFinite(l.cost)?l.cost:null;return{units:d+o,daily:d,overnight:o,value:c===null?null:(d+o)*c,priced:c!==null}}
+function bevShort(days,from,to){const t={units:0,value:0,daily:0,overnight:0,days:0,unpriced:0};for(const d of A(days)){if(d.date<from||d.date>to)continue;t.days++;for(const l of A(d.lines)){const x=bevLine(l);t.units+=x.units;t.daily+=x.daily;t.overnight+=x.overnight;if(x.priced)t.value+=x.value;else if(x.units)t.unpriced++}}return t}
+function bevBuckets(days,{CAL,from,to,by='week'}){const a=CAL.i(from),b=CAL.i(to),out=[];if(a===null||b===null)return out;
+ if(by==='month'){for(let k=from.slice(0,7);k<=to.slice(0,7);k=nextKey(k)){const r={from:k+'/01',to:CAL.k(CAL.i(nextKey(k)+'/01')-1),key:k};out.push(r)}}
+ else{let d=a-((a+1)%7);for(;d<=b;d+=7)out.push({from:CAL.k(d),to:CAL.k(d+6),key:CAL.k(d)})}
+ return out.map(r=>({...r,...bevShort(days,r.from<from?from:r.from,r.to>to?to:r.to)}))}
+function bevItems(days,from,to){const by=new Map;for(const d of A(days)){if(d.date<from||d.date>to)continue;for(const l of A(d.lines)){const x=bevLine(l);if(!x.units)continue;const o=by.get(l.id)||{id:l.id,name:l.name,units:0,value:0,days:0};o.units+=x.units;if(x.priced)o.value+=x.value;o.days++;by.set(l.id,o)}}return[...by.values()].sort((p,q)=>q.value-p.value||q.units-p.units)}
+function trendOf(vals){const v=A(vals).map(N),n=v.length;if(n<3)return{dir:'na',pct:null};const mx=(n-1)/2,my=v.reduce((s,x)=>s+x,0)/n;let num=0,den=0;v.forEach((y,i)=>{num+=(i-mx)*(y-my);den+=(i-mx)**2});const slope=den?num/den:0,pct=my?slope/my*100:null;
+ return{dir:pct===null?(slope>0?'up':'steady'):pct>5?'up':pct<-5?'down':'steady',pct,slope}}
+window.ReportCore={bevLine,bevShort,bevBuckets,bevItems,trendOf,yoyKeys,COST_TARGETS,costTargets,targetLevel,targetCheck,cashPlan,prevKey,nextKey,span,growth,sumPnl,salesMonths,GROUPS,groupOf,salesSummary,entitySeries,payrollPeriod,payrollForecast,groupName};
 })();
