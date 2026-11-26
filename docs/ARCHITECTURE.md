@@ -127,6 +127,11 @@ app/
 - `ConsumptionAlerts.report(P, settings, {levelOf, M})`: با مدل `M` (نقاط شمارش، ورود، ادغام، مصرف، گزارش صندوق) ردیف‌ها `nonRecipe` و `nonRecipeLevel` می‌گیرند.
 - `InvEngine.oilCycles(M, {oilId, warn, critical})`: دوره‌های هر سرخ‌کن از رکوردهای `FRYER_OIL_CHANGE`؛ کارت «دوره‌های تعویض روغن» در «مدیریت مصرف ← روغن و اقلام سر میز».
 
+## موجودی در تاریخ و گردش کالا (BL-094)
+- `InvEngine.itemLedger(M,id,date)`: دوره‌های بین نقاط شمارش یک قلم تا پایان `date` (`segments`: `start`، `events`، `sales` با `salesBy`، `expected`، `end`، `variance`) و `qty` = همان `positions(M,date)`. آزمون `tests/qa_template_item_ledger.js` برابری این دو را می‌سنجد.
+- `InvWrite.editOpeningLine(doc,ctx,{date,itemId,quantity,unit,reason})`: اصلاح یا افزودن یک قلم در شمارش افتتاحیه (شرح در BUSINESS_RULES).
+- `inventory-real.js`: `posAt(date)` (حافظه به ازای مدل)، `countPointDates()`، `ledger(id,date)`، `openingEdit(date,id,then)`؛ `countLineEdit`، `countLineRemove` و `countForm({then})` گزینهٔ `then` گرفتند تا گردش بعد از ذخیره دوباره باز شود. probe: `tools/probes/item-ledger.js`.
+
 ## نسخهٔ فرمول اقلام آماده (BL-015)
 `InvEngine.prepAt(pricing,id,date)` فرمول نافذ یک تاریخ را برمی‌گرداند (قلم با `components`، `countUnit`، `baseOutputQuantity`، `version` و `versionId` همان نسخه). `build()` همین را در `recipeAt(mid,date)` به کار می‌برد (حافظهٔ موقت بر اساس سطرهای رسپی و شناسهٔ نسخه‌ها). `prepConvert(…,{history:true})` برای تاریخ‌های گذشته وضعیت «غیرفعال» را نادیده می‌گیرد. نوشتن: `MenuWrite.recordPrepVersion` (از `savePreparedItem` و `mergeIngredients`)؛ خواندن برای فرم: `MenuWrite.prepVersions`.
 

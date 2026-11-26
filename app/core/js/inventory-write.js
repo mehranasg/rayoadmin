@@ -148,6 +148,27 @@ function removeCountLine(doc,ctx,{date,itemId,reason}){date=D(date);reason=S(rea
  if(!s.lines.length&&!A(s.preparedLines).length)Object.assign(s,{status:'void',voidReason:'همهٔ اقلام حذف شد: '+reason,voidedAt:ctx.at,voidedBy:ctx.actor});
  ctx.auditExtra={entityId:s.id,date,itemId,before:clone(ln),reason};return{id:s.id,voided:s.status==='void',name:ln.itemNameSnapshot}}
 
+/* edit (or add) one item in the opening count (start of day) of a date: the item's opening lines of that date (the same
+   records the engine reads: not void / rejected / archived) become one line with the new quantity in the first record
+   that held it (or the largest approved opening record); the old lines stay in revisionHistory (kind opening-line-edited).
+   Later whole counts follow by the automatic recalculation. A closed period or a prepared-item share blocks it. */
+const openingRec=s=>!!s&&s.status!=='void'&&s.status!=='rejected'&&!s.isArchived&&(s.baselineBoundary||(s.isOpeningBaseline?'START':'END'))==='START';
+function editOpeningLine(doc,ctx,{date,itemId,quantity,unit,reason}){date=D(date);reason=S(reason);if(!reason)throw Error('علت اصلاح لازم است');const c=closedPeriod(doc,date);if(c)throw Error(`دورهٔ ${c.from||''} تا ${c.to} بسته است`);
+ const i=ingredients(ctx.pricing).get(itemId);if(!stockItem(i))throw Error('کالا پیدا نشد یا کالای انبار فعال نیست');
+ const opens=A(doc.stocktakes).filter(s=>openingRec(s)&&D(s.date)===date);if(!opens.length)throw Error(`در ${date} شمارش افتتاحیه ثبت نشده است`);
+ const u=unitsOf(i).find(x=>x.name===S(unit))||unitsOf(i)[0],q=N(quantity);if(S(quantity)===''||!(q>=0))throw Error('مقدار باید عدد نامنفی باشد');const actual=r3(q*u.factor);
+ const holders=opens.filter(s=>A(s.lines).some(l=>l.ingredientId===itemId)),old=holders.flatMap(s=>A(s.lines).filter(l=>l.ingredientId===itemId));
+ if(old.some(l=>A(l.preparedContributions).length))throw Error('بخشی از این مقدار از قلم آماده‌سازی آمده است؛ قابل اصلاح تکی نیست');
+ const target=holders[0]||opens.filter(s=>s.status==='approved'&&wholeScope(s)).sort((a,b)=>A(b.lines).length-A(a.lines).length)[0]||opens[0];
+ const base={...(old[0]?clone(old[0]):{})};for(const k of ['entryQuantity','entryUnit','entryUnitFactor','entryRestQuantity','entryRestUnit','entryRestFactor','countParts','assumedZero'])delete base[k];
+ const cost=E().build({inventory:doc,pricing:ctx.pricing}).costAt(itemId,date);
+ const line={...base,ingredientId:itemId,itemNameSnapshot:i.name,itemCodeSnapshot:i.code||'',unitSnapshot:unitName(i),actual,expected:actual,variance:0,variancePercent:0,varianceValueToman:0,isOpeningBaseline:true,...(Number.isFinite(cost)?{unitCost:cost}:{}),...(u.factor!==1?{entryQuantity:q,entryUnit:u.name,entryUnitFactor:u.factor}:{}),editedAt:ctx.at,editedBy:ctx.actor};
+ const before=r3(old.reduce((a,l)=>a+N(l.actual),0)),rec=(s,o)=>{s.revisionHistory=A(s.revisionHistory);s.revisionHistory.push({id:uid('STR',s.revisionHistory),kind:'opening-line-edited',at:ctx.at,by:ctx.actor,reason,added:[],replaced:[],removed:[],...o});s.updatedAt=ctx.at;s.updatedBy=ctx.actor};
+ for(const s of holders){const rm=s.lines.filter(l=>l.ingredientId===itemId);s.lines=s.lines.filter(l=>l.ingredientId!==itemId);if(s===target){s.lines.push(line);rec(s,{replaced:rm.map(clone)})}else{rec(s,{removed:rm.map(clone),movedTo:target.id});if(!s.lines.length&&!A(s.preparedLines).length)Object.assign(s,{status:'void',voidReason:'قلم به شمارش افتتاحیهٔ دیگر منتقل شد: '+reason,voidedAt:ctx.at,voidedBy:ctx.actor})}}
+ if(!holders.includes(target)){target.lines=A(target.lines);target.lines.push(line);rec(target,{added:[itemId]})}
+ if(target.coverage)target.coverage={...target.coverage,counted:target.lines.length};
+ ctx.auditExtra={entityId:target.id,date,itemId,before:old.map(clone),after:clone(line),reason};return{id:target.id,name:i.name,before,after:actual,added:!old.length}}
+
 /* catalog clean-up: before items are deleted, their count lines that are all zero are removed from the counts (each count
    keeps them in revisionHistory, kind item-deleted); a count left without lines becomes void. Lines with a quantity are
    never removed (such an item is archived, not deleted) — except, with opening:true (owner deleting a duplicate that only
@@ -472,6 +493,6 @@ function mergeStock(doc,ctx,{toId,toName,moves,bevIds}){const date=E().CAL.today
  const bc=doc.settings?.beverageControl,set=new Set(A(bevIds));if(bc&&Array.isArray(bc.itemIds)&&bc.itemIds.some(id=>set.has(id))){const next=[];for(const id of bc.itemIds){const v=set.has(id)?toId:id;if(!next.includes(v))next.push(v)}bc.itemIds=next;out.bev=1}
  if(!out.moved&&!out.bev)throw Error('موجودی‌ای برای انتقال نیست');ctx.auditExtra={toId,moves:clone(A(moves)),beverage:out.bev};return out}
 const r3x=x=>Math.round(x*1e6)/1e6;
-window.InvWrite={ownLevel,startFreshPlan,startFresh,startFreshPrices,startFreshRollbackPlan,rollbackStartFresh,rollbackStartFreshPrices,resetCountsPlan,resetCounts,rollbackResetCounts,lastSetupOp:lastOp,COUNT_PLACES,countPlaces,saveCountPlaces,mergeStock,stdUnits,CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+window.InvWrite={ownLevel,editOpeningLine,startFreshPlan,startFresh,startFreshPrices,startFreshRollbackPlan,rollbackStartFresh,rollbackStartFreshPrices,resetCountsPlan,resetCounts,rollbackResetCounts,lastSetupOp:lastOp,COUNT_PLACES,countPlaces,saveCountPlaces,mergeStock,stdUnits,CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();

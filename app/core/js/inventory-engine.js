@@ -214,6 +214,27 @@ function positions(M,date){const t1=CAL.i(date)+1,out=new Map,row=id=>{if(!out.h
   r.target=has(i,'targetStock')?Number(i.targetStock):has(tr,'targetStock')?Number(tr.targetStock):r.reorderPoint*2;r.needOrder=r.hasReorderPoint&&r.qty!==null&&r.qty<=r.reorderPoint;r.supplierId=tr?.supplierId||''}
  return[...out.values()]}
 
+/* ---------- Ledger of one item up to the end of a date (same rules as positions) ----------
+   Segments between consecutive count points: the count that opens it, receipts / merges / waste / authorized use inside
+   it (by day), recipe use of sales in it (with the menu items behind it), the expected quantity at the next count and
+   that count's variance. The last segment stays open and ends with the computed on-hand of the date. */
+function itemLedger(M,id,date){date=D(date)||CAL.today;const t1=CAL.i(date)+1,pts=A(M.points.get(id)).filter(p=>p.at<=t1),ev=[];
+ for(const x of M.receipts)if(x.item===id&&x.day<t1)ev.push({type:'receipt',day:x.day,date:x.date,qty:x.qty,note:x.note||x.by,id:x.id});
+ for(const x of A(M.merges))if(x.item===id&&x.day<t1)ev.push({type:'merge',day:x.day,date:x.date,qty:x.qty,note:x.note||x.by,id:x.id});
+ for(const x of M.wastes)if(x.item===id&&x.day<t1)ev.push({type:x.auth?'auth':'waste',day:x.day,date:x.date,qty:-x.qty,note:[x.fromMenu?`از «${x.fromMenu}»`:'',x.reason].filter(Boolean).join(' — '),id:x.id});
+ ev.sort((a,b)=>a.day-b.day);
+ const sd=new Map;// day → {qty, by: menu item → qty}
+ for(const s of M.sales)for(const l of A(s.lines)){const ld=l.date?CAL.i(l.date):null,a=ld??s.a,b=ld??s.b,n=b-a+1,q=N(l.quantity),dEnd=ld!==null?D(l.date):D(s.to||s.date);if(a>=t1)continue;
+  for(const rl of M.recipeAt(l.menuItemId,dEnd)){if(rl.ingredientId!==id||!M.recipeDeducts(id,dEnd))continue;const per=M.gross(M.ing.get(id),rl,1);if(!Number.isFinite(per))continue;
+   for(let d=a;d<=Math.min(b,t1-1);d++){const o=sd.get(d)||{qty:0,by:new Map};const v=per*q/n;o.qty+=v;const k=M.menu.get(l.menuItemId)?.name||l.menuItemId||'—';o.by.set(k,(o.by.get(k)||0)+v);sd.set(d,o)}}}
+ const segs=[],bounds=[-Infinity,...pts.map(p=>p.at),t1];
+ for(let k=0;k<bounds.length-1;k++){const lo=bounds[k],hi=bounds[k+1],start=k?pts[k-1]:null,end=k<pts.length?pts[k]:null;
+  const events=ev.filter(x=>x.day>=lo&&x.day<hi);let sales=0;const by=new Map;let sFrom=null,sTo=null;for(const [d,o] of sd)if(d>=lo&&d<hi){sales+=o.qty;sFrom=sFrom===null?d:Math.min(sFrom,d);sTo=sTo===null?d:Math.max(sTo,d);for(const [n,v] of o.by)by.set(n,(by.get(n)||0)+v)}
+  if(!start&&!events.length&&!sales)continue;
+  const expected=(start?start.qty:0)+events.reduce((a,x)=>a+x.qty,0)-sales;
+  segs.push({start,events,sales,salesFrom:sFrom===null?'':CAL.k(sFrom),salesTo:sTo===null?'':CAL.k(sTo),salesBy:[...by].map(([name,qty])=>({name,qty})).sort((a,b)=>b.qty-a.qty),expected:start||events.some(x=>x.type==='receipt'||x.type==='merge')?expected:null,end,variance:end&&start?end.qty-expected:null})}
+ const last=segs[segs.length-1];return{id,date,points:pts,segments:segs,qty:!last?null:last.end?last.end.qty:last.expected}}
+
 /* ---------- Beverage daily control ---------- */
 function beverageDaily(M){const recs=A(M.inv.beverageDailyControls).filter(r=>r.status!=='void').sort((a,b)=>D(a.date).localeCompare(D(b.date)));const prev=new Map,days=[];
  for(const r of recs){const d={date:D(r.date),short:0,surplus:0,night:0,sales:0,lines:[],roles:r.roles||{},prevDate:''};for(const l of A(r.lines)){const morning=N(l.morningUpper)+N(l.morningLower),night=N(l.nightUpper)+N(l.nightLower),expected=morning+N(l.inflow)-N(l.nonSale)-N(l.sales),daily=expected-night,p=prev.get(l.ingredientId),overnight=p===undefined?null:morning-p.night;prev.set(l.ingredientId,{night,date:D(r.date)});
@@ -265,5 +286,5 @@ function calibrateOil(items,oilKg){const sum=items.reduce((a,x)=>a+x.qty*x.weigh
 /* ---------- Months ---------- */
 function monthKeys(M){const out=[];let d=M.firstDay;const last=CAL.i(CAL.today);while(d<=last){const k=CAL.k(d).slice(0,7);if(!out.includes(k))out.push(k);d+=1}return out}
 
-window.InvEngine={LEVELS,controlLevel,parkedIds,oilCycles,sameUnit,unitFactor,convertQty,prepConvert,prepAt,prepVersionsOf,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
+window.InvEngine={LEVELS,controlLevel,parkedIds,oilCycles,sameUnit,unitFactor,convertQty,prepConvert,prepAt,prepVersionsOf,API_ROOT,unwrap,positions,itemLedger,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
 })();
