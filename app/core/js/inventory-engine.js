@@ -69,6 +69,14 @@ function prepVersionsOf(pricing,id){return A(pricing?.preparedItemVersions).filt
 const prepWith=(p,v)=>v?{...p,countUnit:v.countUnit,baseOutputQuantity:v.baseOutputQuantity,components:A(v.components),version:v.version,versionId:v.id,effectiveFrom:v.effectiveFrom}:p;
 function prepAt(pricing,id,date){const p=A(pricing?.preparedItems).find(x=>x.id===id);if(!p)return null;const d=D(date)||CAL.today;return prepWith(p,prepVersionsOf(pricing,id).find(v=>effKey(v)<=d))}
 
+/* ---------- control level of an item (BL-088) ----------
+   inventory.settings.itemControlLevels {id: LIGHT|PRECISE|PARKED} (the item's own choice) → groupControlLevels {category:
+   level} (the default of its group) → LIGHT. PARKED («کنارگذاشته»): low value / low use items, not chased in counts and kept
+   out of the variance and loss totals (shown apart as «بیرون از محاسبه»); stock value still includes them. */
+const LEVELS=['LIGHT','PRECISE','PARKED'];
+function controlLevel(inv,item){const own=inv?.settings?.itemControlLevels?.[item?.id];if(LEVELS.includes(own))return own;const g=inv?.settings?.groupControlLevels?.[S(item?.category)];return LEVELS.includes(g)?g:'LIGHT'}
+function parkedIds(inv,pricing){const out=new Set;for(const i of A(pricing?.ingredients))if(controlLevel(inv,i)==='PARKED')out.add(i.id);return out}
+
 /* ---------- Model ---------- */
 function build(raw){
  const inv=raw.inventory,pr=raw.pricing,ing=new Map(A(pr.ingredients).map(i=>[i.id,i])),menu=new Map(A(pr.menuItems).map(m=>[m.id,m]));
@@ -162,7 +170,7 @@ function analyze(M,from,to,opts={}){
  for(const o of badRecipe.values())addIssue('badRecipe',{name:o.name,qty:o.qty,amount:o.amount,detail:[...o.lines].join('، ')});
  const days=t1-f,coverage=days?covered.size/days:0;if(coverage<0.999)addIssue('salesGap',{covered:covered.size,days});
  // finalize items
- let tot={open:0,receipt:0,sales:0,waste:0,staff:0,close:0,variance:0,short:0,surplus:0,unexplained:0,flaggedVar:0},counted=0;
+ let tot={open:0,receipt:0,sales:0,waste:0,staff:0,close:0,variance:0,short:0,surplus:0,unexplained:0,flaggedVar:0,parkedVar:0,parkedShort:0,parkedItems:0},counted=0;const parked=parkedIds(M.inv,M.pr);
  for(const r of items.values()){const costClose=M.costAt(r.id,to),costOpen=r.openPt?M.costAt(r.id,r.openPt.date):costClose;
   r.expected=r.open===null&&!r.receipt&&!r.merge&&!r.sales?null:(r.open||0)+r.receipt+r.merge-r.sales-r.waste-r.staff;
   if(r.open===null&&(r.receipt||r.sales))r.flags.add('noOpen');
@@ -173,7 +181,8 @@ function analyze(M,from,to,opts={}){
   const active=r.open!==null||r.close!==null||r.receipt||r.merge||r.sales||r.waste||r.staff;if(!active){items.delete(r.id);continue}
   r.dataFlags=[...r.flags].filter(x=>!['multiCount','closeShift','staffAsWaste','notCounted'].includes(x));
   tot.open+=r.openV||0;tot.receipt+=r.receiptV;tot.sales+=r.salesV;tot.waste+=r.wasteV;tot.staff+=r.staffV;tot.close+=r.closeV||0;
-  if(r.varianceV!==null){counted++;tot.variance+=r.varianceV;if(r.varianceV<0)tot.short+=r.varianceV;else tot.surplus+=r.varianceV;if(r.dataFlags.length)tot.flaggedVar+=r.varianceV;else tot.unexplained+=r.varianceV}}
+  r.parked=parked.has(r.id);if(r.varianceV!==null&&r.parked){counted++;tot.parkedVar+=r.varianceV;if(r.varianceV<0)tot.parkedShort+=r.varianceV;if(Math.abs(r.varianceV)>0.5)tot.parkedItems++}
+  else if(r.varianceV!==null){counted++;tot.variance+=r.varianceV;if(r.varianceV<0)tot.short+=r.varianceV;else tot.surplus+=r.varianceV;if(r.dataFlags.length)tot.flaggedVar+=r.varianceV;else tot.unexplained+=r.varianceV}}
  const list=[...items.values()];
  for(const r of list){const cat=M.catalog(r.id);if(r.cost&&cat&&(r.cost/cat>5||cat/r.cost>5))addIssue('suspectPrice',{item:r.id,name:r.name,cost:r.cost,catalog:cat});if(r.flags.has('negative'))addIssue('negative',{item:r.id,name:r.name,expected:r.expected,unit:r.unit,impact:r.cost===null?null:r.expected*r.cost});if(r.flags.has('noOpen'))addIssue('noOpen',{item:r.id,name:r.name});if(r.flags.has('unapproved'))addIssue('unapproved',{item:r.id,name:r.name});if(r.flags.has('countUnit'))addIssue('countUnit',{item:r.id,name:r.name,unit:r.unit,countUnit:(r.openPt?.unitIssue||r.closePt?.unitIssue)});if(r.flags.has('staffAsWaste'))addIssue('staffAsWaste',{item:r.id,name:r.name,qty:r.staff,impact:r.staffV});if(r.flags.has('notCounted'))addIssue('notCounted',{item:r.id,name:r.name,impact:r.salesV});if(r.flags.has('openLate')||r.flags.has('openOld'))addIssue('openShift',{item:r.id,name:r.name,date:r.openPt?.date})}
  // paired items: one item short and another (same unit) surplus by a similar quantity → probably the wrong item in receipts or recipes
@@ -256,5 +265,5 @@ function calibrateOil(items,oilKg){const sum=items.reduce((a,x)=>a+x.qty*x.weigh
 /* ---------- Months ---------- */
 function monthKeys(M){const out=[];let d=M.firstDay;const last=CAL.i(CAL.today);while(d<=last){const k=CAL.k(d).slice(0,7);if(!out.includes(k))out.push(k);d+=1}return out}
 
-window.InvEngine={oilCycles,sameUnit,unitFactor,convertQty,prepConvert,prepAt,prepVersionsOf,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
+window.InvEngine={LEVELS,controlLevel,parkedIds,oilCycles,sameUnit,unitFactor,convertQty,prepConvert,prepAt,prepVersionsOf,API_ROOT,unwrap,positions,cashInvoices,usageOf,fryerDefaults,friedWeight,calibrateOil,FRYER_OIL_RE,FRIED_RE,CAL,MONTHS,monthLabel,monthRange,monthKeys,loadLive,loadUrl,loadFiles,build,analyze,beverageDaily,oilAnalysis,RESP_LABEL,responsibility,D,N,S,A,UK};
 })();

@@ -30,7 +30,8 @@ ok(near(row('i1').actual,103000)&&near(row('i1').wastePct,2000/103000*100)&&near
 ok(row('i2').status==='critical'&&row('i2').wasteLevel==='critical'&&row('i2').varianceLevel==='critical','item critical');
 ok(row('i3').status==='na'&&row('i3').reasons.some(x=>/پایان دوره/.test(x)),'not counted → insufficient data');
 ok(row('i4').status==='na'&&row('i4').control==='PARKED','parked never alerts');
-ok(near(R.totals.loss,2000+15000+900+1000+12000)&&near(R.totals.lossSalesPct,3.09)&&R.totals.level==='warning','total loss against sales');
+ok(near(R.totals.loss,2000+15000+1000+12000)&&near(R.totals.lossSalesPct,3.0)&&R.totals.level==='warning','total loss against sales, without the parked item (BL-088)');
+ok(R.totals.parked.items===1&&near(R.totals.parked.waste,900),'parked loss reported apart');
 const m1=R.menus.list.find(x=>x.menuId==='m1'),m2=R.menus.list.find(x=>x.menuId==='m2');
 ok(near(m1.wasteShare,2000*0.6+15000)&&near(m1.shortageShare,1000*0.6+12000)&&near(m2.wasteShare,800)&&near(m2.shortageShare,400),'loss allocated by recipe usage share');
 ok(near(m1.adjustedPct,(260000+16200+12600)/600000*100)&&m1.level==='critical'&&near(R.menus.unallocated,900),'menu adjusted %, level and unallocated loss');

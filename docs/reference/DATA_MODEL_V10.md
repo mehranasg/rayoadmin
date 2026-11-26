@@ -293,3 +293,6 @@ Initialize، Reset همهٔ جداول، Restore JSON مخصوص Reset و ZIP ع
 
 ## نسخهٔ فرمول اقلام آماده (پنل جدید، BL-015)
 `pricing.preparedItemVersions[]`: `{id: 'PIV-####', preparedItemId, version, effectiveFrom ('0000/00/00' = از ابتدا), countUnit, baseOutputQuantity, components[], status ('active' | 'superseded'), source ('baseline' | 'form' | 'merge'), note, createdAt, createdBy, supersededAt?, supersededBy?}`. خط قلم آماده در شمارش (`preparedLines`) و ضایعات قلم آماده `preparedItemVersion` همان روز را دارند؛ خط بازشدهٔ رسپی در موتور `fromPreparedVersion`.
+
+## پیش‌فرض سطح کنترل گروه‌ها (پنل جدید، BL-088)
+`inventory.settings.groupControlLevels`: `{نام گروه کالا: 'PRECISE' | 'PARKED'}` (نبودن = سبک). `itemControlLevels` همچنان انتخاب خود قلم است و نبودنش یعنی «پیش‌فرض گروه». متریک‌های انبارگردانی و بستن دوره `parkedVariance`، `parkedShortage` و `parkedItems` جدا دارند.

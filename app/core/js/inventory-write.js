@@ -244,7 +244,7 @@ function zeroFillPlan(doc,pricing,{date,boundary:b}){date=D(date);b=b==='START'?
  const rk=`${date}|${b==='START'?'0':'1'}`,whole=[...A(doc.stocktakes).filter(x=>wholeScope(x)&&x.status==='approved').map(x=>({r:x,ids:A(x.lines).map(l=>l.ingredientId)})),...A(doc.openingBalances).filter(x=>wholeScope(x)&&x.status!=='void').map(x=>({r:x,ids:[x.ingredientId]}))];
  if(whole.some(x=>rank(x.r)>rk))throw Error('بعد از این تاریخ مبنای کل دیگری هست؛ صفرگذاری فقط روی آخرین مبنا معنا دارد');
  const have=new Set(whole.filter(x=>rank(x.r)===rk).flatMap(x=>x.ids)),ever=new Set(whole.flatMap(x=>x.ids));
- const items=trackedItems(pricing).filter(i=>levelOf(doc,i.id)!=='PARKED'&&!have.has(i.id)&&(levelOf(doc,i.id)==='PRECISE'||!ever.has(i.id)));
+ const items=trackedItems(pricing).filter(i=>levelOf(doc,i.id,pricing)!=='PARKED'&&!have.has(i.id)&&(levelOf(doc,i.id,pricing)==='PRECISE'||!ever.has(i.id)));
  const target=A(doc.stocktakes).find(x=>wholeScope(x)&&x.status==='approved'&&rank(x)===rk)||null;return{date,boundary:b,items,target}}
 function zeroFill(doc,ctx,input){const p=zeroFillPlan(doc,ctx.pricing,input);if(!p.items.length)throw Error('همهٔ اقلام در این مبنا شمرده شده‌اند؛ چیزی برای صفرگذاری نیست');
  const opening=p.boundary==='START',lines=p.items.map(i=>({ingredientId:i.id,actual:0,itemNameSnapshot:i.name,itemCodeSnapshot:i.code||'',unitSnapshot:unitName(i),expected:null,variance:null,variancePercent:null,varianceValueToman:null,isOpeningBaseline:opening,assumedZero:true}));
@@ -282,11 +282,15 @@ function saveBeverageItems(doc,ctx,{itemIds}){const ing=ingredients(ctx.pricing)
    and settings.tableItems; reorder points (js/08 ingredient edit, read by js/40 reorderPointValue): pricing.ingredients[]
    .reorderPoint / .targetStock (empty = none). */
 const LEVELS=['LIGHT','PRECISE','PARKED'];
-const levelOf=(doc,id)=>{const v=doc?.settings?.itemControlLevels?.[id];return LEVELS.includes(v)?v:'LIGHT'};
-function saveControlLevels(doc,ctx,{levels,gap}){doc.settings=doc.settings||{};const next={...(doc.settings.itemControlLevels||{})},changes=[];
- for(const [id,v0] of Object.entries(levels||{})){const v=LEVELS.includes(v0)?v0:'LIGHT',old=levelOf(doc,id);if(v!==old){changes.push({ingredientId:id,before:old,after:v});next[id]=v}}
+// effective level (item → group default → LIGHT); without pricing only the item's own choice is known
+const levelOf=(doc,id,pricing)=>{const i=A(pricing?.ingredients).find(x=>x.id===id)||{id};return E().controlLevel(doc,i)};
+const ownLevel=(doc,id)=>{const v=doc?.settings?.itemControlLevels?.[id];return LEVELS.includes(v)?v:''};
+/* levels {id: level | '' (= the group default)}, groups {category: level | ''} (BL-088) */
+function saveControlLevels(doc,ctx,{levels,gap,groups}){doc.settings=doc.settings||{};const next={...(doc.settings.itemControlLevels||{})},gnext={...(doc.settings.groupControlLevels||{})},changes=[],gchanges=[];
+ for(const [id,v0] of Object.entries(levels||{})){const v=LEVELS.includes(v0)?v0:'',old=ownLevel(doc,id);if(v!==old){changes.push({ingredientId:id,before:old||'group',after:v||'group'});if(v)next[id]=v;else delete next[id]}}
+ for(const [g,v0] of Object.entries(groups||{})){const v=LEVELS.includes(v0)?v0:'',old=LEVELS.includes(gnext[g])?gnext[g]:'';if(v!==old){gchanges.push({group:g,before:old||'LIGHT',after:v||'LIGHT'});if(v)gnext[g]=v;else delete gnext[g]}}
  const curGap=Number(doc.settings.lightMaxGapDays)||90,g=gap===undefined||S(gap)===''?curGap:N(gap);if(!Number.isInteger(g)||g<7||g>730)throw Error('حداکثر فاصلهٔ شمارش باید عدد صحیح بین ۷ تا ۷۳۰ روز باشد');
- if(!changes.length&&g===curGap)throw Error('تغییری انتخاب نشده است');doc.settings.itemControlLevels=next;doc.settings.lightMaxGapDays=g;ctx.auditExtra={changes,lightMaxGapDays:g};return{changes:changes.length,gap:g}}
+ if(!changes.length&&!gchanges.length&&g===curGap)throw Error('تغییری انتخاب نشده است');doc.settings.itemControlLevels=next;doc.settings.groupControlLevels=gnext;doc.settings.lightMaxGapDays=g;ctx.auditExtra={changes,groups:gchanges,lightMaxGapDays:g};return{changes:changes.length,groups:gchanges.length,gap:g}}
 function saveFryerSettings(doc,ctx,input){doc.settings=doc.settings||{};const ing=ingredients(ctx.pricing),fryers=A(input.fryers).map((f,i)=>({id:S(f.id)||`FR-${i+1}`,name:S(f.name),liters:N(f.liters)})).filter(f=>f.name||f.liters>0);
  if(!fryers.length||fryers.some(f=>!f.name||!(f.liters>0)))throw Error('برای هر سرخ‌کن نام و گنجایش (لیتر) لازم است');if(new Set(fryers.map(f=>f.id)).size!==fryers.length)throw Error('شناسهٔ سرخ‌کن تکراری است');
  const density=N(input.density);if(!(density>0.5&&density<1.2))throw Error('چگالی روغن باید بین ۰٫۵ و ۱٫۲ کیلو بر لیتر باشد');if(!ing.get(S(input.ingredientId)))throw Error('قلم روغن سرخ‌کردنی را انتخاب کنید');
@@ -425,10 +429,11 @@ const N0=x=>Number.isFinite(Number(x))?Number(x):0;
 const hasVariance=l=>Math.abs(N0(l?.variance))>1e-9;
 const countDocs=(doc,date)=>A(doc.stocktakes).filter(s=>wholeScope(s)&&s.status==='approved'&&boundary(s)==='END'&&!s.isOpeningBaseline&&D(s.date)===date);
 function countLinesOf(doc,date){date=D(date);const m=new Map;for(const s of countDocs(doc,date))for(const l of A(s.lines))if(!l.assumedZero)m.set(l.ingredientId,l);return [...m.values()]}
-function countMetrics(lines){const v=(l,x)=>N0(x)*N0(l.unitCost),o={items:lines.length,withVariance:0,baseValue:0,receiptValue:0,salesValue:0,wasteValue:0,expectedValue:0,countedValue:0,varianceValue:0,shortageValue:0,surplusValue:0};
+/* parked (Set of item ids, BL-088): their variance goes to parkedVariance / parkedShortage only */
+function countMetrics(lines,parked){const v=(l,x)=>N0(x)*N0(l.unitCost),o={items:lines.length,withVariance:0,baseValue:0,receiptValue:0,salesValue:0,wasteValue:0,expectedValue:0,countedValue:0,varianceValue:0,shortageValue:0,surplusValue:0,parkedVariance:0,parkedShortage:0,parkedItems:0};
  for(const l of lines){o.baseValue+=v(l,l.baseQuantity);o.receiptValue+=v(l,l.purchaseQty);o.salesValue+=v(l,l.salesConsumption);o.wasteValue+=v(l,N0(l.wasteQty)+N0(l.otherOutQty));o.expectedValue+=v(l,l.expected);o.countedValue+=v(l,l.actual);
-  const vv=N0(l.varianceValueToman);o.varianceValue+=vv;if(vv<0)o.shortageValue+=vv;else o.surplusValue+=vv;if(hasVariance(l))o.withVariance++}
- for(const k of Object.keys(o))if(!['items','withVariance'].includes(k))o[k]=Math.round(o[k])||0;return o}
+  const vv=N0(l.varianceValueToman);if(parked&&parked.has(l.ingredientId)){o.parkedVariance+=vv;if(vv<0)o.parkedShortage+=vv;if(hasVariance(l))o.parkedItems++;continue}o.varianceValue+=vv;if(vv<0)o.shortageValue+=vv;else o.surplusValue+=vv;if(hasVariance(l))o.withVariance++}
+ for(const k of Object.keys(o))if(!['items','withVariance','parkedItems'].includes(k))o[k]=Math.round(o[k])||0;return o}
 function reviewOf(doc,date,itemId){return A(doc.countReviews).find(r=>r.date===D(date)&&r.itemId===itemId)||null}
 function reviewCountLine(doc,ctx,{date,itemId,status,note}){date=D(date);itemId=S(itemId);status=S(status);note=S(note);
  if(!REVIEW_LABELS[status])throw Error('نتیجهٔ بررسی را انتخاب کنید');
@@ -448,7 +453,7 @@ function closeCount(doc,ctx,{date,note}){date=D(date);const lines=countLinesOf(d
  const lines2=lines.map(l=>{const r=rv(l);return{ingredientId:l.ingredientId,name:S(l.itemNameSnapshot),code:S(l.itemCodeSnapshot),unit:S(l.unitSnapshot),baseDate:S(l.baseDate),baseQuantity:l.baseQuantity??null,purchaseQty:N0(l.purchaseQty),salesConsumption:N0(l.salesConsumption),wasteQty:N0(l.wasteQty)+N0(l.otherOutQty),expected:l.expected??null,actual:l.actual??null,variance:l.variance??null,unitCost:l.unitCost??null,varianceValueToman:N0(l.varianceValueToman),...(r?{review:r.status,reviewNote:r.note,reviewedBy:r.by}:{})}});
  doc.periodClosures=A(doc.periodClosures);
  const rec={id:uid('CLOSE',doc.periodClosures),kind:'stocktake',controlMode:'stocktake',scope:'RAYO',from,to:date,status:'closed',closedAt:ctx.at,closedBy:ctx.actor,note:S(note),
-  stocktakeMetrics:{...countMetrics(lines),reviewed:lines.filter(l=>hasVariance(l)&&rv(l)).length},stocktakeLines:lines2};
+  stocktakeMetrics:{...countMetrics(lines,E().parkedIds(doc,ctx.pricing)),reviewed:lines.filter(l=>hasVariance(l)&&rv(l)).length},stocktakeLines:lines2};
  doc.periodClosures.push(rec);ctx.auditExtra={entityId:rec.id,from,to:date};return rec}
 function reopenCount(doc,ctx,{id,reason}){reason=S(reason);if(!reason)throw Error('علت بازگشایی لازم است');const c=A(doc.periodClosures).find(x=>x.id===id);if(!c||c.status!=='closed')throw Error('دورهٔ بسته پیدا نشد');
  const last=lastClosure(doc);if(last&&last.id!==c.id)throw Error(`فقط آخرین دورهٔ بسته (تا ${last.to}) باز می‌شود`);
@@ -467,6 +472,6 @@ function mergeStock(doc,ctx,{toId,toName,moves,bevIds}){const date=E().CAL.today
  const bc=doc.settings?.beverageControl,set=new Set(A(bevIds));if(bc&&Array.isArray(bc.itemIds)&&bc.itemIds.some(id=>set.has(id))){const next=[];for(const id of bc.itemIds){const v=set.has(id)?toId:id;if(!next.includes(v))next.push(v)}bc.itemIds=next;out.bev=1}
  if(!out.moved&&!out.bev)throw Error('موجودی‌ای برای انتقال نیست');ctx.auditExtra={toId,moves:clone(A(moves)),beverage:out.bev};return out}
 const r3x=x=>Math.round(x*1e6)/1e6;
-window.InvWrite={startFreshPlan,startFresh,startFreshPrices,startFreshRollbackPlan,rollbackStartFresh,rollbackStartFreshPrices,resetCountsPlan,resetCounts,rollbackResetCounts,lastSetupOp:lastOp,COUNT_PLACES,countPlaces,saveCountPlaces,mergeStock,stdUnits,CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+window.InvWrite={ownLevel,startFreshPlan,startFresh,startFreshPrices,startFreshRollbackPlan,rollbackStartFresh,rollbackStartFreshPrices,resetCountsPlan,resetCounts,rollbackResetCounts,lastSetupOp:lastOp,COUNT_PLACES,countPlaces,saveCountPlaces,mergeStock,stdUnits,CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();
