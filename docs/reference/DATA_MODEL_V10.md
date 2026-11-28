@@ -296,3 +296,6 @@ Initialize، Reset همهٔ جداول، Restore JSON مخصوص Reset و ZIP ع
 
 ## پیش‌فرض سطح کنترل گروه‌ها (پنل جدید، BL-088)
 `inventory.settings.groupControlLevels`: `{نام گروه کالا: 'PRECISE' | 'PARKED'}` (نبودن = سبک). `itemControlLevels` همچنان انتخاب خود قلم است و نبودنش یعنی «پیش‌فرض گروه». متریک‌های انبارگردانی و بستن دوره `parkedVariance`، `parkedShortage` و `parkedItems` جدا دارند.
+
+## تغییر واحد اصلی با تبدیل (پنل جدید، BL-095)
+`pricing.ingredients[].baseUnitChanges[]`: `{id: 'BUC-…', from, to, k, at, by, reason, renamesBefore?}` (k = چند واحد تازه در یک واحد قبلی؛ `baseUnitRenames` قبلی به `renamesBefore` می‌رود). `inventory.unitChanges[]`: `{id, ingredientId, from, to, k, at, by, counts}`؛ همان `id` دو بار تبدیل نمی‌شود. ردیف‌های تبدیل‌شده `unitSnapshot` تازه می‌گیرند؛ ورود و شمارشی که واحد ورود نداشت `entryUnit` = واحد قبلی می‌گیرد تا «۲ بسته» همان‌طور نمایش داده شود.

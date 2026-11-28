@@ -508,6 +508,43 @@ function renameBaseUnit(doc,ctx,{id,to,reason}){const i=A(doc.ingredients).find(
  if(E().UK(i.useUnit)===E().UK(from))i.useUnit='';if(E().UK(i.countUnit)===E().UK(from))i.countUnit='';
  i.updatedAt=ctx.at;ctx.auditExtra={entityId:id,from,to:t,reason:S(reason),before};return{id,code:i.code,name:i.name,from,to:t}}
 
+/* ---------- base unit change WITH conversion (owner, BL-095) ----------
+   The base unit becomes another unit the item already knows (purchase unit, an other unit, or a standard unit of the
+   same kind): k = how many new units one old unit is (بسته → عدد with «۱ بسته = ۱۰۰ عدد»: k = 100). Every stored
+   quantity of the item is multiplied by k and every cost per base unit divided by k, so stock, cost and history stay the
+   same in value. Pricing here (catalog row, recipes and their versions, prepared formulas, price history); inventory in
+   InvWrite.changeBaseUnitStock (saved first). The old base unit stays as an other unit (factor k), so entries written
+   with it keep working. Reversible: the same change back (k → 1/k). */
+const R9=x=>Math.round(x*1e9)/1e9;
+const STD_NAMES=['گرم','کیلوگرم','میلی‌لیتر','لیتر'];
+function baseChangeTargets(i){if(!i)return[];const out=[],base=E().UK(i.recipeUnit),seen=new Set([base]);
+ for(const n of [S(i.purchaseUnit),...A(i.countingUnits).filter(u=>u&&u.active!==false).map(u=>S(u.name)),...STD_NAMES]){const k0=E().UK(n);if(!n||seen.has(k0))continue;seen.add(k0);const f=E().unitFactor(i,n);if(f>0)out.push({name:n,factor:f,k:R9(1/f)})}return out}
+// the labels that meant the base unit until now: the base itself and the names fixed earlier (baseUnitRenames)
+const oldLabels=i=>[S(i.recipeUnit),...A(i.baseUnitRenames).map(r=>S(r.from))].filter(Boolean);
+function changeBaseUnitPlan(doc,inv,id,to){const i=A(doc?.ingredients).find(x=>x.id===id);if(!i)return{ok:false,why:'قلم پیدا نشد'};const t=S(to),tg=baseChangeTargets(i).find(x=>E().UK(x.name)===E().UK(t));
+ const why=!t?'واحد تازه را انتخاب کنید':E().UK(t)===E().UK(i.recipeUnit)?'همان واحد فعلی است':!tg?`«${t}» به «${i.recipeUnit}» تبدیل نمی‌شود؛ اول در «تبدیل واحد» بنویسید که هر ${t} چند ${i.recipeUnit} است`:'';
+ const own=r=>r&&(r.ingredientId===id);const n=(k,f)=>A(inv?.[k]).filter(f).length;
+ return{ok:!why,why,from:S(i.recipeUnit),to:tg?tg.name:t,k:tg?tg.k:NaN,factor:tg?tg.factor:NaN,oldLabels:oldLabels(i),targets:baseChangeTargets(i),
+  counts:{recipes:A(doc.recipes).filter(own).length,recipeVersions:A(doc.recipeVersions).reduce((a,v)=>a+A(v.lines).filter(own).length,0),prices:A(doc.ingredientPriceHistory).filter(own).length,prepared:A(doc.preparedItems).reduce((a,p)=>a+A(p.components).filter(own).length,0),
+   counts:A(inv?.stocktakes).reduce((a,s)=>a+A(s.lines).filter(own).length,0),receipts:n('stockReceipts',own),waste:n('wasteRecords',w=>w.type!=='menu'&&w.itemId===id)+n('consumptionRecords',w=>w.type!=='menu'&&w.itemId===id),
+   movements:n('inventoryMovements',own),invoices:A(inv?.purchaseInvoices).reduce((a,x)=>a+A(x.lines).filter(own).length,0),beverage:A(inv?.beverageDailyControls).reduce((a,c)=>a+A(c.lines).filter(own).length,0)}}}
+function changeBaseUnit(doc,ctx,{id,to,reason,changeId}){const i=A(doc.ingredients).find(x=>x.id===id);if(!i)throw Error('قلم پیدا نشد');if(!S(reason))throw Error('دلیل تغییر لازم است');
+ const pl=changeBaseUnitPlan(doc,null,id,to);if(!pl.ok)throw Error(pl.why);const {k,from}=pl,t=pl.to,UK=E().UK,olds=pl.oldLabels.map(UK),isOld=u=>!S(u)||olds.includes(UK(u)),before=clone(i);
+ const mul=x=>x===''||x===null||x===undefined||!Number.isFinite(Number(x))?x:R9(Number(x)*k),div=x=>x===''||x===null||x===undefined||!Number.isFinite(Number(x))?x:R9(Number(x)/k),c={recipes:0,recipeVersions:0,prices:0,prepared:0};
+ // the item: purchase pack, other units (the new base leaves the list, the old base joins it), stock levels
+ if(S(i.purchaseUnit)&&Z(i.packageQuantity)>0)i.packageQuantity=UK(i.purchaseUnit)===UK(t)?1:mul(i.packageQuantity);
+ i.countingUnits=A(i.countingUnits).filter(u=>UK(u.name)!==UK(t)).map(u=>({...u,factor:mul(u.factor),updatedAt:ctx.at}));
+ const renames=A(i.baseUnitRenames);i.recipeUnit=t;delete i.baseUnitRenames;
+ if(UK(i.purchaseUnit)!==UK(from)&&!E().unitFactor(i,from))i.countingUnits.push({id:pcUid('CU',i.countingUnits),name:from,factor:k,active:true,def:k>=1?{a:from,q:k,b:t}:{a:t,q:R9(1/k),b:from},createdAt:ctx.at,updatedAt:ctx.at});
+ for(const f of ['reorderPoint','standardUsagePerDriver'])if(i[f]!==undefined)i[f]=mul(i[f]);
+ i.baseUnitChanges=[...A(i.baseUnitChanges),{id:S(changeId)||`BUC-${Date.now()}`,from,to:t,k,at:ctx.at,by:ctx.actor,reason:S(reason),...(renames.length?{renamesBefore:renames}:{})}];i.updatedAt=ctx.at;
+ // recipes (a line written in a unit keeps it: entryUnit/entryQuantity), versions, formulas, price history
+ for(const r of A(doc.recipes))if(r.ingredientId===id){r.quantity=mul(r.quantity);c.recipes++}
+ for(const v of A(doc.recipeVersions))for(const l of A(v.lines))if(l.ingredientId===id){l.quantity=mul(l.quantity);if(S(l.recipeUnit)&&isOld(l.recipeUnit))l.recipeUnit=t;c.recipeVersions++}
+ for(const p of A(doc.preparedItems))for(const x of A(p.components))if(x.ingredientId===id&&isOld(x.unit)){x.quantity=mul(x.quantity);x.unit=t;c.prepared++}
+ for(const h of A(doc.ingredientPriceHistory))if(h.ingredientId===id&&isOld(h.recipeUnit)){if(Z(h.packageQuantity)>0)h.packageQuantity=mul(h.packageQuantity);if(h.unitCostToman!==undefined)h.unitCostToman=div(h.unitCostToman);if(S(h.recipeUnit))h.recipeUnit=t;c.prices++}
+ ctx.auditExtra={entityId:id,from,to:t,k,reason:S(reason),changeId:S(changeId),counts:c,before};return{id,code:i.code,name:i.name,from,to:t,k,counts:c}}
+
 /* ---------- recipe campaign (APP_REVIEW P-06): items without a recipe, by sales ---------- */
 // words of a name for matching: normalised, without filler words; «Iced/آیس/سرد» kept apart as a variant word
 const CAMP_STOP=new Set(['و','با','بدون','ویژه','مخصوص','رایو','کافه','سایز','بزرگ','کوچک','جونیور','تک','نفره','دونفره']);
@@ -528,5 +565,5 @@ function setApproxCost(doc,ctx,{menuId,cost,note}){const m=A(doc.menuItems).find
  if(v>0&&Z(m.currentPriceToman)>0&&v>Z(m.currentPriceToman)*1.5)throw Error('بهای تقریبی بیش از ۱٫۵ برابر قیمت فروش است؛ عدد را بررسی کنید');
  const before={manualCostToman:Z(m.manualCostToman),manualCostEnabled:m.manualCostEnabled===true};if(before.manualCostToman===v&&before.manualCostEnabled===(v>0))throw Error('تغییری داده نشده است');
  Object.assign(m,{manualCostToman:v,manualCostEnabled:v>0});ctx.auditExtra={entityId:menuId,before,after:{manualCostToman:v},...(S(note)?{note:S(note)}:{})};return{menuId,cost:v,hasRecipe:recipeLines(doc,menuId).length>0}}
-window.MenuWrite={placeholderCode,recordPrepVersion,prepVersions,mergedTarget,mergePrice,DENSITY_STD,densityList,densityFor,saveDensityList,mergeFactor,mergePlan,mergeIngredients,preparedDeletePlan,deletePreparedItem,similarItems,copyLines,directCandidates,setApproxCost,nameWords,unitUsage,unitList,saveUnitList,renameTargets,renameBaseUnitPlan,renameBaseUnit,onlinePricePlan,applyOnlinePrices,bulkIngredients,TYPE_STD,typeLabels,groupType,CATALOG_STD,classifyItem,catalogPlan,applyCatalogStructure,saveTypeSettings,saveIngredientGroups,groupCounts,ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
+window.MenuWrite={placeholderCode,recordPrepVersion,prepVersions,mergedTarget,mergePrice,DENSITY_STD,densityList,densityFor,saveDensityList,mergeFactor,mergePlan,mergeIngredients,preparedDeletePlan,deletePreparedItem,similarItems,copyLines,directCandidates,setApproxCost,nameWords,unitUsage,unitList,saveUnitList,renameTargets,renameBaseUnitPlan,renameBaseUnit,baseChangeTargets,changeBaseUnitPlan,changeBaseUnit,onlinePricePlan,applyOnlinePrices,bulkIngredients,TYPE_STD,typeLabels,groupType,CATALOG_STD,classifyItem,catalogPlan,applyCatalogStructure,saveTypeSettings,saveIngredientGroups,groupCounts,ingredientRefs,cleanupPlan,cleanupIngredients,prepCost:(doc,p)=>prepUnitCost(doc,new Map(A(doc.ingredients).map(i=>[i.id,i])),p),oilShare,setOilInRecipes,PREP_UNITS,preparedItemConversion,savePreparedItem,setLatestPrices,parsePriceSheets,NORM,ITEM_TYPES,DRIVERS,UNITS_DEFAULT,duplicateNames,nextIngredientCode,ingredientUsage,saveIngredient,requireSalesCode,setRequireSalesCode,menuNameDuplicate,saveMenuItem,removeMenuItem,unitCost,metrics,recipeLines,versionsOf,versionDrift,sameRecipe,snapshotLines,recipeCapable,priceStep,saveRecipe,changePrice,saveSettings,validPricing};
 })();

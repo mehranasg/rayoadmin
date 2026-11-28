@@ -493,6 +493,32 @@ function mergeStock(doc,ctx,{toId,toName,moves,bevIds}){const date=E().CAL.today
  const bc=doc.settings?.beverageControl,set=new Set(A(bevIds));if(bc&&Array.isArray(bc.itemIds)&&bc.itemIds.some(id=>set.has(id))){const next=[];for(const id of bc.itemIds){const v=set.has(id)?toId:id;if(!next.includes(v))next.push(v)}bc.itemIds=next;out.bev=1}
  if(!out.moved&&!out.bev)throw Error('موجودی‌ای برای انتقال نیست');ctx.auditExtra={toId,moves:clone(A(moves)),beverage:out.bev};return out}
 const r3x=x=>Math.round(x*1e6)/1e6;
-window.InvWrite={ownLevel,editOpeningLine,startFreshPlan,startFresh,startFreshPrices,startFreshRollbackPlan,rollbackStartFresh,rollbackStartFreshPrices,resetCountsPlan,resetCounts,rollbackResetCounts,lastSetupOp:lastOp,COUNT_PLACES,countPlaces,saveCountPlaces,mergeStock,stdUnits,CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
+/* ---------- base unit change with conversion (owner, BL-095; catalog side MenuWrite.changeBaseUnit) ----------
+   Saved before the catalog. Every inventory record of the item written in the old base unit (oldLabels: the base and its
+   earlier names) is multiplied by k (one old unit = k new units), costs per unit divided by k, snapshots get the new unit
+   name. Records written in another unit (unitSnapshot not an old label) are left as they are. Revision histories and the
+   change log keep what they recorded. doc.unitChanges [{id, ingredientId, from, to, k}] marks it done: the same changeId
+   never converts twice, so a failed catalog save is completed by running the change again. */
+function changeBaseUnitStock(doc,ctx,{id,from,to,k,oldLabels,changeId}){k=Number(k);if(!S(id)||!S(to)||!(k>0))throw Error('تغییر واحد نامعتبر است');if(!S(changeId))throw Error('شناسهٔ تغییر لازم است');
+ doc.unitChanges=A(doc.unitChanges);if(doc.unitChanges.some(x=>x.id===changeId))return{skipped:true,counts:{}};
+ const UK=E().UK,olds=[from,...A(oldLabels)].filter(Boolean).map(UK),isOld=u=>!S(u)||olds.includes(UK(u)),R=x=>Math.round(x*1e9)/1e9;
+ const mul=(o,fs)=>{for(const f of fs)if(o[f]!==undefined&&o[f]!==null&&o[f]!==''&&Number.isFinite(Number(o[f])))o[f]=R(Number(o[f])*k)},div=(o,fs)=>{for(const f of fs)if(o[f]!==undefined&&o[f]!==null&&o[f]!==''&&Number.isFinite(Number(o[f])))o[f]=R(Number(o[f])/k)};
+ const c={counts:0,receipts:0,waste:0,movements:0,invoices:0,beverage:0,tracked:0};
+ for(const st of A(doc.stocktakes)){for(const l of A(st.lines)){if(l.ingredientId!==id||!isOld(l.unitSnapshot))continue;
+   mul(l,['actual','expected','variance','baseQuantity','salesConsumption','movementNet','purchaseQty','wasteQty','otherOutQty','directActual','preparedActual','entryUnitFactor','entryRestFactor']);div(l,['unitCost']);
+   for(const p of A(l.countParts)){mul(p,['factor','base'])}for(const x of A(l.preparedContributions))if(isOld(x.unit)){mul(x,['quantity']);x.unit=to}
+   if(!S(l.entryUnit)&&!A(l.countParts).length&&l.actual!==null&&l.actual!==undefined&&l.actual!==''){l.entryUnit=from;l.entryQuantity=R(Number(l.actual)/k);l.entryUnitFactor=k}
+   l.unitSnapshot=to;c.counts++}
+  for(const pl of A(st.preparedLines))for(const x of A(pl.contributions))if(x.ingredientId===id&&isOld(x.unit)){mul(x,['quantity']);x.unit=to}}
+ for(const r of A(doc.stockReceipts)){if(r.ingredientId!==id||!isOld(r.unitSnapshot))continue;if(!S(r.entryUnit)){r.entryUnit=from;r.entryQuantity=Number(r.quantity);r.entryUnitFactor=1}
+  mul(r,['quantity','entryUnitFactor']);div(r,['unitCostToman']);r.unitSnapshot=to;c.receipts++}
+ for(const w of [...A(doc.wasteRecords),...A(doc.consumptionRecords)]){if(w.type==='menu'||w.itemId!==id)continue;mul(w,['quantity','originalQuantity']);c.waste++}
+ for(const m of A(doc.inventoryMovements)){if(m.ingredientId!==id||!isOld(m.unitSnapshot))continue;mul(m,['quantity']);div(m,['unitCostToman']);if(S(m.mergedFromId))mul(m,['unitFactor']);if(S(m.unitSnapshot))m.unitSnapshot=to;c.movements++}
+ for(const x of A(doc.purchaseInvoices))for(const l of A(x.lines)){if(l.ingredientId!==id||!isOld(l.recipeUnit))continue;mul(l,['packageQuantity']);if(S(l.recipeUnit))l.recipeUnit=to;c.invoices++}
+ for(const b of A(doc.beverageDailyControls))for(const l of A(b.lines)){if(l.ingredientId!==id||!isOld(l.unitSnapshot))continue;mul(l,['morningUpper','morningLower','inflow','nonSale','nightUpper','nightLower','sales']);l.unitSnapshot=to;c.beverage++}
+ for(const t of A(doc.trackedIngredients)){if(t.ingredientId!==id)continue;mul(t,['initialStock','reorderPoint','targetStock']);c.tracked++}
+ doc.unitChanges.push({id:changeId,ingredientId:id,from,to,k,at:ctx.at,by:ctx.actor,counts:c});ctx.auditExtra={entityId:id,from,to,k,changeId,counts:c};return{skipped:false,counts:c}}
+
+window.InvWrite={changeBaseUnitStock,ownLevel,editOpeningLine,startFreshPlan,startFresh,startFreshPrices,startFreshRollbackPlan,rollbackStartFresh,rollbackStartFreshPrices,resetCountsPlan,resetCounts,rollbackResetCounts,lastSetupOp:lastOp,COUNT_PLACES,countPlaces,saveCountPlaces,mergeStock,stdUnits,CYCLE_DEF,cycleSettings,saveCycleSettings,abcClasses,lastCountDates,cycleDue,suggestReorder,saveDayCheck,DAY_NONE_KEYS,useUnitOf,countUnitOf,smallestUnit,toBase,REVIEW_LABELS,hasVariance,countLinesOf,countMetrics,reviewOf,reviewCountLine,lastClosure,closeCount,reopenCount,removeZeroCountLines,removeCountLine,LEVELS,levelOf,saveControlLevels,saveFryerSettings,saveReorderPoints,EVENT_LABELS,AUTH_TYPES,SHIFTS,state,canonical,content,uid,unitsOf,unitName,stockItem,trackedItems,purchaseUnitsOf,mainLocation,closedPeriod,oilSettings,countInfo,receiptWarnings,receiptLines,
  addReceipts,voidReceipt,editReceipt,addEvent,voidEvent,editEvent,voidCountDate,addOilChange,addCount,findEvent,edit,affectedFrom,recalcCounts,zeroFillPlan,zeroFill,lastZeroFill,zeroFillRollbackPlan,zeroFillRollback,saveBeverageItems,paymentOptions,savePaymentOptions};
 })();

@@ -157,7 +157,9 @@ RT.axis=function(t,extra){
 RT.tipRow=(color,label,value)=>`<div style="display:flex;gap:16px;justify-content:space-between;align-items:center;min-width:150px"><span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-left:6px"></i>${label}</span><b>${value}</b></div>`;
 
 RT.chart=function(id,build){
-  const el=typeof id==='string'?document.getElementById(id):id;if(!el||!window.echarts)return;
+  const el=typeof id==='string'?document.getElementById(id):id;if(!el)return;
+  /* the chart library (app/vendor/echarts.min.js, CDN fallback) did not load: say so instead of an empty frame */
+  if(!window.echarts){el.innerHTML='<div class="muted" style="display:flex;align-items:center;justify-content:center;height:100%;min-height:80px;text-align:center;padding:12px;font-size:12px">نمودار بارگذاری نشد: فایل app/vendor/echarts.min.js روی سرور نیست. پوشهٔ vendor را هم آپلود کنید.</div>';return}
   const entry={el,build,inst:null};
   const mount=()=>{entry.inst&&entry.inst.dispose();entry.inst=echarts.init(el,null,{renderer:'svg'});entry.inst.setOption(build(RT.theme()))};
   mount();entry.mount=mount;registry.push(entry);

@@ -115,7 +115,21 @@ function bevBuckets(days,{CAL,from,to,by='week'}){const a=CAL.i(from),b=CAL.i(to
  else{let d=a-((a+1)%7);for(;d<=b;d+=7)out.push({from:CAL.k(d),to:CAL.k(d+6),key:CAL.k(d)})}
  return out.map(r=>({...r,...bevShort(days,r.from<from?from:r.from,r.to>to?to:r.to)}))}
 function bevItems(days,from,to){const by=new Map;for(const d of A(days)){if(d.date<from||d.date>to)continue;for(const l of A(d.lines)){const x=bevLine(l);if(!x.units)continue;const o=by.get(l.id)||{id:l.id,name:l.name,units:0,value:0,days:0};o.units+=x.units;if(x.priced)o.value+=x.value;o.days++;by.set(l.id,o)}}return[...by.values()].sort((p,q)=>q.value-p.value||q.units-p.units)}
+/* beverage × day (or week, month) sheet (BL-096): one row per beverage, one column per day of [from, to] (every day,
+   recorded or not, so a missing record shows) or per week / month bucket. A cell sums the lines of its days: shortage
+   (bevLine: daily shortage + overnight shortage, as everywhere else) and net (daily − overnight: + shortage, − surplus),
+   in units and value; n = recorded lines (0 = no record). Rows sorted by shortage value, then units. */
+function bevMatrix(days,{CAL,from,to,by='day',trim=false}){const a=CAL.i(from),b=CAL.i(to);if(a===null||b===null||b<a)return{cols:[],rows:[],tot:null};
+ const cols=by==='day'?Array.from({length:b-a+1},(_,j)=>{const k=CAL.k(a+j);return{key:k,from:k,to:k,wd:(a+j+1)%7}}):bevBuckets([],{CAL,from,to,by}).map(r=>({key:r.key,from:r.from<from?from:r.from,to:r.to>to?to:r.to}));
+ const at=new Map;cols.forEach((c,j)=>{for(let d=CAL.i(c.from);d<=CAL.i(c.to);d++)at.set(CAL.k(d),j)});
+ const z=()=>({units:0,value:0,daily:0,overnight:0,net:0,netValue:0,n:0,unpriced:0}),add=(o,l)=>{const x=bevLine(l),net=N(l.daily)-(l.overnight===null||l.overnight===undefined?0:N(l.overnight));o.units+=x.units;o.daily+=x.daily;o.overnight+=x.overnight;o.net+=net;o.n++;if(x.priced){o.value+=x.value;o.netValue+=net*l.cost}else if(x.units||net)o.unpriced++};
+ const rows=new Map,colTot=cols.map(()=>({...z(),recorded:0})),tot=z();
+ for(const d of A(days)){const j=at.get(d.date);if(j===undefined)continue;colTot[j].recorded++;for(const l of A(d.lines)){let r=rows.get(l.id);if(!r){r={id:l.id,name:l.name||l.id,cells:cols.map(z),...z(),days:0};rows.set(l.id,r)}add(r.cells[j],l);add(r,l);if(bevLine(l).units)r.days++;add(colTot[j],l);add(tot,l)}}
+ cols.forEach((c,j)=>Object.assign(c,colTot[j]));
+ // trim: a day sheet starts at the first recorded day (days before the control started are not «missing»)
+ const j0=trim&&by==='day'?Math.max(0,cols.findIndex(c=>c.recorded)):0;if(j0>0){cols.splice(0,j0);for(const r of rows.values())r.cells.splice(0,j0)}
+ return{cols,rows:[...rows.values()].sort((p,q)=>q.value-p.value||q.units-p.units||String(p.name).localeCompare(String(q.name),'fa')),tot}}
 function trendOf(vals){const v=A(vals).map(N),n=v.length;if(n<3)return{dir:'na',pct:null};const mx=(n-1)/2,my=v.reduce((s,x)=>s+x,0)/n;let num=0,den=0;v.forEach((y,i)=>{num+=(i-mx)*(y-my);den+=(i-mx)**2});const slope=den?num/den:0,pct=my?slope/my*100:null;
  return{dir:pct===null?(slope>0?'up':'steady'):pct>5?'up':pct<-5?'down':'steady',pct,slope}}
-window.ReportCore={bevLine,bevShort,bevBuckets,bevItems,trendOf,yoyKeys,COST_TARGETS,costTargets,targetLevel,targetCheck,cashPlan,prevKey,nextKey,span,growth,sumPnl,salesMonths,GROUPS,groupOf,salesSummary,entitySeries,payrollPeriod,payrollForecast,groupName};
+window.ReportCore={bevLine,bevShort,bevBuckets,bevItems,bevMatrix,trendOf,yoyKeys,COST_TARGETS,costTargets,targetLevel,targetCheck,cashPlan,prevKey,nextKey,span,growth,sumPnl,salesMonths,GROUPS,groupOf,salesSummary,entitySeries,payrollPeriod,payrollForecast,groupName};
 })();

@@ -500,3 +500,29 @@ html:has(#pnModal.open),html:has(#pnModal.open) body{overflow:hidden}
 /* catalog list: count buttons (invoices, recipes) as small as their number */
 #catTable [data-invs],#catTable [data-recs]{padding:2px 6px;min-height:0;gap:3px}
 #catTable td.nar{font-size:12px}
+
+/* beverage shortage sheet (P.bevSheet, BL-096) */
+.bs-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.bs-sum{font-size:13px;color:var(--text-2);margin:0 0 8px;display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.bs-wrap{overflow:auto;max-height:70vh;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface)}
+.bs{border-collapse:separate;border-spacing:0;font-size:12px;font-variant-numeric:tabular-nums;width:max-content;min-width:100%}
+.bs th,.bs td{padding:5px 6px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--border);border-left:1px solid color-mix(in srgb,var(--border) 55%,transparent);min-width:34px}
+.bs-week th,.bs-week td,.bs-month th,.bs-month td{min-width:64px}
+.bs thead th{position:sticky;top:0;z-index:2;background:var(--surface-2);font-weight:600;cursor:pointer;line-height:1.15}
+.bs thead th b{display:block;font-size:12px}.bs thead th small{display:block;font-size:10px;color:var(--text-3);font-weight:400}
+.bs .bs-name{position:sticky;right:0;z-index:1;background:var(--surface);text-align:right;min-width:120px;max-width:170px;overflow:hidden;text-overflow:ellipsis;font-weight:500;cursor:default}
+.bs thead .bs-name,.bs tfoot .bs-name{z-index:3;background:var(--surface-2)}
+.bs tfoot td,.bs tfoot th{position:sticky;bottom:0;background:var(--surface-2);font-weight:700;cursor:pointer;border-top:1px solid var(--border-strong)}
+.bs .bs-tot{position:sticky;left:0;z-index:1;background:var(--surface-2);font-weight:700;min-width:56px;border-right:1px solid var(--border-strong);cursor:pointer}
+.bs thead .bs-tot,.bs tfoot .bs-tot{z-index:3}
+.bs td.bs-c{cursor:pointer}.bs td.bs-c:hover{outline:2px solid var(--accent);outline-offset:-2px}
+.bs .bs-z{color:var(--text-3)}
+.bs .bs-none,.bs-nonekey{background:repeating-linear-gradient(-45deg,transparent 0 4px,color-mix(in srgb,var(--text-3) 22%,transparent) 4px 5px)}
+.bs .bs-fri{border-left:2px solid var(--border-strong)}
+.bs thead .bs-top,.bs tfoot .bs-top{box-shadow:inset 0 -3px 0 var(--danger);color:var(--danger)}
+.bs tbody tr:hover .bs-name{color:var(--accent)}
+.bs-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--text-3);margin-top:8px;align-items:center}
+.bs-leg span{display:inline-flex;gap:3px;align-items:center}.bs-leg i,.bs-nonekey,.bs-topkey{display:inline-block;width:14px;height:10px;border-radius:2px;border:1px solid var(--border)}
+.bs-topkey{border:0;box-shadow:inset 0 -3px 0 var(--danger)}
+@media (max-width:640px){.bs .bs-name{min-width:92px;max-width:110px}.bs-bar .input{width:100%!important}}
+.bs td{direction:ltr}
